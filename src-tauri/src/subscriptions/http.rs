@@ -65,7 +65,13 @@ impl SubscriptionHttpClient {
         platform: &str,
     ) -> AppResult<FetchedPayload> {
         validate_initial_url(url)?;
-        let user_agent = format!("Cloakwire/{app_version} ({platform})");
+        // Subscription panels commonly gate response formats by client UA.
+        // A product-specific UA frequently receives a dummy "App not supported"
+        // profile, while this de-facto Clash UA receives the real YAML/link body.
+        // Keep app_version/platform in the API for device headers and a future
+        // per-subscription override.
+        let user_agent = "ClashforWindows/0.20.39";
+        let _ = (app_version, platform);
         let response = self
             .client
             .get(url.clone())

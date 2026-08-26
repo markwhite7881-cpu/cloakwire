@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Typed wrappers around the Tauri command surface.
  *
  * The Rust side serialises AppError as `{ kind, message }`. We surface
@@ -8,6 +8,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AddSubscriptionInput,
   BinaryInfo,
+  DeviceHwidInfo,
   ManagedLaunchResult,
   SubscriptionLinkRef,
   SubscriptionSnapshot,
@@ -55,6 +56,7 @@ export const api = {
 
   getBinaryInfo: () => call<BinaryInfo>("get_binary_info"),
   getSingboxVersion: () => call<SingboxVersion>("get_singbox_version"),
+  getXrayVersion: () => call<string>("get_xray_version"),
   checkConfig: (configPath: string) =>
     call<string>("check_config", { configPath }),
 
@@ -123,8 +125,10 @@ export const api = {
   setSubscriptionInterval: (id: string, intervalMinutes: number) => call<SubscriptionSummary>("set_subscription_interval", { id, intervalMinutes }),
   selectSubscriptionChild: (id: string, childKey: string) => call<SubscriptionSummary>("select_subscription_child", { id, childKey }),
   migrateLegacySubscriptions: (inputs: Array<{ id: string; name: string; url: string; intervalMinutes: number }>) => call<SubscriptionSnapshot>("migrate_legacy_subscriptions", { inputs }),
-  getSubscriptionHwid: () => call<boolean>("get_subscription_hwid"),
-  resetSubscriptionHwid: () => call<void>("reset_subscription_hwid"),
+  getSubscriptionHwid: () => call<DeviceHwidInfo>("get_subscription_hwid"),
+  setSubscriptionHwid: (value: string | null) =>
+    call<DeviceHwidInfo>("set_subscription_hwid", { value }),
+  resetSubscriptionHwid: () => call<DeviceHwidInfo>("reset_subscription_hwid"),
 
 
   getAutostart: () => call<boolean>("get_autostart"),

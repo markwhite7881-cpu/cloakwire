@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Home,
   Link2,
@@ -27,6 +27,11 @@ import {
   managedSelectionForProfile,
   selectedManualOutbound,
 } from "@/lib/connectionProfiles";
+import {
+  connectionProfileStorageKey,
+  loadLastServer,
+  saveLastServer,
+} from "@/lib/lastServer";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useGeoIp } from "@/hooks/useGeoIp";
 import { useReadyProfileMetadata } from "@/hooks/useReadyProfileMetadata";
@@ -300,6 +305,7 @@ function loadSettings(): GeneratorSettings {
 export default function App() {
   const [binary, setBinary] = useState<BinaryInfo | null>(null);
   const [version, setVersion] = useState<SingboxVersion | null>(null);
+  const [xrayVersion, setXrayVersion] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusReport>({
     status: "stopped" as Status,
     pid: null,
@@ -342,7 +348,15 @@ export default function App() {
   );
   // Index into `profiles` (manual + subscription) for the server the
   // user has selected on the Home tab. -1 = "auto" (let urltest pick).
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [lastServerPick] = useState(() =>
+    loadLastServer() ??
+    (settings.default_outbound
+      ? { kind: "profile" as const, key: `manual:${settings.default_outbound}` }
+      : null),
+  );
+  const [selectionRestoreSettled, setSelectionRestoreSettled] = useState(false);
+  const selectionRestoreAttempted = useRef(false);
   const pollTimerRef = useRef<number | null>(null);
 
   // Persist the settings every time they change.
@@ -388,6 +402,54 @@ export default function App() {
     () => buildConnectionProfiles(manualProfiles, subs.snapshot),
     [manualProfiles, subs.snapshot],
   );
+  const liveSelectionRef = useRef({ profiles, selectedIndex });
+  useEffect(() => {
+    liveSelectionRef.current = { profiles, selectedIndex };
+  }, [profiles, selectedIndex]);
+
+  // A subscription-owned server appears only after the Rust snapshot hydrates.
+  // Keep Auto selected until that stable opaque key is available; never guess
+  // profiles[0], which could silently change the exit country.
+  useEffect(() => {
+    if (selectionRestoreAttempted.current) return;
+    const finish = () => {
+      selectionRestoreAttempted.current = true;
+      setSelectionRestoreSettled(true);
+    };
+    if (!lastServerPick || lastServerPick.kind === "auto") {
+      setSelectedIndex(-1);
+      finish();
+      return;
+    }
+    const restoredIndex = profiles.findIndex(
+      (profile) => connectionProfileStorageKey(profile) === lastServerPick.key,
+    );
+    if (restoredIndex >= 0) {
+      setSelectedIndex(restoredIndex);
+      finish();
+      return;
+    }
+    if (subs.loaded) {
+      setSelectedIndex(-1);
+      saveLastServer({ kind: "auto" });
+      finish();
+    }
+  }, [lastServerPick, profiles, subs.loaded]);
+
+  // Save the server that actually reached Running, not merely the last row the
+  // user clicked. Reconnects therefore update this value only after success.
+  useEffect(() => {
+    if (!selectionRestoreSettled || status.status !== "running") return;
+    const { profiles: currentProfiles, selectedIndex: currentIndex } = liveSelectionRef.current;
+    if (currentIndex === -1) {
+      saveLastServer({ kind: "auto" });
+      return;
+    }
+    const profile = currentProfiles[currentIndex];
+    const key = profile ? connectionProfileStorageKey(profile) : null;
+    if (key) saveLastServer({ kind: "profile", key });
+  }, [selectionRestoreSettled, status.status]);
+
   const readyProfileMetadata = useReadyProfileMetadata(profiles);
 
   // Online GeoIP fallback for servers the cheap heuristic in
@@ -411,6 +473,7 @@ export default function App() {
         revision: "42e693ce1cbb2f76d611f17fae137c40deaf85fc",
         raw: "sing-box version 1.14.0-lx.24\nEnvironment: go1.26.5 windows/amd64",
       });
+      setXrayVersion("26.7.28");
       setStatus({
         status: "stopped",
         pid: null,
@@ -491,13 +554,15 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        const [bin, ver] = await Promise.all([
+        const [bin, ver, xray] = await Promise.all([
           api.getBinaryInfo(),
           api.getSingboxVersion().catch(() => null),
+          api.getXrayVersion().catch(() => null),
         ]);
         if (cancelled) return;
         setBinary(bin);
         if (ver) setVersion(ver);
+        if (xray) setXrayVersion(xray);
       } catch (e) {
         if (!cancelled) setError(humanError(e));
       }
@@ -915,6 +980,7 @@ export default function App() {
             configPath={configPath}
             binary={binary}
             version={version}
+            xrayVersion={xrayVersion}
             status={status}
             profiles={manualProfiles}
             settings={settings}
@@ -979,6 +1045,7 @@ export default function App() {
       subs.selectChild,
       binary,
       version,
+      xrayVersion,
       onPickConfig,
       onUseDefault,
       logs,
@@ -1006,15 +1073,18 @@ export default function App() {
                 Cloakwire
               </h1>
               <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                v1.3.0
+                v1.3.2
               </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              {version
-                ? `sing-box ${version.version}`
+              {version || xrayVersion
+                ? [
+                    version ? `sing-box ${version.version}` : null,
+                    xrayVersion ? `Xray ${xrayVersion}` : null,
+                  ].filter(Boolean).join(" · ")
                 : binary?.exists
                   ? basename(binary.path)
-                  : "scanning for binary…"}
+                  : "scanning for binaries…"}
             </p>
           </div>
         </div>

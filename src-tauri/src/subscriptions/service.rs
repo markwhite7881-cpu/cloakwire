@@ -6,16 +6,17 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 use url::Url;
-use uuid::Uuid;
+use uuid::{Uuid, Version};
 
 use crate::commands::ParseLinksResult;
 use crate::error::{AppError, AppResult};
 
 use super::model::ChildProfileRecord;
 use super::{
-    classify_payload, ClassifiedChild, ClassifiedPayload, EngineKind, HwidStore, ProviderMetadata,
-    SubscriptionHttpClient, SubscriptionKind, SubscriptionLinkSummary, SubscriptionOutbounds,
-    SubscriptionRecord, SubscriptionSnapshot, SubscriptionStore, SubscriptionSummary,
+    classify_payload, ClassifiedChild, ClassifiedPayload, EngineKind, HwidDescription, HwidStore,
+    ProviderMetadata, SubscriptionHttpClient, SubscriptionKind, SubscriptionLinkSummary,
+    SubscriptionOutbounds, SubscriptionRecord, SubscriptionSnapshot, SubscriptionStore,
+    SubscriptionSummary,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -292,14 +293,39 @@ impl SubscriptionService {
         Ok(snapshot(records))
     }
 
-    pub async fn get_hwid(&self) -> AppResult<String> {
+    pub async fn get_hwid(&self) -> AppResult<HwidDescription> {
         let _guard = self.lock.lock().await;
-        Ok(self.hwid.get_or_create()?.to_string())
+        self.hwid.describe()
     }
 
-    pub async fn reset_hwid(&self) -> AppResult<String> {
+    pub async fn set_hwid_override(&self, value: Option<String>) -> AppResult<HwidDescription> {
         let _guard = self.lock.lock().await;
-        Ok(self.hwid.reset()?.to_string())
+        let custom = match value
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            None => None,
+            Some(value) => {
+                let uuid = Uuid::parse_str(value).map_err(|_| {
+                    AppError::Validation("HWID override is not a valid UUID".into())
+                })?;
+                if uuid.get_version() != Some(Version::Random) {
+                    return Err(AppError::Validation(
+                        "HWID override must be a random UUID v4".into(),
+                    ));
+                }
+                Some(uuid)
+            }
+        };
+        self.hwid.set_custom(custom)?;
+        self.hwid.describe()
+    }
+
+    pub async fn reset_hwid(&self) -> AppResult<HwidDescription> {
+        let _guard = self.lock.lock().await;
+        self.hwid.reset()?;
+        self.hwid.describe()
     }
 
     pub async fn fetch_legacy_links(&self, url: &str) -> AppResult<ParseLinksResult> {

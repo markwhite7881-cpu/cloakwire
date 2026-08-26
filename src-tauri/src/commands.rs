@@ -20,8 +20,8 @@ use crate::error::{AppError, AppResult};
 use crate::parser::{self, Outbound};
 use crate::process::{LogLine, ProcessManager, StatusReport};
 use crate::subscriptions::{
-    AddSubscriptionInput, LegacySubscriptionInput, RefreshSubscriptionResult, SubscriptionService,
-    SubscriptionSnapshot, SubscriptionSummary,
+    AddSubscriptionInput, HwidDescription, LegacySubscriptionInput, RefreshSubscriptionResult,
+    SubscriptionService, SubscriptionSnapshot, SubscriptionSummary,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +85,33 @@ pub async fn get_singbox_version(app: AppHandle) -> AppResult<SingboxVersion> {
         revision,
         raw: stdout,
     })
+}
+
+#[tauri::command]
+pub async fn get_xray_version(app: AppHandle) -> AppResult<String> {
+    let binary = xray::locate_binary(&app)?;
+    let mut command = tokio::process::Command::new(binary);
+    command.arg("version");
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = command
+        .output()
+        .await
+        .map_err(|_| AppError::Spawn("Xray version probe could not start".into()))?;
+    if !output.status.success() {
+        return Err(AppError::Spawn("Xray version probe failed".into()));
+    }
+    let text = format!(
+        "{}
+{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    xray::parse_version(&text)
+        .ok_or_else(|| AppError::Validation("Xray version output was not recognized".into()))
 }
 
 #[tauri::command]
@@ -1031,22 +1058,28 @@ pub async fn migrate_legacy_subscriptions(
     subscriptions.migrate_legacy(inputs).await
 }
 
-// The persisted HWID intentionally never crosses the command boundary. These
-// commands preserve the frontend control surface without serializing its value.
+// HWID values cross IPC only for this explicit user-facing settings panel.
+// Subscription URLs and provider payloads remain backend-only.
 #[tauri::command]
 pub async fn get_subscription_hwid(
     subscriptions: State<'_, Arc<SubscriptionService>>,
-) -> AppResult<bool> {
-    subscriptions.get_hwid().await?;
-    Ok(true)
+) -> AppResult<HwidDescription> {
+    subscriptions.get_hwid().await
+}
+
+#[tauri::command]
+pub async fn set_subscription_hwid(
+    subscriptions: State<'_, Arc<SubscriptionService>>,
+    value: Option<String>,
+) -> AppResult<HwidDescription> {
+    subscriptions.set_hwid_override(value).await
 }
 
 #[tauri::command]
 pub async fn reset_subscription_hwid(
     subscriptions: State<'_, Arc<SubscriptionService>>,
-) -> AppResult<()> {
-    subscriptions.reset_hwid().await?;
-    Ok(())
+) -> AppResult<HwidDescription> {
+    subscriptions.reset_hwid().await
 }
 
 /// Detect whether the subscription is plain multiline or base64-encoded

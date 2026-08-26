@@ -1,24 +1,75 @@
-﻿// Shapes that mirror the Rust side (see src-tauri/src/parser/mod.rs).
+// Shapes that mirror the Rust side (see src-tauri/src/parser/mod.rs).
 // Tauri serde-deserialises them into these directly.
 
 export type AppError = { kind: string; message: string };
 
 export type EngineKind = "singbox" | "xray";
 export type SubscriptionKind = "auto" | "link_list" | "singbox_bundle" | "xray_bundle";
+export type SubscriptionErrorKind =
+  | "subscription"
+  | "subscription_auth"
+  | "subscription_expired"
+  | "device_limit"
+  | "payload_too_large"
+  | "unsafe_redirect"
+  | "ambiguous_config"
+  | "validation"
+  | "engine_unavailable"
+  | "unsafe_config";
+
+export interface SubscriptionUserinfo {
+  upload?: number | null;
+  download?: number | null;
+  total?: number | null;
+  expire?: string | null;
+}
+
+export interface ProviderMetadata {
+  profile_title?: string | null;
+  update_interval_minutes?: number | null;
+  update_interval_hours?: number | null;
+  profile_web_page_url?: string | null;
+  support_url?: string | null;
+  userinfo?: SubscriptionUserinfo | null;
+  upload_bytes?: number | null;
+  download_bytes?: number | null;
+  total_bytes?: number | null;
+  expires_at?: string | null;
+}
+
+export interface SubscriptionFailure {
+  kind: SubscriptionErrorKind;
+  message: string;
+}
+
 export interface SubscriptionLinkSummary { key: string; label: string; protocol: string; }
 export interface SubscriptionOutbounds { subscription_id: string; links: SubscriptionLinkSummary[]; }
 export interface SubscriptionChildProfile { key: string; name: string; engine: EngineKind; }
 export interface SubscriptionSummary {
-  id: string; name: string; kind: SubscriptionKind; engine: EngineKind | null;
-  interval_minutes: number; active_child_key: string | null; children: SubscriptionChildProfile[];
-  metadata: { profile_title?: string | null; profile_web_page_url?: string | null; support_url?: string | null; expires_at?: string | null };
-  last_success_at: string | null; last_http_status: number | null; last_error: AppError | null;
+  id: string;
+  name: string;
+  kind: SubscriptionKind;
+  engine: EngineKind | null;
+  interval_minutes: number;
+  active_child_key: string | null;
+  children: SubscriptionChildProfile[];
+  metadata: ProviderMetadata;
+  last_success_at: string | null;
+  last_http_status: number | null;
+  last_error: SubscriptionFailure | null;
+  server_count?: number;
 }
 export interface SubscriptionSnapshot { subscriptions: SubscriptionSummary[]; link_outbounds: SubscriptionOutbounds[]; }
 export interface RefreshSubscriptionResult { subscription: SubscriptionSummary; selection_changed: boolean; }
 export interface HomeProfileMetadata {
   country_code: string | null;
   latency_ms: number | null;
+}
+
+export interface DeviceHwidInfo {
+  effective: string;
+  auto: string | null;
+  custom: string | null;
 }
 
 export interface AddSubscriptionInput { name: string; url: string; intervalMinutes: number; }

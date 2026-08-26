@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/Card";
 import { ConfigBuilder } from "@/components/ConfigBuilder";
+import { SubscriptionIdentityCard } from "@/components/SubscriptionIdentityCard";
 import { ProxiesCard } from "@/components/ProxiesCard";
 import { basename } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ export interface ConfigTabProps {
   configPath: string;
   binary: BinaryInfo | null;
   version: SingboxVersion | null;
+  xrayVersion: string | null;
   status: StatusReport;
   profiles: Outbound[];
   settings: GeneratorSettings;
@@ -40,6 +42,7 @@ export function ConfigTab({
   configPath,
   binary,
   version,
+  xrayVersion,
   status,
   profiles,
   settings,
@@ -114,25 +117,18 @@ export function ConfigTab({
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
               <Server className="h-4 w-4 text-muted-foreground" />
-              Binary
+              Core binaries
             </CardTitle>
-            <CardDescription>Sidecar discovered by the backend</CardDescription>
+            <CardDescription>Verified sidecars discovered by the backend</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-2 text-xs">
           <Row label="Path" value={binary?.path || "—"} mono />
-          <div className="grid grid-cols-3 gap-2">
-            <Row
-              label="Size"
-              value={binary ? formatBytes(binary.size_bytes) : "—"}
-              mono
-            />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Row label="Size" value={binary ? formatBytes(binary.size_bytes) : "—"} mono />
             <Row label="Exists" value={binary?.exists ? "yes" : "no"} mono />
-            <Row
-              label="Version"
-              value={version?.version || "—"}
-              mono
-            />
+            <Row label="sing-box" value={version?.version || "—"} mono />
+            <Row label="Xray" value={xrayVersion || "—"} mono />
           </div>
           {version && (
             <div className="mt-1 space-y-1 border-t border-border pt-2">
@@ -142,6 +138,8 @@ export function ConfigTab({
           )}
         </CardContent>
       </Card>
+
+      <SubscriptionIdentityCard />
     </div>
   );
 }

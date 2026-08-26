@@ -99,5 +99,24 @@ pub fn parse_version(stdout: &str) -> (String, String, String) {
 }
 
 fn current_target_triple() -> &'static str {
-    option_env!("CARGO_CFG_TARGET_TRIPLE").unwrap_or("x86_64-pc-windows-msvc")
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    return "x86_64-pc-windows-msvc";
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    return "x86_64-unknown-linux-gnu";
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    return "aarch64-apple-darwin";
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    return "x86_64-apple-darwin";
+    #[allow(unreachable_code)]
+    "unsupported-target"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::current_target_triple;
+
+    #[test]
+    fn sidecar_target_matches_supported_desktop_target() {
+        assert_ne!(current_target_triple(), "unsupported-target");
+    }
 }

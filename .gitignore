@@ -62,3 +62,6 @@ TAG_MESSAGE.txt
 
 # Linux build helper artifacts (WSL2)
 .wsl/
+
+src-tauri/binaries/sing-box-*
+src-tauri/binaries/xray-*

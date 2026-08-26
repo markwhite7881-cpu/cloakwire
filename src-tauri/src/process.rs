@@ -187,13 +187,23 @@ impl ProcessManager {
 
     #[cfg(test)]
     pub async fn install_test_child(&self, engine: EngineKind) {
-        let mut cmd = Command::new("powershell.exe");
-        cmd.args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            "Start-Sleep -Seconds 60",
-        ]);
+        #[cfg(windows)]
+        let mut cmd = {
+            let mut cmd = Command::new("powershell.exe");
+            cmd.args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Start-Sleep -Seconds 60",
+            ]);
+            cmd
+        };
+        #[cfg(not(windows))]
+        let mut cmd = {
+            let mut cmd = Command::new("/bin/sh");
+            cmd.args(["-c", "sleep 60"]);
+            cmd
+        };
         let child = cmd.spawn().expect("test child starts");
         let pid = child.id();
         let run_id = self.next_run_id.fetch_add(1, Ordering::AcqRel) + 1;
@@ -1540,16 +1550,61 @@ mod engine_runtime_tests {
     use crate::subscriptions::EngineKind;
     use std::ffi::OsString;
 
-    fn test_xray_spec() -> LaunchSpec {
-        LaunchSpec {
-            engine: EngineKind::Xray,
-            binary: PathBuf::from("powershell.exe"),
-            args: vec![
+    #[cfg(windows)]
+    fn test_sleep_command() -> (PathBuf, Vec<OsString>) {
+        (
+            PathBuf::from("powershell.exe"),
+            vec![
                 OsString::from("-NoProfile"),
                 OsString::from("-NonInteractive"),
                 OsString::from("-Command"),
                 OsString::from("Start-Sleep -Seconds 60"),
             ],
+        )
+    }
+
+    #[cfg(not(windows))]
+    fn test_sleep_command() -> (PathBuf, Vec<OsString>) {
+        (
+            PathBuf::from("/bin/sh"),
+            vec![OsString::from("-c"), OsString::from("sleep 60")],
+        )
+    }
+
+    #[cfg(windows)]
+    fn test_output_command(stdout: &str, stderr: &str) -> (PathBuf, Vec<OsString>) {
+        (
+            PathBuf::from("powershell.exe"),
+            vec![
+                OsString::from("-NoProfile"),
+                OsString::from("-NonInteractive"),
+                OsString::from("-Command"),
+                OsString::from(format!(
+                    "[Console]::Out.WriteLine('{stdout}'); [Console]::Error.WriteLine('{stderr}')"
+                )),
+            ],
+        )
+    }
+
+    #[cfg(not(windows))]
+    fn test_output_command(stdout: &str, stderr: &str) -> (PathBuf, Vec<OsString>) {
+        (
+            PathBuf::from("/bin/sh"),
+            vec![
+                OsString::from("-c"),
+                OsString::from(format!(
+                    "printf '%s\\n' '{stdout}'; printf '%s\\n' '{stderr}' >&2"
+                )),
+            ],
+        )
+    }
+
+    fn test_xray_spec() -> LaunchSpec {
+        let (binary, args) = test_sleep_command();
+        LaunchSpec {
+            engine: EngineKind::Xray,
+            binary,
+            args,
             env: Vec::new(),
             config_path: PathBuf::from("xray-test-config.json"),
             controller_url: Some("http://controller.test".into()),
@@ -1566,14 +1621,9 @@ mod engine_runtime_tests {
 
         let pm = Arc::new(ProcessManager::new());
         let mut spec = test_xray_spec();
-        spec.args = vec![
-            OsString::from("-NoProfile"),
-            OsString::from("-NonInteractive"),
-            OsString::from("-Command"),
-            OsString::from(format!(
-                "[Console]::Out.WriteLine('{STDOUT_SECRET}'); [Console]::Error.WriteLine('{STDERR_SECRET}')"
-            )),
-        ];
+        let (binary, args) = test_output_command(STDOUT_SECRET, STDERR_SECRET);
+        spec.binary = binary;
+        spec.args = args;
 
         pm.start_spec(spec).await.unwrap();
         tokio::time::timeout(Duration::from_secs(15), pm.await_stdio_readers())
@@ -1785,11 +1835,16 @@ mod engine_runtime_tests {
         let old_run_id = pm.active_run_id.load(Ordering::Acquire);
         pm.stop().await.unwrap();
 
-        pm.start_spec(test_singbox_spec()).await.unwrap();
+        let singbox_spec = test_singbox_spec();
+        #[cfg(target_os = "linux")]
+        let singbox_test_config = singbox_spec.config_path.clone();
+        pm.start_spec(singbox_spec).await.unwrap();
         pm.test_emit_xray_sample(old_run_id).await;
 
         assert_eq!(pm.test_xray_telemetry_emit_count().await, 0);
         pm.stop().await.unwrap();
+        #[cfg(target_os = "linux")]
+        let _ = std::fs::remove_file(singbox_test_config);
     }
 
     #[tokio::test]
@@ -1817,6 +1872,16 @@ mod engine_runtime_tests {
         let mut spec = test_xray_spec();
         spec.engine = EngineKind::Singbox;
         spec.xray_stats = None;
+        #[cfg(target_os = "linux")]
+        {
+            let config_path = std::env::temp_dir().join(format!(
+                "cloakwire-test-singbox-{}.json",
+                std::process::id()
+            ));
+            std::fs::write(&config_path, r#"{"inbounds":[]}"#)
+                .expect("non-TUN sing-box test config is written");
+            spec.config_path = config_path;
+        }
         spec
     }
 

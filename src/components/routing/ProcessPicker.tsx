@@ -19,11 +19,13 @@
 //     so the user can see what's already in the rule.
 
 import { useEffect, useMemo, useState } from "react";
-import { ListChecks, Loader2, RefreshCw, X } from "lucide-react";
+import { FilePlus2, ListChecks, Loader2, RefreshCw, X } from "lucide-react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Button } from "../Button";
 import { api, TauriCommandError } from "@/lib/api";
 import type { ProcessInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { executableNameFromPath } from "@/lib/processSelection";
 
 interface Props {
   /** Currently selected process names (the rule's `process_name` array). */
@@ -45,6 +47,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
@@ -69,6 +72,35 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
       setError(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const browseExecutable = async () => {
+    if (disabled || browsing) return;
+    setBrowsing(true);
+    setError(null);
+    try {
+      const picked = await openDialog({
+        multiple: false,
+        directory: false,
+        title: "Select application executable",
+      });
+      const pickedPath = Array.isArray(picked) ? picked[0] : picked;
+      if (!pickedPath) return;
+
+      // Store only the executable basename. The generated routing rule
+      // uses process_name, so the user's local installation path never
+      // enters settings, logs, previews, or exported configs.
+      const name = executableNameFromPath(pickedPath);
+      if (!name) throw new Error("The selected file has no executable name");
+
+      const key = SELECTED_KEY(name);
+      if (!selectedSet.has(key)) onChange([...selected, name]);
+      setQuery(name);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBrowsing(false);
     }
   };
 
@@ -133,9 +165,22 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
             <Button
               variant="ghost"
               size="sm"
+              onClick={browseExecutable}
+              disabled={disabled || browsing}
+              title="Add executable from disk"
+            >
+              {browsing ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <FilePlus2 size={12} />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={fetchList}
               disabled={loading}
-              title="Refresh"
+              title="Refresh running processes"
             >
               {loading ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -164,8 +209,8 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
             </div>
           ) : processes.length === 0 ? (
             <div className="text-[11px] text-muted-foreground px-1">
-              No processes available. (If you opened this in a browser
-              preview, run the Tauri shell to enumerate real processes.)
+              No running processes available. You can still use the file
+              button above to choose any installed executable.
             </div>
           ) : (
             <div className="text-[11px] text-muted-foreground px-1">

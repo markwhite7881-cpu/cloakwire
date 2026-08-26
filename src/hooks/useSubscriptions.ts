@@ -19,15 +19,20 @@ function readLegacy(): LegacySubscription[] {
 export function useSubscriptions() {
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot>({ subscriptions: [], link_outbounds: [] });
   const [fetching, setFetching] = useState<Record<string, boolean>>({});
+  const [loaded, setLoaded] = useState(false);
   const tickRef = useRef<number | null>(null);
 
   const load = useCallback(async () => {
-    const legacy = readLegacy();
-    if (legacy.length) {
-      await api.migrateLegacySubscriptions(legacy);
-      window.localStorage.removeItem(STORAGE_KEY);
+    try {
+      const legacy = readLegacy();
+      if (legacy.length) {
+        await api.migrateLegacySubscriptions(legacy);
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+      setSnapshot(await api.listSubscriptions());
+    } finally {
+      setLoaded(true);
     }
-    setSnapshot(await api.listSubscriptions());
   }, []);
 
   useEffect(() => { void load().catch(() => undefined); }, [load]);
@@ -66,6 +71,7 @@ export function useSubscriptions() {
     subs: snapshot.subscriptions,
     snapshot,
     fetching,
+    loaded,
     add,
     remove,
     refreshOne,
@@ -73,6 +79,7 @@ export function useSubscriptions() {
     setIntervalFor,
     selectChild,
     getHwid: api.getSubscriptionHwid,
+    setHwid: api.setSubscriptionHwid,
     resetHwid: api.resetSubscriptionHwid,
   };
 }

@@ -20,17 +20,9 @@ jobs:
           - target: aarch64-apple-darwin
             goarch: arm64
             label: aarch64
-            xray_archive: Xray-macos-arm64-v8a.zip
-            xray_archive_sha256: 2e93a67e8aa1936ecefb307e120830fcbd4c643ab9b1c46a2d0838d5f8409eaf
-            xray_executable_sha256: 5d9dd24c0aba4b6cfcc6a33a5d67f854816ee17f392bf932ec8176da46f7e404
-            xray_executable_size: 33678802
           - target: x86_64-apple-darwin
             goarch: amd64
             label: x64
-            xray_archive: Xray-macos-64.zip
-            xray_archive_sha256: f5b0471d3459eff1b82e48af0aeac186abcc3298210070afbbbd8437a4e8b203
-            xray_executable_sha256: afd0eaebb77994a18f29b00c5f50a4f7fbb77da06e24352d43035f3cad3c3786
-            xray_executable_size: 35723312
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.2
 
@@ -46,84 +38,70 @@ jobs:
       - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
         with:
           targets: ${{ matrix.target }}
+          components: rustfmt, clippy
 
       - name: Build pinned sing-box sidecar
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf /tmp/sing-box-src
           git init /tmp/sing-box-src
           cd /tmp/sing-box-src
           git remote add origin https://github.com/Leadaxe/sing-box-lx.git
           git fetch --depth 1 origin 9558ceb27bc1e92e2ecfa96ebfe6b3f688344c5a
           git checkout --detach FETCH_HEAD
-          git submodule update --init --recursive --depth 1
+          git submodule update --init --depth 1 submodules/gvisor submodules/sing-tun submodules/wireguard-go
           CGO_ENABLED=1 GOOS=darwin GOARCH='${{ matrix.goarch }}' go build \
             -tags 'with_xhttp with_awg with_quic with_wireguard with_utls with_clash_api with_naive_outbound with_lx_command' \
             -trimpath -ldflags '-s -w -buildid=' \
             -o "$GITHUB_WORKSPACE/src-tauri/binaries/sing-box-${{ matrix.target }}" \
             ./cmd/sing-box
           chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/sing-box-${{ matrix.target }}"
-          "$GITHUB_WORKSPACE/src-tauri/binaries/sing-box-${{ matrix.target }}" version
+          file "$GITHUB_WORKSPACE/src-tauri/binaries/sing-box-${{ matrix.target }}"
 
-      - name: Prepare verified Xray sidecar
-        shell: bash
+      - name: Prepare pinned Xray sidecar
         run: |
-          set -euo pipefail
-          base_url='https://github.com/XTLS/Xray-core/releases/download/v26.3.27'
-          archive="${RUNNER_TEMP}/${{ matrix.xray_archive }}"
-          curl --fail --location --retry 3 --output "$archive" "$base_url/${{ matrix.xray_archive }}"
-          echo '${{ matrix.xray_archive_sha256 }}  '"$archive" | shasum -a 256 -c -
-          sidecar="$GITHUB_WORKSPACE/src-tauri/binaries/xray-${{ matrix.target }}"
-          unzip -p "$archive" xray > "$sidecar"
-          chmod +x "$sidecar"
-          actual_size="$(stat -f%z "$sidecar")"
-          actual_sha256="$(shasum -a 256 "$sidecar" | awk '{print $1}')"
-          echo "Xray executable size: $actual_size"
-          echo "Xray executable SHA-256: $actual_sha256"
-          [ "$actual_size" = '${{ matrix.xray_executable_size }}' ]
-          [ "$actual_sha256" = '${{ matrix.xray_executable_sha256 }}' ]
-          if [ '${{ matrix.target }}' = 'aarch64-apple-darwin' ]; then
-            "$sidecar" version
-          else
-            # The runner is ARM64, so do not execute an Intel sidecar. The pinned
-            # archive checksum, exact executable size, and executable SHA-256 above
-            # are the architecture-safe authenticity and identity checks.
-            echo 'Validated Intel Xray sidecar by pinned archive and executable checksums.'
-          fi
+          python3 scripts/prepare-xray-sidecar.py --target '${{ matrix.target }}'
+          file "src-tauri/binaries/xray-${{ matrix.target }}"
 
       - name: Install JavaScript dependencies
         run: npm ci
 
-      - name: Build app and DMG
-        run: npm run tauri:build -- --target ${{ matrix.target }} --bundles app,dmg
+      - name: Validate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test
+          npm run build
+          cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+          cargo check --manifest-path src-tauri/Cargo.toml --target '${{ matrix.target }}'
+
+      - name: Build app bundle
+        run: npm run tauri:build -- --target ${{ matrix.target }} --bundles app
         env:
           NO_STRIP: 'true'
 
-      - name: Collect only exact artifacts
+      - name: Collect exact artifacts
         shell: bash
         run: |
           set -euo pipefail
           version="$(node -p "require('./package.json').version")"
-          dmg_dir="src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
           app_dir="src-tauri/target/${{ matrix.target }}/release/bundle/macos"
-          dmgs=()
-          while IFS= read -r path; do dmgs+=("$path"); done < <(find "$dmg_dir" -maxdepth 1 -type f -name '*.dmg')
           apps=()
           while IFS= read -r path; do apps+=("$path"); done < <(find "$app_dir" -maxdepth 1 -type d -name '*.app')
-          [ "${#dmgs[@]}" -eq 1 ] || { echo "::error::Expected exactly one DMG in $dmg_dir; found ${#dmgs[@]}"; exit 1; }
           [ "${#apps[@]}" -eq 1 ] || { echo "::error::Expected exactly one app bundle in $app_dir; found ${#apps[@]}"; exit 1; }
-          release_dir="release-artifacts"
-          mkdir -p "$release_dir"
-          cp "${dmgs[0]}" "$release_dir/Cloakwire_${version}_${{ matrix.label }}.dmg"
-          ditto -c -k --sequesterRsrc --keepParent "${apps[0]}" "$release_dir/Cloakwire_${version}_${{ matrix.label }}.app.zip"
-          (
-            cd "$release_dir"
-            shasum -a 256 *.dmg *.app.zip > SHA256SUMS.txt
-          )
+          mkdir -p dist
+          stage="$(mktemp -d)"
+          ditto "${apps[0]}" "$stage/Cloakwire.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -quiet -ov -volname "Cloakwire" -srcfolder "$stage" -format UDZO "dist/Cloakwire_${version}_${{ matrix.label }}.dmg"
+          rm -rf "$stage"
+          ditto -c -k --sequesterRsrc --keepParent "${apps[0]}" "dist/Cloakwire_${version}_${{ matrix.label }}.app.zip"
+          shasum -a 256 dist/* > dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cloakwire-macos-${{ matrix.label }}
-          path: release-artifacts/
+          path: dist/
           if-no-files-found: error
           retention-days: 14

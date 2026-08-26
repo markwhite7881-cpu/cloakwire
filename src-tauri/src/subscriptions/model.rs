@@ -100,6 +100,10 @@ impl SubscriptionRecord {
             last_success_at: self.last_success_at,
             last_http_status: self.last_http_status,
             last_error: self.last_error.as_ref().map(SubscriptionFailure::to_safe),
+            server_count: match self.kind {
+                SubscriptionKind::LinkList => self.link_outbounds.len(),
+                _ => self.children.len(),
+            },
         }
     }
 }
@@ -232,6 +236,9 @@ pub struct SubscriptionSummary {
     pub last_success_at: Option<DateTime<Utc>>,
     pub last_http_status: Option<u16>,
     pub last_error: Option<SubscriptionFailure>,
+    /// Link count for link-list subscriptions, child count for bundles.
+    #[serde(default)]
+    pub server_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -334,6 +341,7 @@ mod tests {
             value["last_error"]["message"],
             "Subscription authentication failed"
         );
+        assert_eq!(value["server_count"], 1);
     }
 
     fn contains_key(value: &Value, key: &str) -> bool {

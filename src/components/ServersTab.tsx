@@ -13,6 +13,7 @@ import {
 import { ProfileCard } from "@/components/ProfileCard";
 import { SubscriptionsCard } from "@/components/SubscriptionsCard";
 import { cn } from "@/lib/utils";
+import { profileLabel } from "@/lib/outbound";
 import type { HomeProfileMetadata, ParseFailure, SubscriptionSummary } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
@@ -235,7 +236,9 @@ export function ServersTab({
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={onClearAll}
+                onClick={() => {
+                  if (window.confirm("Remove all manually added servers? Subscription-owned servers will stay.")) onClearAll();
+                }}
                 title="Remove all manual servers (subscriptions stay)"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -256,7 +259,9 @@ export function ServersTab({
                     key={`manual-${i}`}
                     outbound={profile.outbound}
                     geoipByIp={geoipByIp}
-                    onRemove={() => onRemove(i)}
+                    onRemove={() => {
+                      if (window.confirm(`Remove server “${profileLabel(profile.outbound)}”?`)) onRemove(i);
+                    }}
                   />
                 ) : profile.kind === "subscription" ? (
                   <div
