@@ -13,6 +13,10 @@ Tauri 2 + React + TypeScript.
 [![License](https://img.shields.io/github/license/markwhite7881-cpu/cloakwire?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/markwhite7881-cpu/cloakwire?style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/stargazers)
 
+<br/>
+
+<img src="dist-release/screenshots/hero-showcase.png" alt="Cloakwire Showcase" width="100%" />
+
 </div>
 
 > 🇷🇺 **Russian version:** [README.md](README.md)
