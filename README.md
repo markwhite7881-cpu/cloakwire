@@ -29,12 +29,13 @@ Tauri 2 + React + TypeScript.
 
 ### Что нового в 1.3.2
 
-- **Android: dual-engine.** Xray больше не единственный вариант. На Android работают оба движка: sing-box работает внутри процесса приложения, Xray — как защищённый sidecar `VpnService`. Выбор ядра в Settings применяется end-to-end через `CloakwirePlatform.kt`.
-- **Android: Quick Settings tile.** Вместо серого power-иконки в плитке теперь реальный глиф иконки приложения.
-- **Android: last-server persistence.** Выбор профиля (tag или bundle child) сохраняется в `localStorage` при каждом успешном connect и восстанавливается на cold start, с 5-секундным таймаутом на гидрацию подписок. Auto-connect гейтится на восстановлении, чтобы не стрельнул дефолтным `profiles[0]`.
-- **Picked-row actually picks.** Share-link connect больше не отправляет в Rust собранный порядок профилей — xray выходит через outbound, который реально выбрал пользователь.
-- **Custom signed update manifest.** `latest.json` теперь в каждом релизе: `src-tauri/src/app_update.rs` тянет его с GitHub, проверяет GitHub origin и все редиректы, верифицирует **minisign**-подпись скачанного бинарника против вшитого публичного ключа. Public key — это `src-tauri/.tauri-updater.key.pub` в репо.
-- **Linux release pipeline.** Новые `.github/workflows/release-linux.yml`, `scripts/build-linux-local.sh`, `prepare-xray-sidecar.py`, `xray-core-assets.json` — AppImage/deb и macOS-сборки воспроизводятся из CI.
+- **Desktop: стабильность и Per-App маршрутизация** — устранён сбой при старте и активирован режим `find_process: true` для сопоставления трафика запущенных процессов на Windows, Linux и macOS.
+- **Android: dual-engine.** Xray больше не единственный вариант. На Android работают оба движка: sing-box работает внутри процесса приложения, Xray — как защищённый sidecar `VpnService` с поддержкой `libxray.so` и `libhev-socks5-tunnel.so`. Выбор ядра в Settings применяется end-to-end через `CloakwirePlatform.kt`.
+- **Android: Quick Settings tile.** Вместо серой иконки питания в плитке быстрых настроек теперь используется реальный глиф иконки приложения.
+- **Android: last-server persistence.** Выбор профиля (tag или bundle child) сохраняется в `localStorage` при каждом успешном подключении и восстанавливается на cold start. Автоподключение блокируется до завершения восстановления, исключая случайный коннект к дефолтному `profiles[0]`.
+- **Точный выбор сервера:** при подключении по share-link трафик Xray теперь выходит ровно через тот узел, который выбрал пользователь.
+- **Custom signed update manifest.** `latest.json` теперь в каждом релизе: `src-tauri/src/app_update.rs` тянет его с GitHub, проверяет GitHub origin и все редиректы, верифицирует **minisign**-подпись скачанного бинарника против вшитого публичного ключа (`src-tauri/.tauri-updater.key.pub`).
+- **Сборки для macOS и Linux.** Нативные сборки для Apple Silicon (`aarch64`) и Intel (`x86_64`), а также автоматизированный релизный пайплайн `.github/workflows/release-linux.yml`.
 
 ### Управляйте маршрутом, а не настройками сети
 
@@ -69,16 +70,21 @@ Tauri 2 + React + TypeScript.
 
 ### Windows x64
 
-> ⚠️ Windows-артефакт не публикуется в v1.3.2. Самый свежий Windows-билд — это NSIS-установщик `v1.3.1`. Следующий релиз восстановит Windows-артефакт; прогресс можно отслеживать в [milestone](https://github.com/markwhite7881-cpu/cloakwire/milestones).
+| Файл | Описание |
+|---|---|
+| `Cloakwire_1.3.2_x64-setup.exe` | NSIS-инсталлятор (рекомендуется) |
+| `Cloakwire_1.3.2_x64_en-US.msi` | MSI-пакет для корпоративного развёртывания |
+
+> ℹ️ Windows-инсталляторы защищены встроенной подписью Minisign для безопасных автообновлений. Из-за отсутствия платного сертификата Authenticode фильтр Windows SmartScreen при первой установке может запросить подтверждение («Подробнее» → «Выполнить в любом случае»).
 
 ### macOS
 
-| Mac | Файлы |
+| Архитектура | Файлы |
 |---|---|
-| Intel | `Cloakwire_1.3.2_x64.dmg` или `Cloakwire_1.3.2_x64.app.zip` |
-| Apple Silicon | `Cloakwire_1.3.2_aarch64.dmg` или `Cloakwire_1.3.2_aarch64.app.zip` |
+| Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.3.2_aarch64.dmg` или `Cloakwire_1.3.2_aarch64.app.zip` |
+| Intel (x86_64) | `Cloakwire_1.3.2_x64.dmg` или `Cloakwire_1.3.2_x64.app.zip` |
 
-> ⚠️ Сборки `v1.3.2` не подписаны и не notarized. macOS может потребовать явного разрешения на запуск в настройках Privacy & Security. `.app.zip` архивы также приложены для диагностики.
+> ℹ️ Сборки `v1.3.2` не подписаны платным сертификатом Apple Developer ID и не нотаризованы. При первом запуске нажмите правой кнопкой мыши на приложение → **Открыть** (или разрешите запуск в *Системные настройки → Защита и безопасность*). `.app.zip` архивы также приложены для диагностики.
 
 ### Linux x86_64 — Ubuntu / Debian
 
@@ -89,7 +95,7 @@ sudo apt install ./Cloakwire_1.3.2_amd64.deb
 cloakwire
 ```
 
-Пакет устанавливает `/usr/bin/cloakwire`, `sing-box` и Xray. Его `postinst` выдаёт `sing-box` capability `cap_net_admin,cap_net_raw=+ep`, необходимую для TUN-режима:
+Пакет устанавливает `/usr/bin/cloakwire`, `sing-box` и Xray. Его `postinst` автоматически выдаёт `sing-box` capability `cap_net_admin,cap_net_raw=+ep`, необходимую для TUN-режима:
 
 ```bash
 getcap /usr/bin/sing-box
@@ -237,13 +243,13 @@ npm run tauri:build
 ./scripts/build-linux-deb.sh 1.3.2
 ```
 
-`postinst` в итоговом `.deb` САМОСТОЯТЕЛЬНО назначает capability `sing-box` (`cap_net_admin,cap_net_raw=+ep`), без этого Linux TUN-режим не работает.
+Пакет в итоговом `.deb` автоматически назначает capability для `sing-box` (`cap_net_admin,cap_net_raw=+ep`), без этого Linux TUN-режим не работает.
 
 ---
 
 ## 🤝 Contributing
 
-PR-к приветствуются. Перед отправкой изменений запустите локально проверки:
+Вклады в проект (Pull Requests) приветствуются. Перед отправкой изменений запустите локально проверки:
 
 - **Code style:** `cargo fmt` для Rust, Prettier для TS/TSX.
 - **Проверки:** `npm test`, плюс production build; прогоните на десктопе до создания PR.

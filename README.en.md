@@ -29,12 +29,13 @@ Tauri 2 + React + TypeScript.
 
 ### What's new in 1.3.2
 
-- **Android: dual-engine.** Xray is no longer the only option. On Android both engines work: sing-box runs in-process, Xray runs as a protected `VpnService` sidecar. The engine choice in Settings is wired end-to-end through `CloakwirePlatform.kt`.
-- **Android: Quick Settings tile.** Instead of a power icon, the tile now uses the actual app-icon glyph (white-on-transparent, density-specific, scaled to 96 % of the canvas, with a hard alpha threshold). ColorOS / OnePlus monochrome theming no longer paints a white blob.
-- **Android: last-server persistence.** Your selected profile (tag or bundle child) is saved to `localStorage` on every successful connect and restored on cold start, with a 5 s give-up for subscription hydration. Auto-connect is gated on restore so it never fires with the default `profiles[0]`.
-- **Picked-row actually picks.** The share-link connect path no longer sends the built profile order to Rust — xray exits through the outbound the user actually selected.
-- **Custom signed update manifest.** `latest.json` is now part of every release: `src-tauri/src/app_update.rs` fetches it from GitHub, validates the GitHub origin and every redirect, and verifies a **minisign** signature over the downloaded bytes against a public key baked into the binary. The public key matches `src-tauri/.tauri-updater.key.pub` in the repo.
-- **Linux release pipeline.** New `.github/workflows/release-linux.yml`, `scripts/build-linux-local.sh`, `prepare-xray-sidecar.py`, `xray-core-assets.json` — AppImage/deb and macOS bundles are produced reproducibly from CI.
+- **Desktop: stability and per-app routing** — fixed startup crash across desktop platforms and enabled `find_process: true` for socket matching in Windows, Linux, and macOS.
+- **Android: dual-engine.** Xray is no longer the only option. Both engines run on Android: sing-box runs in-process, Xray runs as a protected `VpnService` sidecar with bundled `libxray.so` and `libhev-socks5-tunnel.so`. The engine choice in Settings is wired end-to-end through `CloakwirePlatform.kt`.
+- **Android: Quick Settings tile.** Instead of a generic power icon, the tile now uses the actual app-icon glyph (white-on-transparent, density-specific, scaled to 96% of the canvas with a hard alpha threshold). ColorOS / OnePlus monochrome theming no longer paints a white blob.
+- **Android: last-server persistence.** Your selected profile (tag or bundle child) is saved to `localStorage` on every successful connect and restored on cold start. Auto-connect is gated on restore to prevent accidentally falling back to `profiles[0]`.
+- **Accurate server selection:** share-link connect routes Xray traffic through the specific outbound selected by the user.
+- **Custom signed update manifest.** `latest.json` is now part of every release: `src-tauri/src/app_update.rs` fetches it from GitHub, validates the GitHub origin and all redirects, and verifies a **minisign** signature over downloaded binaries against the public key (`src-tauri/.tauri-updater.key.pub`).
+- **macOS and Linux release pipeline.** Native builds for Apple Silicon (`aarch64`) and Intel (`x86_64`), plus reproducible CI workflows (`release-linux.yml`).
 
 ### Route traffic, not network settings
 
@@ -50,7 +51,7 @@ Tauri 2 + React + TypeScript.
 |---|---|
 | 🚀 **Quick start** | Share-link or subscription → profile ready to connect |
 | 🧩 **Two engines** | sing-box — primary on all platforms; Xray — automatic fallback for compatible profiles |
-| 📱 **Android dual-engine** | On Android both engines (sing-box in-process, Xray in sidecar `VpnService`) |
+| 📱 **Android dual-engine** | Both engines supported on Android (sing-box in-process, Xray as `VpnService` sidecar) |
 | 🎯 **Per-app routing** | "Telegram via VPN, bank direct" — in one interface |
 | 🗂️ **Leak-free subscriptions** | Subscriptions are parsed in the backend; URLs and profile contents never reach the WebView |
 | 🧭 **Clear Home** | Servers from the same subscription are grouped; provider names are used as fallback labels |
@@ -69,16 +70,21 @@ Download files from **[Releases → Latest](https://github.com/markwhite7881-cpu
 
 ### Windows x64
 
-> ⚠️ Windows is not shipped in v1.3.2. The most recent Windows build is the NSIS installer `v1.3.1`. The next release will restore the Windows artifact; progress is tracked on the [milestone](https://github.com/markwhite7881-cpu/cloakwire/milestones).
+| File | Description |
+|---|---|
+| `Cloakwire_1.3.2_x64-setup.exe` | NSIS installer (recommended) |
+| `Cloakwire_1.3.2_x64_en-US.msi` | MSI package for managed deployment |
+
+> ℹ️ Windows installers are signed with Minisign for secure auto-updates. Because they lack a commercial Authenticode certificate, Windows SmartScreen may show a prompt on first install ("More info" → "Run anyway").
 
 ### macOS
 
-| Mac | Files |
+| Architecture | Files |
 |---|---|
-| Intel | `Cloakwire_1.3.2_x64.dmg` or `Cloakwire_1.3.2_x64.app.zip` |
-| Apple Silicon | `Cloakwire_1.3.2_aarch64.dmg` or `Cloakwire_1.3.2_aarch64.app.zip` |
+| Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.3.2_aarch64.dmg` or `Cloakwire_1.3.2_aarch64.app.zip` |
+| Intel (x86_64) | `Cloakwire_1.3.2_x64.dmg` or `Cloakwire_1.3.2_x64.app.zip` |
 
-> ⚠️ v1.3.2 macOS builds are currently not signed with an Apple Developer ID and are not notarized. On first launch, right-click the app and choose **Open**, or allow it under Privacy & Security. `.app.zip` archives are also provided for diagnostics.
+> ℹ️ v1.3.2 macOS builds are not signed with an Apple Developer ID and are not notarized. On first launch, right-click the app and choose **Open**, or allow it under *System Settings → Privacy & Security*. `.app.zip` archives are also provided for diagnostics.
 
 ### Linux x86_64 — Ubuntu / Debian
 
@@ -89,7 +95,7 @@ sudo apt install ./Cloakwire_1.3.2_amd64.deb
 cloakwire
 ```
 
-The package installs `/usr/bin/cloakwire`, `sing-box`, and Xray. Its `postinst` grants `sing-box` the `cap_net_admin,cap_net_raw=+ep` capability required for TUN mode:
+The package installs `/usr/bin/cloakwire`, `sing-box`, and Xray. Its `postinst` automatically grants `sing-box` the `cap_net_admin,cap_net_raw=+ep` capability required for TUN mode:
 
 ```bash
 getcap /usr/bin/sing-box
@@ -237,13 +243,13 @@ For a Linux `.deb` on Ubuntu 22.04+ / Debian 12+ (or WSL2) with AOT compilation:
 ./scripts/build-linux-deb.sh 1.3.2
 ```
 
-The `postinst` in the resulting `.deb` SELF-ASSIGNS the `sing-box` capability (`cap_net_admin,cap_net_raw=+ep`) — without it, Linux TUN mode won't work.
+The `postinst` in the resulting `.deb` automatically assigns the `sing-box` capability (`cap_net_admin,cap_net_raw=+ep`) — without it, Linux TUN mode won't work.
 
 ---
 
 ## 🤝 Contributing
 
-PRs are welcome. Before submitting, run the local checks:
+Pull requests are welcome. Before submitting, run local checks:
 
 - **Code style:** `cargo fmt` for Rust, Prettier for TS/TSX.
 - **Checks:** `npm test`, plus a production build; smoke-test on desktop before opening the PR.
