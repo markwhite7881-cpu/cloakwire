@@ -1,0 +1,13 @@
+# Tauri Android build: NDK clang wrappers for aarch64-linux-android.
+# This file is consumed by `cargo build --target aarch64-linux-android`
+# invoked from BuildTask.kt (which bypasses the broken tauri-cli WebSocket
+# IPC).  Without it, `cc`/`ring` cannot find the C toolchain and the
+# build aborts with `failed to find tool "clang.exe"`.
+#
+# All paths are absolute because cargo invokes tools from a non-ASCII
+# working directory (the user profile), and CreateProcess on Windows
+# cannot resolve relative entries reliably.
+
+[target.aarch64-linux-android]
+linker = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android24-clang.cmd"
+ar = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"

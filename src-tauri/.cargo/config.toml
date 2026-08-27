@@ -1,0 +1,35 @@
+# NDK clang wrappers for Android targets.
+#
+# The buildSrc BuildTask.kt in gen/android also sets the same
+# CC_/CXX_/AR_/RANLIB_ env vars programmatically before invoking
+# cargo, so the Android Gradle build does not strictly need this
+# file. It is kept here so that `cargo build --target
+# aarch64-linux-android` from a regular shell (CI, debugging, etc.)
+# finds the linker and ar without requiring the user to export
+# ANDROID_NDK_HOME.
+#
+# `cc` and `cxx` cannot be set here (cargo config requires them to
+# be a table, not a string), so plain `cargo build` from a shell
+# still needs the CC_aarch64-linux-android env var. The Gradle
+# build sets that for us.
+
+[target.aarch64-linux-android]
+linker = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android24-clang.cmd"
+ar = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"
+
+[target.armv7-linux-androideabi]
+linker = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/armv7a-linux-androideabi24-clang.cmd"
+ar = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"
+
+[target.i686-linux-android]
+linker = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/i686-linux-android24-clang.cmd"
+ar = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"
+
+[target.x86_64-linux-android]
+linker = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/x86_64-linux-android24-clang.cmd"
+ar = "C:/Users/Public/cwdev/ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"
+
+# Make sure cargo always uses the ASCII worktree path (avoid
+# Cyrillic CreateProcess issues on Windows).
+[build]
+target-dir = "C:/Users/Public/cwdev/target"

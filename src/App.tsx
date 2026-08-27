@@ -958,7 +958,7 @@ export default function App() {
             onRemove={onRemoveProfile}
             onClearAll={onClearProfiles}
             parsing={parsing}
-            subs={subs.subs}
+            subs={subs.snapshot.subscriptions}
             geoipByIp={geoip.byIp}
             readyProfileMetadata={readyProfileMetadata}
             subFetching={subs.fetching}

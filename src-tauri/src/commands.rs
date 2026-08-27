@@ -1335,3 +1335,59 @@ mod process_tests {
         assert!(procs.len() <= 500, "list_processes must cap at 500 entries");
     }
 }
+
+// Compatibility command names shared with the Android frontend.
+#[tauri::command]
+pub async fn get_subscription_outbounds(
+    subscriptions: State<'_, Arc<SubscriptionService>>,
+    id: String,
+) -> AppResult<Vec<Outbound>> {
+    let snapshot = subscriptions.list().await?;
+    let refs: Vec<crate::subscriptions::SubscriptionLinkRef> = snapshot
+        .link_outbounds
+        .into_iter()
+        .find(|group| group.subscription_id == id)
+        .map(|group| {
+            group
+                .links
+                .into_iter()
+                .map(|link| crate::subscriptions::SubscriptionLinkRef {
+                    subscription_id: id.clone(),
+                    link_key: link.key,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    subscriptions.resolve_link_refs(&refs).await
+}
+
+#[tauri::command]
+pub async fn set_active_child(
+    subscriptions: State<'_, Arc<SubscriptionService>>,
+    id: String,
+    child_key: String,
+) -> AppResult<SubscriptionSummary> {
+    select_subscription_child(subscriptions, id, child_key).await
+}
+
+#[tauri::command]
+pub async fn get_device_hwid(
+    subscriptions: State<'_, Arc<SubscriptionService>>,
+) -> AppResult<HwidDescription> {
+    get_subscription_hwid(subscriptions).await
+}
+
+#[tauri::command]
+pub async fn set_custom_hwid(
+    subscriptions: State<'_, Arc<SubscriptionService>>,
+    value: Option<String>,
+) -> AppResult<HwidDescription> {
+    set_subscription_hwid(subscriptions, value).await
+}
+
+#[tauri::command]
+pub async fn reset_device_hwid(
+    subscriptions: State<'_, Arc<SubscriptionService>>,
+) -> AppResult<HwidDescription> {
+    reset_subscription_hwid(subscriptions).await
+}

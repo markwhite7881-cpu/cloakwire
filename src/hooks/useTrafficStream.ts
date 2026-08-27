@@ -83,18 +83,19 @@ export function useTrafficStream(
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
 
+    const push = (s: TrafficSample) => {
+      if (cancelled) return;
+      setSamples((prev) => {
+        const next = prev.length >= SAMPLE_LIMIT ? prev.slice(1) : prev.slice();
+        next.push(s);
+        return next;
+      });
+      setCurrent(s);
+    };
+
     (async () => {
       try {
-        const u = await listen<TrafficSample>("traffic", (e) => {
-          if (cancelled) return;
-          const s = e.payload;
-          setSamples((prev) => {
-            const next = prev.length >= SAMPLE_LIMIT ? prev.slice(1) : prev.slice();
-            next.push(s);
-            return next;
-          });
-          setCurrent(s);
-        });
+        const u = await listen<TrafficSample>("traffic", (e) => push(e.payload));
         if (cancelled) {
           u();
           return;
@@ -106,9 +107,34 @@ export function useTrafficStream(
       }
     })();
 
+    // Android: the engine is the xray sidecar with no Clash API to
+    // poll — the Kotlin VpnService pushes 1 Hz samples from the
+    // tun2socks byte counters as the `vpn` plugin "traffic" event.
+    // On desktop the plugin does not exist and this subscribe
+    // rejects harmlessly.
+    let unlistenPlugin: UnlistenFn | null = null;
+    (async () => {
+      try {
+        const { addPluginListener } = await import("@tauri-apps/api/core");
+        const listener = await addPluginListener<TrafficSample>(
+          "vpn",
+          "traffic",
+          (e) => push(e),
+        );
+        if (cancelled) {
+          void listener.unregister();
+          return;
+        }
+        unlistenPlugin = () => void listener.unregister();
+      } catch {
+        // desktop / plugin unavailable
+      }
+    })();
+
     return () => {
       cancelled = true;
       if (unlisten) unlisten();
+      if (unlistenPlugin) unlistenPlugin();
     };
   }, [enabled, profileCount]);
 

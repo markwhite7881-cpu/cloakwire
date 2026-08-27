@@ -6,24 +6,26 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  ActiveChildConfig,
   AddSubscriptionInput,
   BinaryInfo,
   DeviceHwidInfo,
-  ManagedLaunchResult,
-  SubscriptionLinkRef,
-  SubscriptionSnapshot,
-  RefreshSubscriptionResult,
-  SubscriptionSummary,
   GeneratorSettings,
   HomeProfileMetadata,
+  LegacySubscriptionInput,
   LogLine,
+  ManagedLaunchResult,
   Outbound,
   ParseLinksResult,
   ParsedInput,
   ProcessInfo,
   ProxiesResponse,
+  RefreshSubscriptionResult,
   SingboxVersion,
   StatusReport,
+  SubscriptionLinkRef,
+  SubscriptionSnapshot,
+  SubscriptionSummary,
 } from "./types";
 
 class TauriCommandError extends Error {
@@ -60,13 +62,18 @@ export const api = {
   checkConfig: (configPath: string) =>
     call<string>("check_config", { configPath }),
 
-  startConnection: (configPath: string, controllerUrl?: string) =>
-    call<StatusReport>("start_connection", { configPath, controllerUrl }),
-  stopConnection: () => call<StatusReport>("stop_connection"),
   start: (configPath: string) =>
     call<StatusReport>("start_singbox", { configPath }),
-  startManaged: (input: { manualOutbounds: Outbound[]; subscriptionLinks?: SubscriptionLinkRef[]; selectAllSubscriptionLinks: boolean; profile?: { subscription_id: string; child_key: string }; settings: GeneratorSettings }) =>
-    call<ManagedLaunchResult>("start_managed_singbox", { input }),
+  startConnection: (configPath: string, controllerUrl?: string) =>
+    call<StatusReport>("start_connection", { configPath, controllerUrl }),
+  startManaged: (input: {
+    manualOutbounds: Outbound[];
+    subscriptionLinks?: SubscriptionLinkRef[];
+    selectAllSubscriptionLinks: boolean;
+    profile?: { subscription_id: string; child_key: string };
+    settings: GeneratorSettings;
+  }) => call<ManagedLaunchResult>("start_managed_singbox", { input }),
+  stopConnection: () => call<StatusReport>("stop_connection"),
   stop: () => call<StatusReport>("stop_singbox"),
   getStatus: () => call<StatusReport>("get_status"),
   getLogs: (limit = 500) => call<LogLine[]>("get_logs", { limit }),
@@ -84,6 +91,16 @@ export const api = {
 
   generateConfig: (outbounds: Outbound[], settings: GeneratorSettings) =>
     call<Record<string, unknown>>("generate_config", { outbounds, settings }),
+  /** Android only: build a full Xray config from classified profiles. */
+  generateXrayConfig: (outbounds: Outbound[]) =>
+    call<Record<string, unknown>>("generate_xray_config", { outbounds }),
+  /** Android only: latency-tester spec — short-lived config with one
+   *  loopback socks inbound per profile + the port→tag map. */
+  generateXrayTestConfig: (outbounds: Outbound[]) =>
+    call<{ config: unknown; entries: Array<{ tag: string; port: number }> }>(
+      "generate_xray_test_config",
+      { outbounds },
+    ),
   saveConfigToPath: (content: Record<string, unknown>, path?: string) =>
     call<string>("save_config_to_path", { content, path }),
   checkConfigWithBinary: (content: Record<string, unknown>) =>
@@ -113,23 +130,18 @@ export const api = {
   lookupGeoip: (ips: string[]) =>
     call<[string, string][]>("lookup_geoip", { ips }),
 
-  listSubscriptions: () => call<SubscriptionSnapshot>("list_subscriptions"),
   getReadyProfileMetadata: (subscriptionId: string, childKey: string) =>
     call<HomeProfileMetadata>("get_ready_profile_metadata", {
       input: { subscription_id: subscriptionId, child_key: childKey },
     }),
-
-  addSubscription: (input: AddSubscriptionInput) => call<RefreshSubscriptionResult>("add_subscription", { input }),
-  removeSubscription: (id: string) => call<void>("remove_subscription", { id }),
-  refreshSubscription: (id: string) => call<RefreshSubscriptionResult>("refresh_subscription", { id }),
-  setSubscriptionInterval: (id: string, intervalMinutes: number) => call<SubscriptionSummary>("set_subscription_interval", { id, intervalMinutes }),
-  selectSubscriptionChild: (id: string, childKey: string) => call<SubscriptionSummary>("select_subscription_child", { id, childKey }),
-  migrateLegacySubscriptions: (inputs: Array<{ id: string; name: string; url: string; intervalMinutes: number }>) => call<SubscriptionSnapshot>("migrate_legacy_subscriptions", { inputs }),
-  getSubscriptionHwid: () => call<DeviceHwidInfo>("get_subscription_hwid"),
+  selectSubscriptionChild: (id: string, childKey: string) =>
+    call<SubscriptionSummary>("select_subscription_child", { id, childKey }),
+  getSubscriptionHwid: () =>
+    call<DeviceHwidInfo>("get_subscription_hwid"),
   setSubscriptionHwid: (value: string | null) =>
     call<DeviceHwidInfo>("set_subscription_hwid", { value }),
-  resetSubscriptionHwid: () => call<DeviceHwidInfo>("reset_subscription_hwid"),
-
+  resetSubscriptionHwid: () =>
+    call<DeviceHwidInfo>("reset_subscription_hwid"),
 
   getAutostart: () => call<boolean>("get_autostart"),
   setAutostart: (enabled: boolean) =>
@@ -145,27 +157,81 @@ export const api = {
   // Returns an empty array outside the Tauri shell (vite dev preview).
   listProcesses: () => call<ProcessInfo[]>("list_processes"),
 
-  checkAppUpdate: () =>
-    call<{
-      version: string;
-      current_version: string;
-      available: boolean;
-      notes: string;
-    }>("check_app_update"),
-  installAppUpdate: (expectedVersion?: string) =>
-    call<void>("install_app_update", { expectedVersion }),
-
-  // sing-box auto-update (separate from the app-shell updater).
+  // sing-box auto-update (separate from the Tauri app-shell
+  // updater). `checkSingboxUpdate` queries the GitHub releases
+  // API and returns whether a newer Windows build is available.
+  // `applySingboxUpdate` downloads + extracts + replaces the
+  // runtime-cached binary. Stops the running sing-box first.
   checkSingboxUpdate: () =>
     call<{
       current_version: string;
       latest_version: string;
       available: boolean;
+      download_url: string | null;
       asset_name: string | null;
       size_bytes: number;
     }>("check_singbox_update"),
-  applySingboxUpdate: (expectedVersion?: string) =>
-    call<string>("apply_singbox_update", { expectedVersion }),
+  applySingboxUpdate: (downloadUrl: string) =>
+    call<string>("apply_singbox_update", { downloadUrl }),
+
+  // App-shell auto-update. We bypass `@tauri-apps/plugin-updater`
+  // and use our own Rust commands that go through `reqwest` with
+  // rustls. The bundled Tauri updater's HTTP client (schannel /
+  // WinINet on Windows) fails with "error decoding response body"
+  // for some users on the GitHub CDN, while rustls handles the
+  // same URL fine. See `src-tauri/src/app_update.rs` for the
+  // long-form rationale.
+  checkAppUpdate: () =>
+    call<{
+      version: string;
+      available: boolean;
+      current_version: string;
+      notes: string;
+      download_url: string | null;
+      signature: string | null;
+      asset_name: string | null;
+    }>("check_app_update"),
+  installAppUpdate: (downloadUrl: string) =>
+    call<void>("install_app_update", { downloadUrl }),
+
+  // --- Subscription service -------------------------------------------
+  // Rust owns the full subscription lifecycle: validate input, fetch
+  // (with the configured User-Agent and X-HWID), classify the body
+  // (URI list / base64 / Clash YAML / sing-box outbound array), persist
+  // children and link_outbounds. The frontend just hands the URL
+  // over and gets back a sanitized summary.
+  // All of these route through `call<T>` so the IPC error shape
+  // `{kind, message}` becomes a thrown `TauriCommandError` with
+  // `.message` populated — otherwise a Rust error surfaces to the
+  // UI as the literal string `[object Object]`. 2026-08-20.
+  listSubscriptions: () => call<SubscriptionSnapshot>("list_subscriptions"),
+  getSubscriptionOutbounds: (id: string) =>
+    call<Outbound[]>("get_subscription_outbounds", { id }),
+  addSubscription: (input: AddSubscriptionInput) =>
+    call<RefreshSubscriptionResult>("add_subscription", { input }),
+  removeSubscription: (id: string) =>
+    call<void>("remove_subscription", { id }),
+  refreshSubscription: (id: string) =>
+    call<RefreshSubscriptionResult>("refresh_subscription", { id }),
+  setSubscriptionInterval: (id: string, intervalMinutes: number) =>
+    call<SubscriptionSummary>("set_subscription_interval", {
+      id,
+      intervalMinutes,
+    }),
+  setActiveChild: (id: string, childKey: string) =>
+    call<SubscriptionSummary>("set_active_child", { id, childKey }),
+  getActiveChildConfig: (id: string) =>
+    call<ActiveChildConfig>("get_active_child_config", { id }),
+  migrateLegacySubscriptions: (
+    inputs: LegacySubscriptionInput[],
+  ) =>
+    call<SubscriptionSnapshot>("migrate_legacy_subscriptions", {
+      inputs,
+    }),
+  getDeviceHwid: () => call<DeviceHwidInfo>("get_device_hwid"),
+  setCustomHwid: (value: string | null) =>
+    call<DeviceHwidInfo>("set_custom_hwid", { value }),
+  resetDeviceHwid: () => call<DeviceHwidInfo>("reset_device_hwid"),
 };
 
 export { TauriCommandError };

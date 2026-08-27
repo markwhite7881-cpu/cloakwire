@@ -1,33 +1,17 @@
 [package]
 name = "cloakwire"
 version = "1.3.2"
-description = "Cloakwire — privacy-first GUI VPN client built on top of sing-box"
+description = "Cloakwire - privacy-first dual-engine GUI VPN client"
 authors = ["Alexey"]
 license = "MIT"
 repository = "https://github.com/markwhite7881-cpu/cloakwire"
 edition = "2021"
 rust-version = "1.77"
 
-# Default features.
-#
-# `custom-protocol` is what `tauri build` (via the tauri CLI) enables
-# automatically. Without it, `tauri::is_dev()` returns `true` and the
-# app opens the system browser to the `devUrl` instead of embedding
-# the built `dist/` into the binary. Running `cargo build` directly
-# (without `tauri build`) silently produces a 6.7 MB dev-mode exe
-# that shows Edge pointing at `localhost:1420` with
-# ERR_CONNECTION_REFUSED. Enabling `custom-protocol` by default here
-# keeps `cargo build --release` and `tauri build` equivalent.
 [features]
-# This feature is used to enable the custom-protocol feature on the
-# tauri crate, which makes the runtime embed the built `dist/` and
-# NOT try to open the dev server. Tauri's CLI does this automatically
-# (via `--features custom-protocol`); we set it as a default so that
-# plain `cargo build --release` produces the same artifact.
 custom-protocol = ["tauri/custom-protocol"]
 default = ["custom-protocol"]
 
-# Avoid multiple binaries in the bundle
 [[bin]]
 name = "cloakwire"
 path = "src/main.rs"
@@ -47,70 +31,40 @@ tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 minisign = "0.9"
-
+tonic = { version = "0.12", default-features = false, features = ["codegen", "prost", "transport"] }
+prost = "0.13"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 thiserror = "1"
 anyhow = "1"
-tonic = { version = "0.12", default-features = false, features = ["codegen", "prost", "transport"] }
-prost = "0.13"
-
-# Process management
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "process", "io-util", "time", "fs", "net"] }
-
-# Logging
 log = "0.4"
 env_logger = "0.11"
-
-# Time
 chrono = { version = "0.4", features = ["serde"] }
-
-# HTTP client (used by the Clash API module)
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
-
-# WebSocket client (used by the traffic stream in Этап 5)
-tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
-
-# Integrity verification and safe archive extraction for sing-box runtime updates.
 sha2 = "0.10"
-zip = { version = "2", default-features = false, features = ["deflate"] }
-
-# Unique IDs
 uuid = { version = "1", features = ["v4", "serde"] }
-
-# URL / encoding
 percent-encoding = "2"
 url = "2"
 base64 = "0.22"
 
-# Process enumeration (used by the routing process-name picker to
-# show currently-running executables the user can match against).
-# Cross-platform — we only need name + pid, not Windows-specific
-# extended process info, so no per-platform features required.
-# `system` feature is required for Process / Pid / System.
-# NB: kept in the platform-agnostic [dependencies] block above so
-# the same dep works on Linux too. (An earlier version of this file
-# had `sysinfo` under [target."cfg(windows)".dependencies] by mistake;
-# that worked on Windows because cfg(windows) accidentally included
-# it, and broke on Linux where the dep was missing entirely.)
-sysinfo = { version = "0.32", default-features = false, features = ["system"] }
-
 [target.'cfg(not(target_os = "android"))'.dependencies]
 tauri-plugin-autostart = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+tar = "0.4"
+flate2 = "1"
+sysinfo = { version = "0.32", default-features = false, features = ["system"] }
 
-# Windows-only deps. We use #[cfg(windows)] blocks in the code to gate
-# the Windows-specific calls; `winreg` is the registry API for
-# setting the system HTTP/HTTPS proxy when sing-box is running in
-# system_proxy mode. The Linux equivalent (`commands::apply_system_proxy`
-# gated by `#[cfg(target_os = "linux")]`) uses gsettings/nmcli.
 [target."cfg(windows)".dependencies]
 winreg = "0.52"
 
 [dev-dependencies]
 tempfile = "3"
-# Used by the Этап 8 dry-run example to fetch a real subscription URL.
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 
 [profile.release]
@@ -120,8 +74,5 @@ lto = true
 opt-level = "s"
 strip = true
 
-# Keep this crate self-contained when it is checked out below a directory
-# that happens to contain another Cargo.toml. The local signer is deliberately
-# built as an independent release tool, not as part of the application package.
 [workspace]
 exclude = ["crates/tauri-signer"]

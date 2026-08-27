@@ -3,80 +3,6 @@
 
 export type AppError = { kind: string; message: string };
 
-export type EngineKind = "singbox" | "xray";
-export type SubscriptionKind = "auto" | "link_list" | "singbox_bundle" | "xray_bundle";
-export type SubscriptionErrorKind =
-  | "subscription"
-  | "subscription_auth"
-  | "subscription_expired"
-  | "device_limit"
-  | "payload_too_large"
-  | "unsafe_redirect"
-  | "ambiguous_config"
-  | "validation"
-  | "engine_unavailable"
-  | "unsafe_config";
-
-export interface SubscriptionUserinfo {
-  upload?: number | null;
-  download?: number | null;
-  total?: number | null;
-  expire?: string | null;
-}
-
-export interface ProviderMetadata {
-  profile_title?: string | null;
-  update_interval_minutes?: number | null;
-  update_interval_hours?: number | null;
-  profile_web_page_url?: string | null;
-  support_url?: string | null;
-  userinfo?: SubscriptionUserinfo | null;
-  upload_bytes?: number | null;
-  download_bytes?: number | null;
-  total_bytes?: number | null;
-  expires_at?: string | null;
-}
-
-export interface SubscriptionFailure {
-  kind: SubscriptionErrorKind;
-  message: string;
-}
-
-export interface SubscriptionLinkSummary { key: string; label: string; protocol: string; }
-export interface SubscriptionOutbounds { subscription_id: string; links: SubscriptionLinkSummary[]; }
-export interface SubscriptionChildProfile { key: string; name: string; engine: EngineKind; }
-export interface SubscriptionSummary {
-  id: string;
-  name: string;
-  kind: SubscriptionKind;
-  engine: EngineKind | null;
-  interval_minutes: number;
-  active_child_key: string | null;
-  children: SubscriptionChildProfile[];
-  metadata: ProviderMetadata;
-  last_success_at: string | null;
-  last_http_status: number | null;
-  last_error: SubscriptionFailure | null;
-  server_count?: number;
-}
-export interface SubscriptionSnapshot { subscriptions: SubscriptionSummary[]; link_outbounds: SubscriptionOutbounds[]; }
-export interface RefreshSubscriptionResult { subscription: SubscriptionSummary; selection_changed: boolean; }
-export interface HomeProfileMetadata {
-  country_code: string | null;
-  latency_ms: number | null;
-}
-
-export interface DeviceHwidInfo {
-  effective: string;
-  auto: string | null;
-  custom: string | null;
-}
-
-export interface AddSubscriptionInput { name: string; url: string; intervalMinutes: number; }
-export interface SubscriptionLinkRef { subscription_id: string; link_key: string; }
-export interface ManagedLaunchResult { status: StatusReport; config_path: string; profile_count: number; }
-
-
 export type Status =
   | "stopped"
   | "starting"
@@ -120,6 +46,145 @@ export interface ProcessInfo {
   name: string;
 }
 
+// --- Subscription service -------------------------------------------------
+//
+// Mirrors `src-tauri/src/subscriptions/model.rs`. The Rust service owns
+// the subscription state machine: validation, fetch, classification
+// (URI list / base64 / Clash YAML / sing-box outbound array) and
+// persistence. The frontend only sees sanitized summaries — URLs and
+// provider responses never reach the WebView after the initial
+// `addSubscription` call resolves.
+
+export type SubscriptionKind = "auto" | "link_list" | "singbox_bundle" | "xray_bundle";
+export type EngineKind = "singbox" | "xray";
+export type SubscriptionErrorKind =
+  | "subscription"
+  | "subscription_auth"
+  | "subscription_expired"
+  | "device_limit"
+  | "payload_too_large"
+  | "unsafe_redirect"
+  | "ambiguous_config"
+  | "validation"
+  | "engine_unavailable"
+  | "unsafe_config";
+
+export interface SubscriptionUserinfo {
+  upload?: number;
+  download?: number;
+  total?: number;
+  /** ISO 8601 timestamp. */
+  expire?: string;
+}
+
+export interface ProviderMetadata {
+  profile_title?: string;
+  update_interval_minutes?: number;
+  update_interval_hours?: number;
+  profile_web_page_url?: string;
+  support_url?: string;
+  userinfo?: SubscriptionUserinfo;
+  upload_bytes?: number;
+  download_bytes?: number;
+  total_bytes?: number;
+  /** ISO 8601 timestamp. */
+  expires_at?: string;
+}
+
+export interface SubscriptionFailure {
+  kind: SubscriptionErrorKind;
+  message: string;
+}
+
+export interface ChildProfileSummary {
+  key: string;
+  name: string;
+  engine: EngineKind;
+  /** Dial endpoint of the child's proxy outbound (latency probes). */
+  endpoint?: { host: string; port: number } | null;
+}
+
+export interface SubscriptionSummary {
+  id: string;
+  name: string;
+  kind: SubscriptionKind;
+  engine: EngineKind | null;
+  interval_minutes: number;
+  active_child_key: string | null;
+  children: ChildProfileSummary[];
+  metadata: ProviderMetadata;
+  /** ISO 8601 timestamp. */
+  last_success_at: string | null;
+  last_http_status: number | null;
+  last_error: SubscriptionFailure | null;
+  /** Persisted server count (links or bundle children) — wire name
+   *  matches the Rust field. */
+  server_count?: number;
+}
+
+export interface SubscriptionLinkRef {
+  subscription_id: string;
+  link_key: string;
+}
+
+export interface SubscriptionLinkSummary {
+  key: string;
+  label: string;
+  protocol: string;
+}
+
+export interface SubscriptionOutbounds {
+  subscription_id: string;
+  links: SubscriptionLinkSummary[];
+}
+
+export interface SubscriptionSnapshot {
+  subscriptions: SubscriptionSummary[];
+  link_outbounds: SubscriptionOutbounds[];
+}
+
+export interface AddSubscriptionInput {
+  name: string;
+  url: string;
+  intervalMinutes: number;
+}
+
+/**
+ * Device-wide HWID configuration returned by `get_device_hwid` /
+ * `set_custom_hwid`. `effective` is what the next fetch will send;
+ * `auto` is the per-install UUID the device generated; `custom` is
+ * the user-pinned override (when set, `effective` equals `custom`).
+ * 2026-08-20.
+ */
+export interface DeviceHwidInfo {
+  effective: string;
+  auto: string | null;
+  custom: string | null;
+}
+
+export interface ManagedLaunchResult {
+  status: StatusReport;
+  config_path: string;
+  profile_count: number;
+}
+
+export interface LegacySubscriptionInput {
+  id: string;
+  name: string;
+  url: string;
+  intervalMinutes: number;
+}
+
+export interface RefreshSubscriptionResult {
+  subscription: SubscriptionSummary;
+  selection_changed: boolean;
+}
+
+export interface HomeProfileMetadata {
+  country_code: string | null;
+  latency_ms: number | null;
+}
+
 // --- Parser (
 export type Transport =
   | { kind: "tcp" }
@@ -130,6 +195,17 @@ export type Transport =
       host: string[];
       path?: string;
       mode?: string;
+    }
+  | {
+      kind: "splithttp";
+      host: string[];
+      path?: string;
+      mode?: string;
+    }
+  | {
+      kind: "httpupgrade";
+      host: string[];
+      path?: string;
     }
   | {
       kind: "grpc";
@@ -211,6 +287,16 @@ export interface TuicOut {
   tls: TlsCfg;
 }
 
+export interface ActiveChildConfig {
+  engine: EngineKind;
+  child_key: string;
+  child_name: string;
+  /** Full engine config as a JSON string. For sing-box the string
+   *  is a complete sing-box config; for xray it is a complete xray
+   *  config (the Kotlin side extracts `outbounds[]`). */
+  config: string;
+}
+
 export type Outbound =
   | ({ protocol: "vless" } & VlessOut)
   | ({ protocol: "vmess" } & VmessOut)
@@ -219,6 +305,8 @@ export type Outbound =
   | ({ protocol: "hysteria2" } & Hy2Out)
   | ({ protocol: "tuic" } & TuicOut)
   | { protocol: "unsupported"; raw: string; reason: string };
+
+export type Engine = "sing-box" | "xray";
 
 export interface ParseFailure {
   line: string;
@@ -371,6 +459,15 @@ export interface RoutingOptions {
   auto_detect_interface: boolean;
   /** `route.default_domain_resolver` tag (usually "local"). */
   default_domain_resolver: string;
+  /**
+   * Android only: which apps the VpnService captures at all.
+   * Values mirror the Rust side (`config/mod.rs`): "all" (default),
+   * "include" (only `tun_app_list` uses the VPN), "exclude"
+   * (everything except `tun_app_list`). Ignored on desktop.
+   */
+  tun_app_mode?: "all" | "include" | "exclude";
+  /** Android only: package names for `tun_app_mode`. */
+  tun_app_list?: string[];
 }
 
 /** v0.1.0 routing shape — only used by the silent migration. */
@@ -448,8 +545,21 @@ export interface Subscription {
   lastFetchedAt: string | null;
   /** Number of profiles last fetched. */
   lastCount: number;
+  /** Persisted server count from Rust (links or bundle children) —
+   *  survives restarts, unlike a fetch-result-only count. */
+  serverCount?: number;
   /** Last error message (if any). */
   lastError: string | null;
   /** Last error kind (parse / network / etc.). */
   lastErrorKind: string | null;
+  /** What kind of subscription this is. Drives the picker mode. */
+  kind: SubscriptionKind;
+  /** Engine that bundle subscriptions need (singbox / xray). null
+   *  for link_list subscriptions. */
+  engine: EngineKind | null;
+  /** The currently selected bundle child. null for link_list or
+   *  bundles that have never been picked. */
+  activeChildKey: string | null;
+  /** Bundle children. Empty for link_list subscriptions. */
+  children: ChildProfileSummary[];
 }

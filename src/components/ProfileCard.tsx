@@ -98,6 +98,16 @@ function summarizeTransport(t: Transport): string | null {
       return t.service_name ? `grpc ${t.service_name}` : "grpc";
     case "udp":
       return "udp";
+    // 2026-08-21: `Transport` in `src/lib/types.ts` includes
+    // `splithttp` and `httpupgrade` (added for the Android share-link
+    // parser). The PC `ProfileCard` is a read-only reference on the
+    // Android branch; the label is intentionally unknown here so we
+    // don't ship a half-baked rendering for kinds the desktop never
+    // classifies. Without this default, `tsc -b` fails because the
+    // function's `string | null` return type does not include
+    // `undefined`. 2026-08-21.
+    default:
+      return null;
   }
 }
 
