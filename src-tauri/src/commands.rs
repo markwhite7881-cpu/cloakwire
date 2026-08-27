@@ -301,7 +301,11 @@ async fn start_resolved_singbox_profile(
     pm: State<'_, Arc<ProcessManager>>,
     profile: crate::subscriptions::ResolvedChildProfile,
 ) -> AppResult<ReadyProfileResult> {
-    let path = write_runtime_config(&app, &profile.config)?;
+    let mut config_value = profile.config.clone();
+    if let Some(route) = config_value.get_mut("route").and_then(|r| r.as_object_mut()) {
+        route.insert("find_process".into(), serde_json::Value::Bool(true));
+    }
+    let path = write_runtime_config(&app, &config_value)?;
     if pm.is_running().await {
         if let Err(error) = pm.stop().await {
             let _ = crate::process::clear_system_proxy();
@@ -407,7 +411,13 @@ pub async fn start_managed_singbox(
             .unwrap_or_else(|_| std::env::temp_dir());
         std::fs::create_dir_all(&dir).map_err(AppError::Io)?;
         let path = dir.join("config.managed.profile.json");
-        let body = serde_json::to_vec_pretty(&profile.config).map_err(AppError::Serde)?;
+        let mut config_value = profile.config.clone();
+        if profile.engine == EngineKind::Singbox {
+            if let Some(route) = config_value.get_mut("route").and_then(|r| r.as_object_mut()) {
+                route.insert("find_process".into(), serde_json::Value::Bool(true));
+            }
+        }
+        let body = serde_json::to_vec_pretty(&config_value).map_err(AppError::Serde)?;
         std::fs::write(&path, body).map_err(AppError::Io)?;
         let (binary, args, controller_url) = match profile.engine {
             EngineKind::Singbox => (

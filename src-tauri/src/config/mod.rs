@@ -496,6 +496,7 @@ fn build_route(settings: &GeneratorSettings) -> Value {
             Value::String("rule-set-fetcher".into()),
         );
     }
+    m.insert("find_process".into(), Value::Bool(true));
     m.insert("final".into(), Value::String(r.final_outbound.clone()));
     m.insert(
         "auto_detect_interface".into(),
@@ -873,6 +874,8 @@ mod tests {
         assert!(rules
             .iter()
             .any(|r| r.get("action") == Some(&json!("sniff"))));
+        // find_process must be enabled for per-app routing to match sockets
+        assert_eq!(cfg["route"]["find_process"], json!(true));
     }
 
     #[test]

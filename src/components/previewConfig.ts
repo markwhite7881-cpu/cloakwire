@@ -112,7 +112,7 @@ export function previewToSingboxJson(
     rules.push({
       process_name: r.vpn_processes,
       action: "route",
-      outbound: "auto",
+      outbound: "proxy",
     });
   }
   for (const rule of r.rules) {
@@ -187,6 +187,7 @@ export function previewToSingboxJson(
     route: {
       rules,
       ...(ruleSets.length > 0 ? { rule_set: ruleSets } : {}),
+      find_process: true,
       final: settings.routing.final_outbound,
       auto_detect_interface: settings.routing.auto_detect_interface,
       default_domain_resolver: settings.routing.default_domain_resolver,

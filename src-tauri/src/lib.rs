@@ -134,13 +134,10 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init());
-    // Desktop-only plugins: process relaunch, shell updater and
-    // autostart. On Android the core runs inside the Kotlin
+    // Desktop-only plugins: autostart. On Android the core runs inside the Kotlin
     // VpnService (libbox) and these plugins aren't even compiled in.
     #[cfg(not(target_os = "android"))]
     let builder = builder
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             // Forward the `--minimized` flag (no-op on Windows/Linux)

@@ -487,7 +487,7 @@ function buildJsonPreview(r: RoutingOptions) {
     rules.push({
       process_name: r.vpn_processes,
       action: "route",
-      outbound: "auto",
+      outbound: "proxy",
     });
   }
   for (const rule of r.rules) {
@@ -527,6 +527,7 @@ function buildJsonPreview(r: RoutingOptions) {
       return o;
     });
   if (ruleSets.length > 0) out.rule_set = ruleSets;
+  out.find_process = true;
   out.final = r.final_outbound;
   out.auto_detect_interface = r.auto_detect_interface;
   out.default_domain_resolver = r.default_domain_resolver;

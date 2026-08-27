@@ -52,8 +52,6 @@ base64 = "0.22"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 tauri-plugin-autostart = "2"
-tauri-plugin-process = "2"
-tauri-plugin-updater = "2"
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 tar = "0.4"
