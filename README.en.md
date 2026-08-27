@@ -19,29 +19,37 @@ Tauri 2 + React + TypeScript.
 
 ---
 
+### ⚡ Quick Download (Latest v1.3.2)
+
+| Platform | Primary Installer | Alternative / Portable |
+|---|---|---|
+| 🪟 **Windows (x64)** | [⬇️ **Download .exe** (NSIS)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64-setup.exe) | [⬇️ **Download .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64_en-US.msi) |
+| 🍏 **macOS (Apple Silicon M1-M4)** | [⬇️ **Download .dmg** (aarch64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_aarch64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_aarch64.app.zip) |
+| 🍏 **macOS (Intel)** | [⬇️ **Download .dmg** (x64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64.app.zip) |
+| 🐧 **Linux (x64)** | [⬇️ **Download .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_amd64.deb) | [⬇️ **Download .AppImage**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_amd64.AppImage) |
+| 🤖 **Android** | [⬇️ **Download .apk** (arm64-v8a)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_arm64-v8a.apk) | — |
+
+---
+
 ## 🎯 What is it
 
-**Cloakwire** is a minimal VPN client for Windows, macOS, Linux, and Android. It takes share-links and subscriptions, stores configurations locally, and runs the profile in a clean interface with no manual JSON editing.
+**Cloakwire** is a minimal cross-platform VPN client for Windows, macOS, Linux, and Android. It takes share-links and subscriptions, stores configurations locally, and runs the profile in a clean interface with no manual JSON editing.
 
 **sing-box is the primary engine.** It's used on all platforms for TUN, System Proxy, per-app routing, proxy selection, and built-in delay checks.
 
-**Xray is a capability fallback.** If a subscription contains a profile that's safer or more correct to run via Xray, Cloakwire prepares and launches it automatically. Home preserves the status, selected server, and live metrics. Proxy-group management and built-in delay tests are only available with sing-box active — this is intentional, not an interface bug.
+**Xray is a capability fallback.** If a subscription contains a profile that's safer or more correct to run via Xray, Cloakwire prepares and launches it automatically. Home preserves the status, selected server, and live metrics.
 
-### What's new in 1.3.2
+### Supported Protocols
 
-- **Desktop: stability and per-app routing** — fixed startup crash across desktop platforms and enabled `find_process: true` for socket matching in Windows, Linux, and macOS.
-- **Android: dual-engine.** Xray is no longer the only option. Both engines run on Android: sing-box runs in-process, Xray runs as a protected `VpnService` sidecar with bundled `libxray.so` and `libhev-socks5-tunnel.so`. The engine choice in Settings is wired end-to-end through `CloakwirePlatform.kt`.
-- **Android: Quick Settings tile.** Instead of a generic power icon, the tile now uses the actual app-icon glyph (white-on-transparent, density-specific, scaled to 96% of the canvas with a hard alpha threshold). ColorOS / OnePlus monochrome theming no longer paints a white blob.
-- **Android: last-server persistence.** Your selected profile (tag or bundle child) is saved to `localStorage` on every successful connect and restored on cold start. Auto-connect is gated on restore to prevent accidentally falling back to `profiles[0]`.
-- **Accurate server selection:** share-link connect routes Xray traffic through the specific outbound selected by the user.
-- **Custom signed update manifest.** `latest.json` is now part of every release: `src-tauri/src/app_update.rs` fetches it from GitHub, validates the GitHub origin and all redirects, and verifies a **minisign** signature over downloaded binaries against the public key (`src-tauri/.tauri-updater.key.pub`).
-- **macOS and Linux release pipeline.** Native builds for Apple Silicon (`aarch64`) and Intel (`x86_64`), plus reproducible CI workflows (`release-linux.yml`).
-
-### Route traffic, not network settings
-
-**Apps via VPN.** Select a browser, a game, a messenger, or any other app — only their connections go through the VPN tunnel. The rest of your traffic continues directly.
-
-**Apps direct.** Or the opposite: route system traffic through the VPN and keep direct connections only for selected apps — e.g. banking clients, corporate services, or programs on your local network.
+| Protocol | Transports & Features | Engine |
+|---|---|---|
+| **VLESS** | Reality, XTLS-Vision, WebSocket, gRPC, HTTPUpgrade, Splithttp | `sing-box` / `Xray` |
+| **VMess** | TCP, WebSocket, gRPC, TLS | `sing-box` / `Xray` |
+| **Trojan** | TLS, WebSocket, gRPC | `sing-box` / `Xray` |
+| **Shadowsocks** | AEAD, 2022 (blake3, chacha20, aes-gcm) | `sing-box` / `Xray` |
+| **Hysteria 2** | Port-hopping, salamander obfuscation, BBR | `sing-box` |
+| **TUIC** | QUIC, 0-RTT, BBR congestion control | `sing-box` |
+| **WireGuard / AWG** | Secure UDP tunnel | `sing-box` |
 
 ---
 
@@ -54,18 +62,21 @@ Tauri 2 + React + TypeScript.
 | 🎯 **Per-app routing** | "Telegram via VPN, bank direct" — in one interface |
 | 🗂️ **Leak-free subscriptions** | Subscriptions are parsed in the backend; URLs and profile contents never reach the WebView |
 | 🧭 **Clear Home** | Servers from the same subscription are grouped; provider names are used as fallback labels |
-| 🔄 **Safe reconnect** | Switching servers or active Config/Routing triggers an automatic backend-mediated reconnect |
-| 📈 **Live status** | Connection state, traffic, and active engine info |
-| 🔐 **Signed auto-update** | `latest.json` with minisign signatures for desktop auto-update |
+| 🔄 **Safe reconnect** | Switching servers or active settings triggers an automatic backend-mediated reconnect |
+| 📈 **Live status** | Connection state, live traffic graphs, and active engine info |
+| 🔐 **Signed auto-update** | Embedded `latest.json` manifest with minisign signatures for desktop auto-update |
 | 🔓 **Open Source** | MIT, no analytics, no telemetry |
 
-Supported link protocols include VLESS, VMess, Trojan, Shadowsocks, Hysteria2, and TUIC. Real compatibility for a specific profile depends on its parameters and the chosen engine.
+### Route traffic, not network settings
+
+- **Apps via VPN.** Select a browser, a game, a messenger, or any other app — only their connections go through the VPN tunnel. The rest of your traffic continues directly.
+- **Apps direct.** Route system traffic through the VPN and keep direct connections only for selected apps — e.g. banking clients or local network resources.
 
 ---
 
-## 📥 Installation
+## 📥 Installation Details
 
-Download files from **[Releases → Latest](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)**. Below is the contents of the current `v1.3.2` release.
+All files are available on the **[Releases](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)** page.
 
 ### Windows x64
 
@@ -83,45 +94,23 @@ Download files from **[Releases → Latest](https://github.com/markwhite7881-cpu
 | Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.3.2_aarch64.dmg` or `Cloakwire_1.3.2_aarch64.app.zip` |
 | Intel (x86_64) | `Cloakwire_1.3.2_x64.dmg` or `Cloakwire_1.3.2_x64.app.zip` |
 
-> ℹ️ v1.3.2 macOS builds are not signed with an Apple Developer ID and are not notarized. On first launch, right-click the app and choose **Open**, or allow it under *System Settings → Privacy & Security*. `.app.zip` archives are also provided for diagnostics.
+> ℹ️ v1.3.2 macOS builds are not signed with an Apple Developer ID and are not notarized. On first launch, right-click the app and choose **Open**, or allow it under *System Settings → Privacy & Security*.
 
 ### Linux x86_64 — Ubuntu / Debian
-
-Install the package:
 
 ```bash
 sudo apt install ./Cloakwire_1.3.2_amd64.deb
 cloakwire
 ```
 
-The package installs `/usr/bin/cloakwire`, `sing-box`, and Xray. Its `postinst` automatically grants `sing-box` the `cap_net_admin,cap_net_raw=+ep` capability required for TUN mode:
-
-```bash
-getcap /usr/bin/sing-box
-# expected: /usr/bin/sing-box cap_net_admin,cap_net_raw=ep
-```
-
-If the capability was reset by an update or by manual permission changes, restore it:
-
-```bash
-sudo setcap cap_net_admin,cap_net_raw=+ep /usr/bin/sing-box
-```
-
-A portable build is also available as `Cloakwire_1.3.2_amd64.AppImage`. The AppImage cannot persist file capabilities (its SquashFS is read-only), so use the DEB for reliable TUN support.
-
-Linux builds target Ubuntu 22.04+ and Debian 12+ desktop. TUN is recommended: it intercepts traffic at the network layer and does not depend on per-app proxy support.
+The package automatically grants `sing-box` the `cap_net_admin,cap_net_raw=+ep` capability required for TUN mode. A portable `Cloakwire_1.3.2_amd64.AppImage` is also available.
 
 ### Android
 
 - `Cloakwire_1.3.2_arm64-v8a.apk` — signed release APK for 64-bit ARM devices.
-- `Cloakwire_1.3.2_arm64-v8a.apk.idsig` — APK Signature Scheme v3 ID (used by Play Store for incremental install).
-- `Cloakwire_1.3.2_arm64-v8a.apk.verify.txt` — signing certificate chain and SHA-256 for manual verification.
-
-Android supports both engines. **sing-box runs in process**, **Xray runs as a protected `VpnService` sidecar**. Switch the engine under Settings.
+- Supports both engines: **sing-box runs in-process**, **Xray runs as a protected `VpnService` sidecar**. Switch the engine under Settings.
 
 ### Verifying downloads
-
-Cross-check the SHA-256 against the sums in `SHA256SUMS.txt`. Example:
 
 ```powershell
 Get-FileHash .\Cloakwire_1.3.2_x64-setup.exe -Algorithm SHA256
@@ -133,7 +122,39 @@ Cross-platform equivalent:
 sha256sum -c SHA256SUMS.txt
 ```
 
-A hash mismatch means the file is corrupted or has been replaced — re-download.
+---
+
+## ❓ Frequently Asked Questions (FAQ)
+
+<details>
+<summary><b>🛡️ Are my subscriptions and keys safe?</b></summary>
+<br>
+Yes. All subscription parsing, private keys, and runtime configurations are handled strictly inside the isolated Rust/Kotlin backend core and are never exposed to the WebView interface. The application contains zero analytics, tracking, or third-party telemetry SDKs.
+</details>
+
+<details>
+<summary><b>⚠️ Windows SmartScreen blocks installation. What should I do?</b></summary>
+<br>
+Cloakwire is an open-source project without an expensive purchased Microsoft Authenticode certificate. To proceed with the installation, click <i>"More info"</i> and then <i>"Run anyway"</i>. You can always verify the checksum of your downloaded binary against <code>SHA256SUMS.txt</code>.
+</details>
+
+<details>
+<summary><b>🍏 How do I run the app on macOS?</b></summary>
+<br>
+On first launch, macOS Gatekeeper may flag unsigned applications. Right-click (or Control-click) the Cloakwire app in Finder and choose <b>"Open"</b>, then confirm the prompt. Alternatively, go to <i>System Settings → Privacy & Security</i> and click <i>"Open Anyway"</i>.
+</details>
+
+<details>
+<summary><b>⚡ How does Cloakwire compare to Nekoray, v2rayN, and other clients?</b></summary>
+<br>
+Cloakwire focuses on clean usability and performance:
+<ul>
+  <li><b>Clean UI:</b> No cluttered menus or manual JSON editing.</li>
+  <li><b>Dual-engine:</b> Automatic routing between sing-box and Xray depending on protocol compatibility.</li>
+  <li><b>Lightweight & Fast:</b> Built on Tauri 2, consuming a fraction of the memory used by Electron-based clients.</li>
+  <li><b>Native Per-App Routing:</b> Effortless per-application split tunneling.</li>
+</ul>
+</details>
 
 ---
 
@@ -142,37 +163,23 @@ A hash mismatch means the file is corrupted or has been replaced — re-download
 1. Launch **Cloakwire**. For TUN mode, accept the privilege elevation.
 2. In **Servers**, paste a share-link (`vless://...&`) or a subscription URL, and click **Add**.
 3. In **Routing**, add the apps that need the VPN to **Apps via VPN**, or leave **Apps direct** empty.
-4. In **Config**, pick the mode — **TUN** (recommended), **System Proxy**, **Both**, or **None**. The DNS-server fields stay blank if you want to use your provider's DNS.
+4. In **Config**, pick the mode — **TUN** (recommended), **System Proxy**, **Both**, or **None**.
 5. On **Home**, select a server and press the connect button.
-
-If the VPN drops while you're changing the server or tweaking active Config/Routing settings, Cloakwire auto-reconnects. To avoid double-clicks and unstable restarts, all reconnects go through a backend queue with debounce.
 
 ---
 
 ## 🖼️ Interface
 
 ### Home — connect screen
-
-Shows the selected profile, live Download/Upload, and the reconnect button. The backend auto-resets Home to "not connected" only when you change the server or Config/Routing.
-
 ![Home tab](dist-release/screenshots/01-home.png)
 
 ### Servers — subscriptions and profiles
-
-Add share-links and subscriptions in URL, base64, or Clash YAML. The format is auto-detected; custom profile parsing stays in the backend.
-
 ![Servers tab](dist-release/screenshots/02-servers.png)
 
 ### Config — mode and DNS
-
-Four modes: **TUN**, **System Proxy**, **Both**, **None**. The DNS-server fields stay blank if you want your provider's DNS.
-
 ![Config tab](dist-release/screenshots/03-config.png)
 
 ### Routing — simple and advanced
-
-In Simple mode — **Apps via VPN** and **Apps direct**. In Advanced you get custom rules, rule-sets, sniffing, auto-detect interface, and final outbound.
-
 ![Routing tab — simple UX](dist-release/screenshots/04-routing.png)
 ![Routing tab — Advanced](dist-release/screenshots/05-routing-advanced.png)
 
@@ -195,10 +202,6 @@ src-tauri/src/
   TUN / proxy control · Android sidecar VPNService
 ```
 
-`sing-box` is the primary engine on all platforms and runs the typical supported profiles. On Android it runs in-process; on desktop it runs as a sidecar.
-
-`Xray` is the capability fallback. Cloakwire automatically prepares and launches it when a subscription contains a profile that is safer or more correct to run through Xray.
-
 ---
 
 ## 🛠️ Stack
@@ -211,18 +214,7 @@ src-tauri/src/
 | Primary VPN engine | [sing-box](https://github.com/SagerNet/sing-box) (sidecar) |
 | Fallback engine | [Xray-core](https://github.com/XTLS/Xray-core) (sidecar) |
 | Routing | sing-box rules / rule-sets + process routing |
-| Auto-update | custom updater; minisign signatures inlined in `latest.json` shipped with every release |
-| Runtime updates | managed update in CI for sing-box; Xray update is intentionally not included because profiles are version-sensitive |
-
----
-
-## 🔐 Security and data boundaries
-
-- Subscription URLs, share-links, UUIDs, and runtime configs stay in the backend; the WebView never sees them.
-- `Xray` runtime commands and its stdout/stderr are logged only on the backend side.
-- When Xray is active it is not used by sing-box's Clash API for routing or delay tests.
-- No analytics, no telemetry, no third-party SDKs.
-- Updates and downloaded cores are checked against pinned SHA-256; for new releases, cross-check with `SHA256SUMS.txt`.
+| Auto-update | custom updater; minisign signatures inlined in `latest.json` |
 
 ---
 
@@ -236,14 +228,6 @@ npm ci
 npm run tauri:build
 ```
 
-For a Linux `.deb` on Ubuntu 22.04+ / Debian 12+ (or WSL2) with AOT compilation:
-
-```bash
-./scripts/build-linux-deb.sh 1.3.2
-```
-
-The `postinst` in the resulting `.deb` automatically assigns the `sing-box` capability (`cap_net_admin,cap_net_raw=+ep`) — without it, Linux TUN mode won't work.
-
 ---
 
 ## 🤝 Contributing
@@ -251,7 +235,7 @@ The `postinst` in the resulting `.deb` automatically assigns the `sing-box` capa
 Pull requests are welcome. Before submitting, run local checks:
 
 - **Code style:** `cargo fmt` for Rust, Prettier for TS/TSX.
-- **Checks:** `npm test`, plus a production build; smoke-test on desktop before opening the PR.
+- **Checks:** `npm test`, plus a production build.
 - **Commits:** conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).
 
 ---

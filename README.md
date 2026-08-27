@@ -19,29 +19,37 @@ Tauri 2 + React + TypeScript.
 
 ---
 
+### ⚡ Быстрая загрузка актуальной версии (v1.3.2)
+
+| Платформа | Основной установщик | Альтернативный пакет |
+|---|---|---|
+| 🪟 **Windows (x64)** | [⬇️ **Скачать .exe** (NSIS)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64-setup.exe) | [⬇️ **Скачать .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64_en-US.msi) |
+| 🍏 **macOS (Apple Silicon M1-M4)** | [⬇️ **Скачать .dmg** (aarch64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_aarch64.dmg) | [⬇️ **Скачать .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_aarch64.app.zip) |
+| 🍏 **macOS (Intel)** | [⬇️ **Скачать .dmg** (x64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64.dmg) | [⬇️ **Скачать .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64.app.zip) |
+| 🐧 **Linux (x64)** | [⬇️ **Скачать .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_amd64.deb) | [⬇️ **Скачать .AppImage**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_amd64.AppImage) |
+| 🤖 **Android** | [⬇️ **Скачать .apk** (arm64-v8a)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_arm64-v8a.apk) | — |
+
+---
+
 ## 🎯 Что это такое
 
-**Cloakwire** — минималистичный VPN-клиент для Windows, macOS, Linux и Android. Он принимает share-links и подписки, сохраняет конфигурации локально и запускает профиль в понятном интерфейсе без ручного редактирования JSON.
+**Cloakwire** — минималистичный кросс-платформенный VPN-клиент. Он принимает share-links и подписки, сохраняет конфигурации локально и запускает профиль в удобном интерфейсе без ручного редактирования JSON.
 
 **sing-box — основной движок.** Используется на всех платформах для TUN, System Proxy, маршрутизации по приложениям, выбора прокси и встроенных проверок задержки.
 
-**Xray — fallback по возможностям.** Если подписка содержит профиль, который безопаснее или корректнее исполнять через Xray, Cloakwire подготавливает и запускает его автоматически. На Home при этом сохраняется статус, выбранный сервер и live-метрики. Управление proxy-группами и встроенные delay-тесты доступны только при активном sing-box — это ограничение намеренное, а не ошибка интерфейса.
+**Xray — fallback по возможностям.** Если подписка содержит профиль, который безопаснее или корректнее исполнять через Xray, Cloakwire подготавливает и запускает его автоматически. На Home при этом сохраняется статус, выбранный сервер и live-метрики.
 
-### Что нового в 1.3.2
+### Поддерживаемые протоколы
 
-- **Desktop: стабильность и Per-App маршрутизация** — устранён сбой при старте и активирован режим `find_process: true` для сопоставления трафика запущенных процессов на Windows, Linux и macOS.
-- **Android: dual-engine.** Xray больше не единственный вариант. На Android работают оба движка: sing-box работает внутри процесса приложения, Xray — как защищённый sidecar `VpnService` с поддержкой `libxray.so` и `libhev-socks5-tunnel.so`. Выбор ядра в Settings применяется end-to-end через `CloakwirePlatform.kt`.
-- **Android: Quick Settings tile.** Вместо серой иконки питания в плитке быстрых настроек теперь используется реальный глиф иконки приложения.
-- **Android: last-server persistence.** Выбор профиля (tag или bundle child) сохраняется в `localStorage` при каждом успешном подключении и восстанавливается на cold start. Автоподключение блокируется до завершения восстановления, исключая случайный коннект к дефолтному `profiles[0]`.
-- **Точный выбор сервера:** при подключении по share-link трафик Xray теперь выходит ровно через тот узел, который выбрал пользователь.
-- **Custom signed update manifest.** `latest.json` теперь в каждом релизе: `src-tauri/src/app_update.rs` тянет его с GitHub, проверяет GitHub origin и все редиректы, верифицирует **minisign**-подпись скачанного бинарника против вшитого публичного ключа (`src-tauri/.tauri-updater.key.pub`).
-- **Сборки для macOS и Linux.** Нативные сборки для Apple Silicon (`aarch64`) и Intel (`x86_64`), а также автоматизированный релизный пайплайн `.github/workflows/release-linux.yml`.
-
-### Управляйте маршрутом, а не настройками сети
-
-**Apps via VPN.** Выберите браузер, игру, мессенджер или другое приложение — только их соединения пойдут через VPN-туннель. Остальной трафик продолжит работать напрямую.
-
-**Apps direct.** Или наоборот: направьте через VPN системный трафик и оставьте прямое соединение только для выбранных приложений — например, банковских клиентов, корпоративных сервисов или программ в локальной сети.
+| Протокол | Транспорт и расширения | Движок |
+|---|---|---|
+| **VLESS** | Reality, XTLS-Vision, WebSocket, gRPC, HTTPUpgrade, Splithttp | `sing-box` / `Xray` |
+| **VMess** | TCP, WebSocket, gRPC, TLS | `sing-box` / `Xray` |
+| **Trojan** | TLS, WebSocket, gRPC | `sing-box` / `Xray` |
+| **Shadowsocks** | AEAD, 2022 (blake3, chacha20, aes-gcm) | `sing-box` / `Xray` |
+| **Hysteria 2** | Порт-хоппинг, обфускация salamander, BBR | `sing-box` |
+| **TUIC** | QUIC, 0-RTT, BBR congestion control | `sing-box` |
+| **WireGuard / AWG** | Защищенный UDP-туннель | `sing-box` |
 
 ---
 
@@ -54,18 +62,21 @@ Tauri 2 + React + TypeScript.
 | 🎯 **Per-app маршруты** | «Telegram через VPN, банк напрямую» — в одном интерфейсе |
 | 🗂️ **Подписки без утечек** | Подписки разбираются в backend; URL и содержимое профилей не передаются WebView |
 | 🧭 **Понятный Home** | Серверы одной подписки сгруппированы, названия провайдера используются как fallback |
-| 🔄 **Безопасное переподключение** | При смене сервера или рабочих Config/Routing-настроек активный VPN переподключается автоматически |
-| 📈 **Live-статус** | Состояние соединения, трафик и информация о текущем движке |
-| 🔐 **Подписанный апдейтер** | `latest.json` с minisign-подписями для desktop auto-update |
-| 🔓 **Open Source** | MIT, без аналитики и телеметрии |
+| 🔄 **Безопасное переподключение** | При смене сервера или рабочих настроек активный VPN переподключается автоматически |
+| 📈 **Live-статус** | Состояние соединения, графики трафика и информация о текущем движке |
+| 🔐 **Подписанный апдейтер** | Встроенный манифест `latest.json` с minisign-подписями для desktop auto-update |
+| 🔓 **Open Source** | MIT, без встроенной аналитики и телеметрии |
 
-Поддерживаемые link-протоколы включают VLESS, VMess, Trojan, Shadowsocks, Hysteria2 и TUIC. Реальная совместимость конкретного профиля определяется его параметрами и выбранным движком.
+### Управляйте маршрутом, а не настройками сети
+
+- **Apps via VPN.** Выберите браузер, игру, мессенджер или другое приложение — только их соединения пойдут через VPN-туннель. Остальной трафик продолжит работать напрямую.
+- **Apps direct.** Направьте через VPN системный трафик и оставьте прямое соединение только для выбранных приложений — например, банковских клиентов или локальной сети.
 
 ---
 
-## 📥 Установка
+## 📥 Подробная установка
 
-Скачивайте файлы из **[Releases → Latest](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)**. Ниже перечислен состав текущего релиза `v1.3.2`.
+Все файлы доступны на странице **[Releases](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)**.
 
 ### Windows x64
 
@@ -83,45 +94,23 @@ Tauri 2 + React + TypeScript.
 | Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.3.2_aarch64.dmg` или `Cloakwire_1.3.2_aarch64.app.zip` |
 | Intel (x86_64) | `Cloakwire_1.3.2_x64.dmg` или `Cloakwire_1.3.2_x64.app.zip` |
 
-> ℹ️ Сборки `v1.3.2` не подписаны платным сертификатом Apple Developer ID и не нотаризованы. При первом запуске нажмите правой кнопкой мыши на приложение → **Открыть** (или разрешите запуск в *Системные настройки → Защита и безопасность*). `.app.zip` архивы также приложены для диагностики.
+> ℹ️ Сборки `v1.3.2` не подписаны платным сертификатом Apple Developer ID и не нотаризованы. При первом запуске нажмите правой кнопкой мыши на приложение → **Открыть** (или разрешите запуск в *Системные настройки → Защита и безопасность*).
 
 ### Linux x86_64 — Ubuntu / Debian
-
-Установите пакет:
 
 ```bash
 sudo apt install ./Cloakwire_1.3.2_amd64.deb
 cloakwire
 ```
 
-Пакет устанавливает `/usr/bin/cloakwire`, `sing-box` и Xray. Его `postinst` автоматически выдаёт `sing-box` capability `cap_net_admin,cap_net_raw=+ep`, необходимую для TUN-режима:
-
-```bash
-getcap /usr/bin/sing-box
-# ожидается: /usr/bin/sing-box cap_net_admin,cap_net_raw=ep
-```
-
-Если capability была сброшена обновлением или ручным изменением прав, восстановите её:
-
-```bash
-sudo setcap cap_net_admin,cap_net_raw=+ep /usr/bin/sing-box
-```
-
-Также доступен portable-вариант `Cloakwire_1.3.2_amd64.AppImage`. AppImage не может сохранять file capabilities (read-only SquashFS), поэтому для гарантированной работы TUN рекомендуется DEB.
-
-Linux-сборка рассчитана на Ubuntu 22.04+ и Debian 12+ desktop. TUN рекомендуется: он перехватывает трафик на сетевом уровне и не зависит от proxy-поддержки конкретного приложения.
+Пакет автоматически выдаёт `sing-box` capability `cap_net_admin,cap_net_raw=+ep`, необходимую для TUN-режима. Также доступен portable-пакет `Cloakwire_1.3.2_amd64.AppImage`.
 
 ### Android
 
 - `Cloakwire_1.3.2_arm64-v8a.apk` — подписанный release APK для 64-битных ARM-устройств.
-- `Cloakwire_1.3.2_arm64-v8a.apk.idsig` — APK Signature Scheme v3 ID (для Play Store incremental).
-- `Cloakwire_1.3.2_arm64-v8a.apk.verify.txt` — цепочка сертификата и SHA-256 для ручной проверки.
-
-Android поддерживает оба ядра. **sing-box работает в процессе приложения**, **Xray — как защищённый sidecar `VpnService`**. Переключение — в Settings → Engine.
+- Поддерживает оба ядра: **sing-box работает в процессе приложения**, **Xray — как защищённый sidecar `VpnService`**. Переключение — в Settings → Engine.
 
 ### Проверка загрузки
-
-Сверяйте SHA-256 с контрольными суммами в `SHA256SUMS.txt`. Пример:
 
 ```powershell
 Get-FileHash .\Cloakwire_1.3.2_x64-setup.exe -Algorithm SHA256
@@ -133,7 +122,39 @@ Get-FileHash .\Cloakwire_1.3.2_x64-setup.exe -Algorithm SHA256
 sha256sum -c SHA256SUMS.txt
 ```
 
-Несовпадение хеша означает повреждённый или подменённый файл — скачивайте заново.
+---
+
+## ❓ Часто задаваемые вопросы (FAQ)
+
+<details>
+<summary><b>🛡️ Безопасны ли мои подписки и ключи?</b></summary>
+<br>
+Да. Все операции разбора подписок, работа с приватными ключами и runtime-конфигурации выполняются строго внутри изолированного backend-ядра на Rust/Kotlin. WebView-интерфейс получает только обезличенную визуальную модель данных. Приложение не содержит аналитики, трекеров и сторонних SDK.
+</details>
+
+<details>
+<summary><b>⚠️ Windows SmartScreen блокирует установку. Что делать?</b></summary>
+<br>
+Cloakwire — Open Source проект без приобретенного корпоративного сертификата Microsoft Authenticode. Чтобы продолжить установку, нажмите <i>«Подробнее»</i> (More info), а затем <i>«Выполнить в любом случае»</i> (Run anyway). Вы всегда можете проверить контрольную сумму скачанного файла в файле <code>SHA256SUMS.txt</code>.
+</details>
+
+<details>
+<summary><b>🍏 Как запустить приложение на macOS?</b></summary>
+<br>
+При первом запуске macOS Gatekeeper может заблокировать запуск неподписанного приложения. Нажмите на иконку Cloakwire в Finder правой кнопкой мыши (или с зажатой клавишей Control) и выберите <b>«Открыть»</b>, затем подтвердите запуск. Либо перейдите в <i>«Системные настройки» → «Конфиденциальность и безопасность»</i> и нажмите кнопку <i>«Разрешить»</i>.
+</details>
+
+<details>
+<summary><b>⚡ Чем Cloakwire отличается от Nekoray, v2rayN и других клиентов?</b></summary>
+<br>
+Cloakwire спроектирован с упором на современный минимализм и безопасность:
+<ul>
+  <li><b>Чистый UI:</b> Без сотен перегруженных меню и ручной правки сложных JSON-структур.</li>
+  <li><b>Dual-engine:</b> Автоматический выбор между sing-box и Xray в зависимости от используемого протокола.</li>
+  <li><b>Быстродействие и легкость:</b> Архитектура на Tauri 2 потребляет в разы меньше оперативной памяти по сравнению с Electron-приложениями.</li>
+  <li><b>Нативный Per-App Routing:</b> Простая маршрутизация приложений в один клик.</li>
+</ul>
+</details>
 
 ---
 
@@ -142,37 +163,23 @@ sha256sum -c SHA256SUMS.txt
 1. Запустите **Cloakwire**. Для TUN-режима подтвердите повышение прав.
 2. В **Servers** вставьте share-link (`vless://...&`) или URL подписки и нажмите **Add**.
 3. В **Routing** добавьте приложения, которым нужен VPN, в **Apps via VPN** или оставьте **Apps direct**.
-4. В **Config** выберите режим работы — **TUN** (рекомендуется), **System Proxy**, **Both** или **None**. Поля DNS-серверов остаются пустыми, если вы хотите использовать DNS-сервер провайдера.
+4. В **Config** выберите режим работы — **TUN** (рекомендуется), **System Proxy**, **Both** или **None**.
 5. На **Home** выберите сервер и нажмите кнопку подключения.
-
-Если VPN сбился при смене сервера или активной настройки — Cloakwire автоматически переподключается. Чтобы избежать двойных нажатий и нестабильных перезапусков, все переподключения идут через backend-очередь с дебаунсом.
 
 ---
 
 ## 🖼️ Интерфейс
 
 ### Home — экран подключения
-
-Показывает выбранный профиль, live Download/Upload и кнопку переподключения. Backend автоматически сбрасывает состояние Home на «не подключено» только при смене сервера или Config/Routing.
-
 ![Home tab](dist-release/screenshots/01-home.png)
 
 ### Servers — подписки и профили
-
-Добавляйте share-link и подписки в URL, base64 и Clash YAML. Формат определяется автоматически; пользовательский парсинг профилей в backend остаётся прозрачным.
-
 ![Servers tab](dist-release/screenshots/02-servers.png)
 
 ### Config — режим работы и DNS
-
-Четыре режима: **TUN**, **System Proxy**, **Both** и **None**. Поля DNS-серверов остаются пустыми, если вы хотите использовать DNS-сервер провайдера.
-
 ![Config tab](dist-release/screenshots/03-config.png)
 
 ### Routing — простой и продвинутый
-
-В простом режиме — **Apps via VPN** и **Apps direct**. В Advanced доступны кастомные правила, rule-sets, sniffing, auto-detect interface и final outbound.
-
 ![Routing tab — simple UX](dist-release/screenshots/04-routing.png)
 ![Routing tab — Advanced](dist-release/screenshots/05-routing-advanced.png)
 
@@ -195,10 +202,6 @@ src-tauri/src/
   TUN / proxy control · Android sidecar VPNService
 ```
 
-`sing-box` — основной движок на всех платформах, исполняет типичные поддерживаемые профили. На Android работает в процессе приложения; на десктопе — как sidecar.
-
-`Xray` — fallback-движок по возможностям. Cloakwire подготавливает и запускает его автоматически, если подписка содержит профиль, который безопаснее или корректнее исполнять через Xray.
-
 ---
 
 ## 🛠️ Стек
@@ -211,18 +214,7 @@ src-tauri/src/
 | Основной VPN-ядро | [sing-box](https://github.com/SagerNet/sing-box) (sidecar) |
 | Fallback-ядро | [Xray-core](https://github.com/XTLS/Xray-core) (sidecar) |
 | Маршрутизация | sing-box rules / rule-sets + process routing |
-| Автообновление | кастомный updater; minisign-подписи встроены в `latest.json`, которое лежит в каждом релизе |
-| Runtime-обновление | managed update в CI для sing-box; обновление Xray вручную не включено, потому что профили чувствительны к версии |
-
----
-
-## 🔐 Безопасность и границы данных
-
-- URL подписки, share-link, UUID и runtime-конфиги хранятся в backend; WebView не получает их.
-- `Xray` runtime-команды и его stdout/stderr логируются только backend-стороной.
-- При обновлении Xray он не запускается в sing-box Clash API для маршрутизации или delay-тестов.
-- Нет аналитики и телеметрии, нет посторонних SDK.
-- Обновления и загружаемые ядра проверяются по закреплённым SHA-256; для новых релизов сверяйте с `SHA256SUMS.txt`.
+| Автообновление | кастомный updater; minisign-подписи встроены в `latest.json` |
 
 ---
 
@@ -236,14 +228,6 @@ npm ci
 npm run tauri:build
 ```
 
-Для Linux `.deb` используется Ubuntu 22.04+ / Debian 12+ (или WSL2) и AOT-компиляция:
-
-```bash
-./scripts/build-linux-deb.sh 1.3.2
-```
-
-Пакет в итоговом `.deb` автоматически назначает capability для `sing-box` (`cap_net_admin,cap_net_raw=+ep`), без этого Linux TUN-режим не работает.
-
 ---
 
 ## 🤝 Contributing
@@ -251,7 +235,7 @@ npm run tauri:build
 Вклады в проект (Pull Requests) приветствуются. Перед отправкой изменений запустите локально проверки:
 
 - **Code style:** `cargo fmt` для Rust, Prettier для TS/TSX.
-- **Проверки:** `npm test`, плюс production build; прогоните на десктопе до создания PR.
+- **Проверки:** `npm test`, плюс production build.
 - **Коммиты:** conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).
 
 ---
