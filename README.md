@@ -30,7 +30,7 @@ Tauri 2 + React + TypeScript.
 ### Что нового в 1.3.2
 
 - **Android: dual-engine.** Xray больше не единственный вариант. На Android работают оба движка: sing-box работает внутри процесса приложения, Xray — как защищённый sidecar `VpnService`. Выбор ядра в Settings применяется end-to-end через `CloakwirePlatform.kt`.
-- **Android: Quick Settings tile.** Вместо серого power-иконки в плитке теперь реальный глиф иконки приложения (white-on-transparent, density-specific, отскейлен на 96 % canvas, с жёстким alpha-порогом). ColorOS / OnePlus monochrome theming больше не рисует белый блоб.
+- **Android: Quick Settings tile.** Вместо серого power-иконки в плитке теперь реальный глиф иконки приложения.
 - **Android: last-server persistence.** Выбор профиля (tag или bundle child) сохраняется в `localStorage` при каждом успешном connect и восстанавливается на cold start, с 5-секундным таймаутом на гидрацию подписок. Auto-connect гейтится на восстановлении, чтобы не стрельнул дефолтным `profiles[0]`.
 - **Picked-row actually picks.** Share-link connect больше не отправляет в Rust собранный порядок профилей — xray выходит через outbound, который реально выбрал пользователь.
 - **Custom signed update manifest.** `latest.json` теперь в каждом релизе: `src-tauri/src/app_update.rs` тянет его с GitHub, проверяет GitHub origin и все редиректы, верифицирует **minisign**-подпись скачанного бинарника против вшитого публичного ключа. Public key — это `src-tauri/.tauri-updater.key.pub` в репо.
