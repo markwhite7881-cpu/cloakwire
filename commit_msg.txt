@@ -1,0 +1,16 @@
+docs: rewrite READMEs using main as basis, reflect v1.3.2
+
+Replaces the v1.3.2 READMEs (which were wall-of-text style) with a main-aligned structure:
+
+- Same section layout as main (8 sections + intro + footer)
+- Updated install paths from Cloakwire_1.3.1_* to Cloakwire_1.3.2_*
+- 'What's new in 1.3.2' now reflects actual published state:
+  * Android dual-engine (sing-box + Xray)
+  * Quick Settings tile upgrade (white-on-transparent, hard alpha threshold)
+  * last-server persistence in localStorage
+  * Picked-row actually picks (selected-first copy)
+  * Custom signed update manifest (latest.json with minisign)
+  * Linux release pipeline (.github/workflows/release-linux.yml)
+- Replaced SmartScreen / notarization warnings with honest 'not shipped' notes
+- Added explicit Android install section (was missing entirely in main)
+- README.md (ru) and README.en.md now have matching section structure
