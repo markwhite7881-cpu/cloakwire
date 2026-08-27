@@ -51,7 +51,6 @@ Tauri 2 + React + TypeScript.
 |---|---|
 | 🚀 **Quick start** | Share-link or subscription → profile ready to connect |
 | 🧩 **Two engines** | sing-box — primary on all platforms; Xray — automatic fallback for compatible profiles |
-| 📱 **Android dual-engine** | Both engines supported on Android (sing-box in-process, Xray as `VpnService` sidecar) |
 | 🎯 **Per-app routing** | "Telegram via VPN, bank direct" — in one interface |
 | 🗂️ **Leak-free subscriptions** | Subscriptions are parsed in the backend; URLs and profile contents never reach the WebView |
 | 🧭 **Clear Home** | Servers from the same subscription are grouped; provider names are used as fallback labels |
