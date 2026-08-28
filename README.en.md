@@ -86,8 +86,8 @@ All files are available on the **[Releases](https://github.com/markwhite7881-cpu
 
 | File | Description |
 |---|---|
-| `Cloakwire_1.3.2_x64-setup.exe` | NSIS installer (recommended) |
-| `Cloakwire_1.3.2_x64_en-US.msi` | MSI package for managed deployment |
+| `Cloakwire_1.4.0_x64-setup.exe` | NSIS installer (recommended) |
+| `Cloakwire_1.4.0_x64_en-US.msi` | MSI package for managed deployment |
 
 > ℹ️ Windows installers are signed with Minisign for secure auto-updates. Because they lack a commercial Authenticode certificate, Windows SmartScreen may show a prompt on first install ("More info" → "Run anyway").
 
@@ -95,29 +95,29 @@ All files are available on the **[Releases](https://github.com/markwhite7881-cpu
 
 | Architecture | Files |
 |---|---|
-| Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.3.2_aarch64.dmg` or `Cloakwire_1.3.2_aarch64.app.zip` |
-| Intel (x86_64) | `Cloakwire_1.3.2_x64.dmg` or `Cloakwire_1.3.2_x64.app.zip` |
+| Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.4.0_aarch64.dmg` or `Cloakwire_1.4.0_aarch64.app.zip` |
+| Intel (x86_64) | `Cloakwire_1.4.0_x64.dmg` or `Cloakwire_1.4.0_x64.app.zip` |
 
-> ℹ️ v1.3.2 macOS builds are not signed with an Apple Developer ID and are not notarized. On first launch, right-click the app and choose **Open**, or allow it under *System Settings → Privacy & Security*.
+> ℹ️ v1.4.0 macOS builds are not signed with an Apple Developer ID and are not notarized. On first launch, right-click the app and choose **Open**, or allow it under *System Settings → Privacy & Security*.
 
 ### Linux x86_64 — Ubuntu / Debian
 
 ```bash
-sudo apt install ./Cloakwire_1.3.2_amd64.deb
+sudo apt install ./Cloakwire_1.4.0_amd64.deb
 cloakwire
 ```
 
-The package automatically grants `sing-box` the `cap_net_admin,cap_net_raw=+ep` capability required for TUN mode. A portable `Cloakwire_1.3.2_amd64.AppImage` is also available.
+The package automatically grants `sing-box` the `cap_net_admin,cap_net_raw=+ep` capability required for TUN mode. A portable `Cloakwire_1.4.0_amd64.AppImage` is also available.
 
 ### Android
 
-- `Cloakwire_1.3.2_arm64-v8a.apk` — signed release APK for 64-bit ARM devices.
+- `Cloakwire_1.4.0_arm64-v8a.apk` — signed release APK for 64-bit ARM devices.
 - Supports both engines: **sing-box runs in-process**, **Xray runs as a protected `VpnService` sidecar**. Switch the engine under Settings.
 
 ### Verifying downloads
 
 ```powershell
-Get-FileHash .\Cloakwire_1.3.2_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Cloakwire_1.4.0_x64-setup.exe -Algorithm SHA256
 ```
 
 Cross-platform equivalent:

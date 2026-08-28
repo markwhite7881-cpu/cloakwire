@@ -86,8 +86,8 @@ Tauri 2 + React + TypeScript.
 
 | Файл | Описание |
 |---|---|
-| `Cloakwire_1.3.2_x64-setup.exe` | NSIS-инсталлятор (рекомендуется) |
-| `Cloakwire_1.3.2_x64_en-US.msi` | MSI-пакет для корпоративного развёртывания |
+| `Cloakwire_1.4.0_x64-setup.exe` | NSIS-инсталлятор (рекомендуется) |
+| `Cloakwire_1.4.0_x64_en-US.msi` | MSI-пакет для корпоративного развёртывания |
 
 > ℹ️ Windows-инсталляторы защищены встроенной подписью Minisign для безопасных автообновлений. Из-за отсутствия платного сертификата Authenticode фильтр Windows SmartScreen при первой установке может запросить подтверждение («Подробнее» → «Выполнить в любом случае»).
 
@@ -95,29 +95,29 @@ Tauri 2 + React + TypeScript.
 
 | Архитектура | Файлы |
 |---|---|
-| Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.3.2_aarch64.dmg` или `Cloakwire_1.3.2_aarch64.app.zip` |
-| Intel (x86_64) | `Cloakwire_1.3.2_x64.dmg` или `Cloakwire_1.3.2_x64.app.zip` |
+| Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.4.0_aarch64.dmg` или `Cloakwire_1.4.0_aarch64.app.zip` |
+| Intel (x86_64) | `Cloakwire_1.4.0_x64.dmg` или `Cloakwire_1.4.0_x64.app.zip` |
 
-> ℹ️ Сборки `v1.3.2` не подписаны платным сертификатом Apple Developer ID и не нотаризованы. При первом запуске нажмите правой кнопкой мыши на приложение → **Открыть** (или разрешите запуск в *Системные настройки → Защита и безопасность*).
+> ℹ️ Сборки `v1.4.0` не подписаны платным сертификатом Apple Developer ID и не нотаризованы. При первом запуске нажмите правой кнопкой мыши на приложение → **Открыть** (или разрешите запуск в *Системные настройки → Защита и безопасность*).
 
 ### Linux x86_64 — Ubuntu / Debian
 
 ```bash
-sudo apt install ./Cloakwire_1.3.2_amd64.deb
+sudo apt install ./Cloakwire_1.4.0_amd64.deb
 cloakwire
 ```
 
-Пакет автоматически выдаёт `sing-box` capability `cap_net_admin,cap_net_raw=+ep`, необходимую для TUN-режима. Также доступен portable-пакет `Cloakwire_1.3.2_amd64.AppImage`.
+Пакет автоматически выдаёт `sing-box` capability `cap_net_admin,cap_net_raw=+ep`, необходимую для TUN-режима. Также доступен portable-пакет `Cloakwire_1.4.0_amd64.AppImage`.
 
 ### Android
 
-- `Cloakwire_1.3.2_arm64-v8a.apk` — подписанный release APK для 64-битных ARM-устройств.
+- `Cloakwire_1.4.0_arm64-v8a.apk` — подписанный release APK для 64-битных ARM-устройств.
 - Поддерживает оба ядра: **sing-box работает в процессе приложения**, **Xray — как защищённый sidecar `VpnService`**. Переключение — в Settings → Engine.
 
 ### Проверка загрузки
 
 ```powershell
-Get-FileHash .\Cloakwire_1.3.2_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Cloakwire_1.4.0_x64-setup.exe -Algorithm SHA256
 ```
 
 Кроссплатформенный аналог:
