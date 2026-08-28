@@ -18,8 +18,8 @@ const CONFIG: Record<
   },
   running: {
     label: "Connected",
-    dot: "bg-foreground",
-    icon: <Activity className="h-3.5 w-3.5" />,
+    dot: "bg-emerald-400",
+    icon: <Activity className="h-3.5 w-3.5 text-emerald-400" />,
   },
   crashed: {
     label: "Crashed",

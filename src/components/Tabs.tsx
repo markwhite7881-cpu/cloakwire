@@ -14,11 +14,57 @@ export interface TabDef {
   content: ReactNode;
 }
 
-/**
- * Minimalist horizontal tab bar with a thin underline on the active
- * tab — matches the classquiz colour palette (no rounded pills,
- * no coloured accents beyond a single muted line).
- */
+export function TabBar({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: TabDef[];
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      className="flex items-center gap-1 bg-secondary/80 p-1 rounded-xl border border-border/80 shadow-inner"
+    >
+      {tabs.map((t) => {
+        const Icon = t.icon;
+        const isActive = t.id === active;
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(t.id)}
+            className={cn(
+              "relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150",
+              isActive
+                ? "bg-background text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/40",
+            )}
+          >
+            <Icon className={cn("h-3.5 w-3.5", isActive ? "text-emerald-500" : "text-muted-foreground")} />
+            <span>{t.label}</span>
+            {t.badge != null && (
+              <span
+                className={cn(
+                  "ml-1 rounded-full px-1.5 py-0.2 text-[10px] tabular-nums font-mono",
+                  isActive
+                    ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800/60"
+                    : "bg-muted text-muted-foreground border border-border/60",
+                )}
+              >
+                {t.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function Tabs({
   tabs,
   active,
@@ -30,48 +76,6 @@ export function Tabs({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div
-        role="tablist"
-        className="flex shrink-0 items-stretch gap-1 border-b border-border bg-card/30 px-2"
-      >
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const isActive = t.id === active;
-          return (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => onChange(t.id)}
-              className={cn(
-                "relative flex items-center gap-1.5 px-3 py-2 text-xs font-medium",
-                "transition-colors",
-                isActive
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground/80",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span>{t.label}</span>
-              {t.badge != null && (
-                <span
-                  className={cn(
-                    "ml-0.5 rounded px-1 py-0 text-[10px] tabular-nums",
-                    isActive
-                      ? "bg-foreground/10 text-foreground"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {t.badge}
-                </span>
-              )}
-              {isActive && (
-                <span className="absolute inset-x-2 -bottom-px h-px bg-foreground" />
-              )}
-            </button>
-          );
-        })}
-      </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {tabs.find((t) => t.id === active)?.content}
       </div>

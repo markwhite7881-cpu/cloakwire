@@ -218,15 +218,15 @@ export function ServersScreen({
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold tracking-tight">Servers</h2>
+          <h2 className="text-base font-semibold tracking-tight text-foreground">Servers</h2>
           {engine && (
             <span
               className={cn(
                 "inline-flex items-center rounded-full border px-2 py-0.5",
                 "text-[10px] font-mono uppercase tracking-wider",
                 engine === "xray"
-                  ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
-                  : "border-sky-400/40 bg-sky-500/10 text-sky-200",
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
               )}
               title={`Active VPN engine: ${engine}`}
             >
@@ -237,24 +237,11 @@ export function ServersScreen({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => void pingAll()}
-            disabled={pinging || profiles.length === 0}
-            className="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-foreground active:bg-accent disabled:opacity-50"
-          >
-            {pinging ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Gauge className="h-3.5 w-3.5" />
-            )}
-            Ping all
-          </button>
-          <button
-            type="button"
             onClick={() => setSheetOpen(true)}
             aria-label="Add subscription"
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm active:bg-primary/90"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20 active:scale-95 transition"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 stroke-[2.5]" />
           </button>
         </div>
       </div>

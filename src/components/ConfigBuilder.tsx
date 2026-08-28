@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Check,
   Copy,
@@ -195,14 +195,15 @@ export function ConfigBuilder({
   };
 
   return (
-    <Card>
+    <Card className="bento-card">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="flex items-center gap-2">
-            <FileCog className="h-4 w-4 text-muted-foreground" />
+            <FileCog className="h-4 w-4 text-emerald-400" />
             Config builder
             <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
-                          </Badge>
+              {profiles.length}
+            </Badge>
           </CardTitle>
           <Button
             size="sm"

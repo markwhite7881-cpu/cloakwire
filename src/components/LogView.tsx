@@ -20,9 +20,9 @@ function formatTs(iso: string): string {
 }
 
 const STREAM_COLOR: Record<LogLine["stream"], string> = {
-  stdout: "text-foreground/80",
-  stderr: "text-yellow-400",
-  system: "text-primary",
+  stdout: "text-zinc-300",
+  stderr: "text-rose-400 font-medium",
+  system: "text-emerald-400 font-medium",
 };
 
 export function LogView({ logs, onClear, className }: Props) {
@@ -48,16 +48,16 @@ export function LogView({ logs, onClear, className }: Props) {
   const visible = filter === "all" ? logs : logs.filter((l) => l.stream === filter);
 
   return (
-    <div className={cn("flex flex-col overflow-hidden rounded-md border border-border bg-card/40", className)}>
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-card/60 px-3 py-2">
+    <div className={cn("flex flex-col overflow-hidden rounded-xl border border-border/80 bg-[#07080c] font-mono", className)}>
+      <div className="flex items-center justify-between gap-2 border-b border-border/80 bg-card/60 px-3 py-2">
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setFilter("all")}
             className={cn(
-              "rounded px-2 py-0.5 text-[11px] font-medium",
+              "rounded-lg px-2.5 py-1 text-[11px] font-medium transition",
               filter === "all"
-                ? "bg-primary/20 text-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800/60"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
             )}
           >
             All
@@ -65,10 +65,10 @@ export function LogView({ logs, onClear, className }: Props) {
           <button
             onClick={() => setFilter("stderr")}
             className={cn(
-              "rounded px-2 py-0.5 text-[11px] font-medium",
+              "rounded-lg px-2.5 py-1 text-[11px] font-medium transition",
               filter === "stderr"
-                ? "bg-primary/20 text-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-rose-950/80 text-rose-400 border border-rose-800/60"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
             )}
           >
             Errors
@@ -76,10 +76,10 @@ export function LogView({ logs, onClear, className }: Props) {
           <button
             onClick={() => setFilter("system")}
             className={cn(
-              "rounded px-2 py-0.5 text-[11px] font-medium",
+              "rounded-lg px-2.5 py-1 text-[11px] font-medium transition",
               filter === "system"
-                ? "bg-primary/20 text-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800/60"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
             )}
           >
             System

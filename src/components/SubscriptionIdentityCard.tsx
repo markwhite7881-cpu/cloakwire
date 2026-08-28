@@ -83,11 +83,11 @@ export function SubscriptionIdentityCard() {
   };
 
   return (
-    <Card>
+    <Card className="bento-card">
       <CardHeader>
         <div className="space-y-1">
           <CardTitle className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-muted-foreground" />
+            <KeyRound className="h-4 w-4 text-emerald-400" />
             Subscription identity
             {info?.custom && <Badge variant="secondary">custom</Badge>}
           </CardTitle>

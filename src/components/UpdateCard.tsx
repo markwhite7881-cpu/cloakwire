@@ -137,11 +137,11 @@ export function UpdateCard({ currentSingboxVersion, onSingboxUpdated }: Props) {
   };
 
   return (
-    <div className="rounded-md border border-border bg-card/30 p-4 space-y-3">
+    <div className="bento-card rounded-2xl p-5 space-y-4">
       <div className="flex items-start gap-2.5">
-        <ShieldCheck size={16} className="mt-0.5 text-muted-foreground" />
+        <ShieldCheck size={16} className="mt-0.5 text-emerald-400" />
         <div className="min-w-0">
-          <h3 className="text-sm font-medium text-foreground">Updates</h3>
+          <h3 className="text-sm font-semibold text-foreground">Updates & Core Upgrades</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             App shell and VPN core. Auto-checked on launch.
           </p>
@@ -191,15 +191,15 @@ function AppUpdateRow({
 }) {
   const available = !!update;
   return (
-    <div className="rounded border border-border bg-background/40 p-3">
+    <div className="rounded-xl border border-border/80 bg-[#07080c] p-3.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="min-w-0">
-          <div className="text-xs text-muted-foreground">App</div>
-          <div className="text-sm font-medium text-foreground">
+          <div className="text-[11px] font-mono text-muted-foreground uppercase">App Shell</div>
+          <div className="text-sm font-medium text-foreground mt-0.5">
             {available ? (
               <>
                 New version{" "}
-                <span className="font-mono text-primary">{update!.version}</span>{" "}
+                <span className="font-mono text-emerald-400">{update!.version}</span>{" "}
                 available
                 {update!.notes ? (
                   <span className="text-xs text-muted-foreground"> — {update!.notes}</span>
@@ -214,7 +214,7 @@ function AppUpdateRow({
         </div>
         <div className="flex items-center gap-1.5">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={onCheck}
             disabled={busy}
@@ -223,7 +223,7 @@ function AppUpdateRow({
             <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
           </Button>
           {available && (
-            <Button size="sm" onClick={onInstall} disabled={busy}>
+            <Button size="sm" onClick={onInstall} disabled={busy} className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium">
               <Download size={12} className="mr-1" />
               {busy ? "Installing…" : "Update & restart"}
             </Button>
@@ -258,14 +258,14 @@ function SingboxUpdateRow({
 }) {
   const available = !!latestVersion && latestVersion !== currentVersion;
   return (
-    <div className="rounded border border-border bg-background/40 p-3">
+    <div className="rounded-xl border border-border/80 bg-[#07080c] p-3.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="min-w-0">
-          <div className="text-xs text-muted-foreground flex items-center gap-1">
-            <Cpu size={11} />
-            VPN core
+          <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1 uppercase">
+            <Cpu size={11} className="text-emerald-400" />
+            sing-box Core
           </div>
-          <div className="text-sm font-medium text-foreground">
+          <div className="text-sm font-medium text-foreground mt-0.5">
             {currentVersion ? (
               <span className="font-mono">{currentVersion}</span>
             ) : (
@@ -274,20 +274,20 @@ function SingboxUpdateRow({
             {available && latestVersion && (
               <>
                 <span className="text-muted-foreground mx-1">→</span>
-                <span className="font-mono text-primary">{latestVersion}</span>
+                <span className="font-mono text-emerald-400">{latestVersion}</span>
               </>
             )}
             {!available && !error && currentVersion && (
-              <span className="text-muted-foreground ml-2">— up to date</span>
+              <span className="text-muted-foreground ml-2 text-xs font-mono">— up to date</span>
             )}
             {error && (
-              <span className="text-muted-foreground ml-2">— check failed</span>
+              <span className="text-muted-foreground ml-2 text-xs font-mono">— check failed</span>
             )}
           </div>
         </div>
         <div className="flex items-center gap-1.5">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={onCheck}
             disabled={busy}
@@ -296,7 +296,7 @@ function SingboxUpdateRow({
             <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
           </Button>
           {available && (
-            <Button size="sm" onClick={onInstall} disabled={busy}>
+            <Button size="sm" onClick={onInstall} disabled={busy} className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium">
               <Download size={12} className="mr-1" />
               {busy
                 ? "Installing…"

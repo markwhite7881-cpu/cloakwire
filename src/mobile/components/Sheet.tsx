@@ -37,30 +37,31 @@ export function Sheet({
   return createPortal(
     <div
       data-mobile-sheet=""
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-50 flex items-end justify-center animate-in fade-in duration-200"
     >
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
       />
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative w-full max-w-md rounded-t-xl border border-b-0 border-border bg-card",
-          "max-h-[85vh] overflow-y-auto shadow-2xl",
+          "relative w-full max-w-lg rounded-t-3xl border border-b-0 border-white/10 bg-[#0c0d14]",
+          "max-h-[88vh] overflow-y-auto shadow-2xl backdrop-blur-2xl ring-1 ring-white/5",
           "pb-[env(safe-area-inset-bottom)]",
         )}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-4 py-3">
-          <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/20" />
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/5 bg-[#0c0d14]/95 px-5 py-3.5 backdrop-blur-xl">
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close sheet"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground active:bg-accent active:text-foreground"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-white/5 active:text-foreground transition"
           >
             <X className="h-4 w-4" />
           </button>

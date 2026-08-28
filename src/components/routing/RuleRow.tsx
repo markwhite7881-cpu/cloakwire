@@ -79,13 +79,13 @@ export function RuleRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-md border bg-card/40 transition",
-        rule.enabled ? "border-border" : "border-border/50 opacity-60",
-        isDragging && "shadow-lg ring-1 ring-foreground/20",
+        "rounded-xl border bg-[#07080c] transition overflow-hidden",
+        rule.enabled ? "border-border/80" : "border-border/40 opacity-60",
+        isDragging && "shadow-lg ring-1 ring-emerald-500/30",
       )}
     >
       {/* Collapsed bar */}
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex items-center gap-2 px-3.5 py-2.5">
         <button
           type="button"
           {...attributes}
@@ -101,10 +101,10 @@ export function RuleRow({
           onClick={() => onChange({ ...rule, enabled: !rule.enabled })}
           title={rule.enabled ? "Disable rule" : "Enable rule"}
           className={cn(
-            "p-1 rounded transition",
+            "p-1 rounded-md transition",
             rule.enabled
-              ? "text-foreground hover:text-foreground/80"
-              : "text-muted-foreground/60 hover:text-muted-foreground",
+              ? "text-emerald-400 hover:text-emerald-300"
+              : "text-muted-foreground/50 hover:text-muted-foreground",
           )}
         >
           <Power size={14} />
@@ -112,7 +112,7 @@ export function RuleRow({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-foreground truncate">
+            <span className="text-sm font-medium text-foreground truncate">
               {rule.label || "(unnamed rule)"}
             </span>
             <Badge
@@ -123,12 +123,16 @@ export function RuleRow({
                   ? "secondary"
                   : "default"
               }
+              className={cn(
+                "text-[10px] font-mono",
+                rule.action.kind === "route" && "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60",
+              )}
             >
               {actionSummary}
             </Badge>
           </div>
           {matcherSummary.length > 0 && (
-            <div className="text-xs text-muted-foreground mt-0.5 truncate">
+            <div className="text-xs font-mono text-muted-foreground mt-0.5 truncate">
               {matcherSummary.join(" · ")}
             </div>
           )}
@@ -155,7 +159,7 @@ export function RuleRow({
 
       {/* Inline editor (expanded) */}
       {expanded && (
-        <div className="px-3 pb-3">
+        <div className="px-3.5 pb-3.5 pt-2 border-t border-border/60 bg-[#090a0f]">
           <RuleEditor
             rule={rule}
             outbounds={outbounds}

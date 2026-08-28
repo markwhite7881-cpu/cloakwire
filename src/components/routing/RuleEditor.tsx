@@ -98,7 +98,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
 
       {/* Action */}
       <div>
-        <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">
+        <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1 font-mono">
           Action
         </label>
         <div className="flex flex-wrap items-center gap-2">
@@ -114,10 +114,10 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
                 else if (kind === "resolve") setAction({ kind });
               }}
               className={cn(
-                "rounded-md px-2.5 py-1 text-xs font-medium border transition",
+                "rounded-lg px-2.5 py-1 text-xs font-mono transition border",
                 a.kind === kind
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-foreground/80 border-border hover:border-foreground/40",
+                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 font-medium shadow-sm"
+                  : "bg-[#07080c] text-muted-foreground border-border/80 hover:text-foreground",
               )}
             >
               {kind}
@@ -129,7 +129,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
             <select
               value={a.outbound}
               onChange={(e) => setAction({ kind: "route", outbound: e.target.value })}
-              className="w-full rounded-md bg-background border border-input px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded-lg bg-[#07080c] border border-border/80 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 font-mono"
             >
               <option value="proxy">proxy (selector)</option>
               <option value="auto">auto (urltest)</option>
@@ -341,13 +341,13 @@ function ChipField({ label, values, placeholder, onChange }: ChipFieldProps) {
         {arr.map((v) => (
           <span
             key={v}
-            className="inline-flex items-center gap-1 rounded-full bg-foreground/10 text-foreground border border-foreground/15 px-2 py-0.5 text-xs"
+            className="inline-flex items-center gap-1 rounded-lg bg-[#07080c] text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-mono"
           >
             {v}
             <button
               type="button"
               onClick={() => remove(v)}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-emerald-400/70 hover:text-emerald-300 ml-0.5"
               aria-label={`Remove ${v}`}
             >
               ×
@@ -368,7 +368,7 @@ function ChipField({ label, values, placeholder, onChange }: ChipFieldProps) {
               }
             }}
             placeholder={placeholder}
-            className="rounded-md bg-background border border-input px-2 py-0.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-32"
+            className="rounded-lg bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 w-36 font-mono"
           />
           <Button variant="ghost" size="sm" onClick={add} title="Add">
             <Plus size={12} />
@@ -399,18 +399,18 @@ function PortField({ label, values, onChange }: PortFieldProps) {
   const remove = (n: number) => onChange(arr.filter((x) => x !== n));
   return (
     <div>
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">{label}</label>
+      <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1 font-mono">{label}</label>
       <div className="flex flex-wrap gap-1.5 items-center">
         {arr.map((n) => (
           <span
             key={n}
-            className="inline-flex items-center gap-1 rounded-full bg-foreground/10 text-foreground border border-foreground/15 px-2 py-0.5 text-xs font-mono"
+            className="inline-flex items-center gap-1 rounded-lg bg-[#07080c] text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-mono"
           >
             {n}
             <button
               type="button"
               onClick={() => remove(n)}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-emerald-400/70 hover:text-emerald-300 ml-0.5"
               aria-label={`Remove port ${n}`}
             >
               ×
@@ -428,7 +428,7 @@ function PortField({ label, values, onChange }: PortFieldProps) {
               if (e.key === "Enter") { e.preventDefault(); add(); }
             }}
             placeholder="443"
-            className="rounded-md bg-background border border-input px-2 py-0.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-20 font-mono"
+            className="rounded-lg bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 w-24 font-mono"
           />
           <Button variant="ghost" size="sm" onClick={add} title="Add">
             <Plus size={12} />
@@ -449,7 +449,7 @@ interface ChipsPickerProps {
 function ChipsPicker({ label, options, values, onToggle }: ChipsPickerProps) {
   return (
     <div>
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">{label}</label>
+      <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1 font-mono">{label}</label>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => {
           const active = values.includes(opt);
@@ -459,10 +459,10 @@ function ChipsPicker({ label, options, values, onToggle }: ChipsPickerProps) {
               type="button"
               onClick={() => onToggle(opt)}
               className={cn(
-                "rounded-full px-2.5 py-0.5 text-xs border transition",
+                "rounded-lg px-2.5 py-0.5 text-xs font-mono border transition",
                 active
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-foreground/80 border-border hover:border-foreground/40",
+                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 font-medium shadow-sm"
+                  : "bg-[#07080c] text-muted-foreground border-border/80 hover:text-foreground",
               )}
             >
               {opt}

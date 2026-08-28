@@ -129,12 +129,12 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
   }, [r.vpn_processes, r.direct_processes]);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 p-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Routing</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h2 className="text-lg font-semibold text-foreground">Routing & Split Tunneling</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Pick which programs go through the VPN. Everything else goes direct.
           </p>
         </div>
@@ -173,7 +173,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
 
       {/* Simple UX: two process-picker cards. */}
       <ProcessPickerCard
-        icon={<Shield size={16} className="text-primary" />}
+        icon={<Shield size={18} className="text-emerald-400" />}
         title="Apps via VPN"
         description="Traffic from these programs goes through the VPN. Everything else stays direct."
         accent="vpn"
@@ -182,7 +182,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
         disabled={!isTunActive}
       />
       <ProcessPickerCard
-        icon={<ShieldOff size={16} className="text-muted-foreground" />}
+        icon={<ShieldOff size={18} className="text-emerald-400" />}
         title="Apps direct"
         description="Always bypass the VPN, even if a rule-set or final outbound would otherwise route them via proxy. For most users, leave empty."
         accent="direct"
@@ -193,7 +193,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
 
       {/* Overlap warning — same process in BOTH lists. */}
       {overlapProcessNames.length > 0 && (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
           <TriangleAlert size={14} className="mt-0.5 flex-shrink-0" />
           <div>
             <strong>Same program in both lists:</strong>{" "}
@@ -208,22 +208,14 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
         </div>
       )}
 
-      {/* Advanced — collapsed by default. Houses the full rule editor
-          and JSON preview. Non-tech-savvy users never see this.
-          Note: this <details> is uncontrolled (no `open` prop, no
-          React state) — the browser manages the open/close state
-          directly, and the arrow indicator uses a CSS pseudo-class
-          (`details[open] > summary .advanced-arrow`). Controlled
-          <details> in React has a race where the browser's toggle
-          can be overwritten by React's reconciliation before
-          onToggle fires. */}
-      <details className="rounded-md border border-border bg-card/30 open:bg-card/40 transition">
-        <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-foreground hover:text-primary flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
+      {/* Advanced — collapsed by default. */}
+      <details className="bento-card rounded-2xl p-4 transition open:p-5">
+        <summary className="cursor-pointer select-none px-2 py-1 text-sm font-semibold text-foreground hover:text-emerald-400 flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
           <span className="advanced-arrow text-xs text-muted-foreground" />
-          Advanced
+          Advanced Rules & Route Engine
           {(r.rules.length > 0 || r.rule_sets.length > 0) && (
-            <span className="text-[10px] text-muted-foreground font-normal">
-              — {r.rules.length} rule{r.rules.length === 1 ? "" : "s"}, {r.rule_sets.length} rule-set{r.rule_sets.length === 1 ? "" : "s"}
+            <span className="text-[10px] text-muted-foreground font-mono">
+              ({r.rules.length} rule{r.rules.length === 1 ? "" : "s"}, {r.rule_sets.length} rule-set{r.rule_sets.length === 1 ? "" : "s"})
             </span>
           )}
           {!isTunActive && (
@@ -233,34 +225,31 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
           )}
         </summary>
 
-        <div className="px-3 pb-3 pt-1 space-y-4 border-t border-border">
-          {/* General settings — sniff, final, auto_detect_interface.
-              pointer-events-none + opacity-60 is the cheapest way
-              to lock down a whole panel without touching the
-              individual controls (checkbox, select) inside. */}
+        <div className="px-1 pb-1 pt-3 space-y-4 border-t border-border/80 mt-3">
+          {/* General settings — sniff, final, auto_detect_interface */}
           <div
             className={cn(
-              "rounded-md border border-border bg-background/30 p-4",
+              "rounded-xl border border-border/80 bg-[#07080c] p-4",
               !isTunActive && "pointer-events-none opacity-60",
             )}
             aria-disabled={!isTunActive}
           >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <label className="flex items-center gap-2 text-sm text-foreground">
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                 <input
                   type="checkbox"
                   checked={r.sniff}
                   onChange={(e) => updateRouting({ sniff: e.target.checked })}
-                  className="rounded border-input bg-background"
+                  className="rounded border-input bg-background text-emerald-500 focus:ring-emerald-500"
                 />
                 Sniff protocol (HTTP/TLS/QUIC)
               </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                 <input
                   type="checkbox"
                   checked={r.auto_detect_interface}
                   onChange={(e) => updateRouting({ auto_detect_interface: e.target.checked })}
-                  className="rounded border-input bg-background"
+                  className="rounded border-input bg-background text-emerald-500 focus:ring-emerald-500"
                 />
                 Auto-detect interface
               </label>
@@ -269,7 +258,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
                 <select
                   value={r.final_outbound}
                   onChange={(e) => updateRouting({ final_outbound: e.target.value })}
-                  className="w-full rounded-md bg-background border border-input px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-md bg-[#0b0c12] border border-border/80 px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                 >
                   <option value="direct">direct (default for the simple UX)</option>
                   <option value="proxy">proxy (selector)</option>
@@ -345,9 +334,9 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
             </Button>
           </div>
           {jsonOpen && (
-            <div className="rounded-md border border-border bg-card/30 p-3">
+            <div className="rounded-xl border border-border/80 bg-[#07080c] p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground font-mono">
                   Generated sing-box route block (informational)
                 </span>
                 <Button variant="ghost" size="sm" onClick={onCopyJson} title="Copy JSON">
@@ -355,7 +344,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
                   {jsonCopied ? "Copied" : "Copy"}
                 </Button>
               </div>
-              <pre className="text-xs text-foreground/80 overflow-x-auto whitespace-pre-wrap font-mono">
+              <pre className="text-xs text-emerald-300/90 overflow-x-auto whitespace-pre-wrap font-mono">
                 {JSON.stringify(jsonPreview, null, 2)}
               </pre>
             </div>
@@ -392,7 +381,7 @@ function ProcessPickerCard({
   return (
     <section
       className={cn(
-        "rounded-md border border-border bg-card/30 p-4 space-y-3",
+        "bento-card rounded-2xl p-6 space-y-4 shadow-sm",
         disabled && "opacity-70",
       )}
       aria-disabled={disabled}
@@ -400,7 +389,7 @@ function ProcessPickerCard({
       <div className="flex items-start gap-2.5">
         <div className="mt-0.5">{icon}</div>
         <div className="min-w-0">
-          <h3 className="text-sm font-medium text-foreground">{title}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
       </div>
@@ -424,11 +413,11 @@ function ProcessPickerCard({
               }}
               disabled={disabled}
               className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition",
+                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition",
                 "hover:opacity-80",
                 accent === "vpn"
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-muted-foreground/40 bg-muted text-foreground",
+                  ? "border-emerald-500/40 bg-emerald-950/60 text-emerald-300 font-medium"
+                  : "border-border/80 bg-secondary/80 text-muted-foreground",
                 disabled && "cursor-not-allowed hover:opacity-100",
               )}
               title={disabled ? "Switch to TUN mode to edit" : `Remove ${name}`}

@@ -23,15 +23,15 @@ Tauri 2 + React + TypeScript.
 
 ---
 
-### ⚡ Quick Download (Latest v1.3.2)
+### ⚡ Quick Download (Latest v1.4.0)
 
 | Platform | Primary Installer | Alternative / Portable |
 |---|---|---|
-| 🪟 **Windows (x64)** | [⬇️ **Download .exe** (NSIS)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64-setup.exe) | [⬇️ **Download .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64_en-US.msi) |
-| 🍏 **macOS (Apple Silicon M1-M4)** | [⬇️ **Download .dmg** (aarch64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_aarch64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_aarch64.app.zip) |
-| 🍏 **macOS (Intel)** | [⬇️ **Download .dmg** (x64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_x64.app.zip) |
-| 🐧 **Linux (x64)** | [⬇️ **Download .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_amd64.deb) | [⬇️ **Download .AppImage**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_amd64.AppImage) |
-| 🤖 **Android** | [⬇️ **Download .apk** (arm64-v8a)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.3.2_arm64-v8a.apk) | — |
+| 🪟 **Windows (x64)** | [⬇️ **Download .exe** (NSIS)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64-setup.exe) | [⬇️ **Download .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64_en-US.msi) |
+| 🍏 **macOS (Apple Silicon M1-M4)** | [⬇️ **Download .dmg** (aarch64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.app.zip) |
+| 🍏 **macOS (Intel)** | [⬇️ **Download .dmg** (x64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64.app.zip) |
+| 🐧 **Linux (x64)** | [⬇️ **Download .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.deb) | [⬇️ **Download .AppImage**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.AppImage) |
+| 🤖 **Android** | [⬇️ **Download .apk** (arm64-v8a)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_arm64-v8a.apk) | — |
 
 ---
 

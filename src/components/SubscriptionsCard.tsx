@@ -46,7 +46,7 @@ export function SubscriptionsCard({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+    <div className="bento-card rounded-2xl border border-border/80 text-card-foreground shadow-lg">
       <div className="flex flex-col space-y-1 p-5 pb-3">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">

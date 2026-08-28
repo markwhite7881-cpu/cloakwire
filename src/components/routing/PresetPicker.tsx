@@ -32,9 +32,9 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
   );
 
   return (
-    <div className="rounded-md border border-border bg-card/30 p-4 space-y-4">
+    <div className="rounded-xl border border-border/80 bg-[#07080c] p-4 space-y-4">
       <div>
-        <h3 className="text-sm font-medium text-foreground">Starter rules</h3>
+        <h3 className="text-sm font-semibold text-foreground">Starter rules</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
           One-click inserts for common routing rules.
         </p>
@@ -44,11 +44,11 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
               key={p.id}
               type="button"
               onClick={() => onAddRule({ id: newRuleId(), ...p.build() })}
-              className="text-left rounded-md border border-border bg-background/60 hover:border-foreground/40 hover:bg-accent transition px-3 py-2 group"
+              className="text-left rounded-lg border border-border/80 bg-[#0b0c12] hover:border-emerald-500/50 hover:bg-emerald-950/20 transition px-3.5 py-2.5 group"
             >
               <div className="flex items-center gap-2">
-                <Plus size={14} className="text-muted-foreground group-hover:text-foreground" />
-                <span className="text-sm text-foreground">{p.label}</span>
+                <Plus size={14} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-medium text-foreground">{p.label}</span>
               </div>
               <div className="text-xs text-muted-foreground mt-0.5 ml-5 line-clamp-2">
                 {p.description}
@@ -58,25 +58,25 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
         </div>
       </div>
 
-      <div className="border-t border-border pt-4">
-        <div className="flex items-center justify-between gap-2 mb-2">
+      <div className="border-t border-border/80 pt-4">
+        <div className="flex items-center justify-between gap-2 mb-3">
           <div>
-            <h3 className="text-sm font-medium text-foreground">Rule-set library</h3>
+            <h3 className="text-sm font-semibold text-foreground">Rule-set library</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               Pre-built rule-sets (Loyalsoldier / meta-rules-dat). Use the
               rule-set tag in any rule's <em>Rule-set</em> field.
             </p>
           </div>
-          <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5 text-xs">
+          <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-[#0b0c12] p-0.5 text-xs">
             {(["all", "loyalsoldier", "meta"] as const).map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => setSource(s)}
                 className={cn(
-                  "px-2 py-1 rounded transition",
+                  "px-2.5 py-1 rounded-md text-xs font-mono transition",
                   source === s
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-emerald-500 text-zinc-950 font-medium shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >

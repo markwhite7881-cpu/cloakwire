@@ -2,24 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   ChevronDown,
+  Link2,
   Loader2,
+  Plus,
   Power,
   Server,
   Sparkles,
   TrendingDown,
   TrendingUp,
+  X,
 } from "lucide-react";
+import { Button } from "@/components/Button";
 import { Card, CardContent } from "@/components/Card";
 import { Badge } from "@/components/Badge";
 import { FlagIcon } from "@/components/FlagIcon";
-import { UpdateCard } from "@/components/UpdateCard";
 import { useTrafficStream } from "@/hooks/useTrafficStream";
 import { latencyToBars, useServerLatency } from "@/hooks/useServerLatency";
 import { cn } from "@/lib/utils";
 import { flagForProfile } from "@/lib/flags";
 import { profileLabel, profileEndpoint, isSupported } from "@/lib/outbound";
 import { isValidProfileSelection } from "@/lib/profileSelection";
-import type { HomeProfileMetadata, Status, StatusReport } from "@/lib/types";
+import type { HomeProfileMetadata, RoutingOptions, Status, StatusReport, TrafficSample } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
 const inTauri =
@@ -47,14 +50,12 @@ export interface HomeTabProps {
   subscriptionNames: ReadonlyMap<string, string>;
   /** ip → country-code map, populated by the useGeoIp hook. */
   geoipByIp: Record<string, string>;
-  /** sing-box version string, fetched on app start. */
-  currentSingboxVersion: string | null;
-  /** Fires after a successful sing-box auto-update so the parent
-   *  can re-fetch the version. */
-  onSingboxUpdated: () => void;
   onSelect: (index: number) => void;
   onConnect: () => void;
   onDisconnect: () => void;
+  routingOptions?: RoutingOptions;
+  onNavigateTab?: (tab: string) => void;
+  onAddLinks?: (text: string) => void;
 }
 
 export function HomeTab({
@@ -63,19 +64,23 @@ export function HomeTab({
   busy,
   error,
   canStart,
-  configName,
+  configName: _configName,
   profiles,
   selectedIndex,
   activeOutbound,
   readyProfileMetadata,
   subscriptionNames,
   geoipByIp,
-  currentSingboxVersion,
-  onSingboxUpdated,
   onSelect,
   onConnect,
   onDisconnect,
+  routingOptions,
+  onNavigateTab,
+  onAddLinks,
 }: HomeTabProps) {
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddText, setQuickAddText] = useState("");
+
   const isRunning = statusLabel === "running";
   const isTransition = statusLabel === "starting" || statusLabel === "stopping";
   const trafficLive = useTrafficStream(isRunning || !inTauri, profiles.length);
@@ -119,9 +124,6 @@ export function HomeTab({
     ? connectionProfileDisplay(activeXrayProfile, readyProfileMetadata, geoipByIp, latency.byTag)
     : { flag: "🌐", code: "??", label: status.profile_name ?? "Xray", ms: undefined };
 
-  // Resolve the live `activeOutbound` tag (if any) to a profile, so
-  // we can show the flag + friendly name in the hero. "auto" is
-  // special — the urltest group is in charge, not a single server.
   const activeIsAuto = activeOutbound === "auto";
   const activeProfile = activeOutbound
     ? profiles.find(
@@ -149,10 +151,6 @@ export function HomeTab({
     : activeSupported
       ? profileLabel(activeSupported)
       : null;
-  // Mismatch = user pinned one server, but the running selector is
-  // on a different one. Happens with "Auto" once urltest migrates.
-  // We surface this so the user can see at a glance why a request
-  // that picked "Казахстан" went through "Нидерланды" instead.
   const selectedManual = selected?.kind === "manual" ? selected.outbound : null;
   const activeMatchesPicked =
     activeOutbound == null ||
@@ -165,151 +163,219 @@ export function HomeTab({
         : null
     : null;
 
-  return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
-      {/* Hero — the single most prominent surface in the app. */}
-      <Card className="overflow-hidden">
-        <CardContent className="flex flex-col items-center gap-6 p-10 text-center">
-          {/* Server picker (above the icon) */}
-          <ServerPicker
-            profiles={profiles}
-            selectedIndex={selectedIndex}
-            latencyByTag={latency.byTag}
-            readyProfileMetadata={readyProfileMetadata}
-            subscriptionNames={subscriptionNames}
-            geoipByIp={geoipByIp}
-            onSelect={onSelect}
-          />
+  const vpnProcesses = routingOptions?.vpn_processes ?? [];
+  const directProcesses = routingOptions?.direct_processes ?? [];
 
-          {/* The power button is BOTH the icon and the action — no
-              separate "Connect" / "Disconnect" pill below. One click
-              toggles the tunnel; its visual state (border + glow +
-              icon) tells the user whether they're connected. The
-              green-when-connected treatment borrows the universal
-              "ready" colour so the state is readable at a glance,
-              even before you read the headline. */}
-          <button
-            type="button"
-            onClick={isRunning ? onDisconnect : onConnect}
-            disabled={busy || isTransition || (!isRunning && !canStart)}
-            aria-label={isRunning ? "Disconnect" : "Connect"}
-            className={cn(
-              "group relative flex h-20 w-20 items-center justify-center rounded-full",
-              "border-2 transition-all duration-200",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40",
-              "disabled:cursor-not-allowed",
-              "shadow-lg",
-              powerButtonClasses(statusLabel),
-            )}
-          >
-            {isTransition ? (
-              <Loader2 className="h-8 w-8 animate-spin text-foreground/70" />
-            ) : (
-              <Power
-                className={cn(
-                  "h-8 w-8 transition-transform group-hover:scale-110",
-                  isRunning ? "text-success" : "",
-                )}
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6">
+      
+      {/* ─── Bento Grid: 12-Column Layout ────────────────────────── */}
+      <div className="grid grid-cols-12 gap-5">
+        
+        {/* Bento 1: Primary Hero Connect Card (7 cols on desktop) */}
+        <div className="col-span-7 bento-card rounded-2xl p-6 sm:p-7 flex flex-col justify-between relative z-20 group">
+          <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
+          </div>
+
+          {/* Top Info inside Hero */}
+          <div className="relative z-30 flex w-full items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                Active Tunnel
+              </div>
+              <ServerPicker
+                profiles={profiles}
+                selectedIndex={selectedIndex}
+                latencyByTag={latency.byTag}
+                readyProfileMetadata={readyProfileMetadata}
+                subscriptionNames={subscriptionNames}
+                geoipByIp={geoipByIp}
+                onSelect={onSelect}
               />
-            )}
-          </button>
-          <div className="space-y-1">
-            <div className="flex items-center justify-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">{headline}</h1>
-              {isRunning && (
-                <Badge variant="default" className="text-[10px]">
-                  <Sparkles className="h-3 w-3" />
-                  live
-                </Badge>
-              )}
             </div>
-            <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-              {isRunning
-                ? isXrayRunning
-                  ? <>
-                      <span>via</span>
-                      <FlagIcon code={activeXrayDisplay.code} size={14} className="self-center" />
-                      <span>{status.profile_name ?? activeXrayDisplay.label}</span>
-                    </>
-                  : activeName && activeFlag
+
+            <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 font-mono text-[11px] text-muted-foreground shadow-sm">
+              {isXrayRunning
+                ? "Xray Core"
+                : activeSupported?.protocol
+                  ? `${activeSupported.protocol.toUpperCase()} ${"tls" in activeSupported && activeSupported.tls?.reality ? "• Reality" : ""}`
+                  : "sing-box"}
+            </span>
+          </div>
+
+          {/* Center Tactile Power Orb */}
+          <div className="relative z-10 my-8 flex flex-col items-center justify-center text-center">
+            <div className="relative flex items-center justify-center">
+              {isRunning && (
+                <div className="absolute h-28 w-28 rounded-full bg-emerald-500/25 animate-ping opacity-40 pointer-events-none" />
+              )}
+              <button
+                type="button"
+                onClick={isRunning ? onDisconnect : onConnect}
+                disabled={busy || isTransition || (!isRunning && !canStart)}
+                aria-label={isRunning ? "Disconnect" : "Connect"}
+                className={cn(
+                  "group relative flex h-24 w-24 items-center justify-center rounded-full",
+                  "border-2 transition-all duration-300",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                  "disabled:cursor-not-allowed",
+                  powerButtonClasses(statusLabel),
+                )}
+              >
+                {isTransition ? (
+                  <Loader2 className="h-9 w-9 animate-spin text-foreground/80" />
+                ) : (
+                  <Power
+                    className={cn(
+                      "h-10 w-10 transition-transform duration-200 group-hover:scale-110",
+                      isRunning ? "text-zinc-950 stroke-[2.5]" : "text-muted-foreground",
+                    )}
+                  />
+                )}
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-1">
+              <div className="flex items-center justify-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-foreground">{headline}</h1>
+                {isRunning && (
+                  <Badge variant="default" className="bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 text-[10px]">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    live
+                  </Badge>
+                )}
+              </div>
+              <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                {isRunning
+                  ? isXrayRunning
                     ? <>
                         <span>via</span>
-                        <FlagIcon code={activeFlag.code} size={14} className="self-center" />
-                        <span>{activeName}</span>
+                        <FlagIcon code={activeXrayDisplay.code} size={14} className="self-center" />
+                        <span className="font-medium text-foreground">{status.profile_name ?? activeXrayDisplay.label}</span>
                       </>
-                    : "sing-box is running."
-                : profiles.length === 0
-                  ? "Add a server in the Servers tab to get started."
-                  : "Click the power button to bring the tunnel up."}
-            </p>
-            {isRunning && !isXrayRunning && userPicked && (
-              <p className="font-mono text-[10px] text-muted-foreground/70">
-                picked: {userPicked}
+                    : activeName && activeFlag
+                      ? <>
+                          <span>via</span>
+                          <FlagIcon code={activeFlag.code} size={14} className="self-center" />
+                          <span className="font-medium text-foreground">{activeName}</span>
+                        </>
+                      : "sing-box is running."
+                  : profiles.length === 0
+                    ? "Add a server in the Servers tab to get started."
+                    : "Click the button to bring the tunnel up."}
               </p>
+              {isRunning && !isXrayRunning && userPicked && (
+                <p className="font-mono text-[10px] text-muted-foreground/70">
+                  picked: {userPicked}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom of Hero */}
+          <div className="relative z-10 border-t border-border/60 pt-3 flex items-center justify-between text-[11px] font-mono text-muted-foreground/70">
+            <span>TUN Mode • Protected</span>
+            <span>{isXrayRunning ? "Xray Core" : "sing-box Core"}</span>
+          </div>
+        </div>
+
+        {/* Right Column (5 cols on desktop): Live Traffic & Per-App Routing */}
+        <div className="col-span-5 flex flex-col gap-5">
+          
+          {/* Bento 2: Live Traffic */}
+          <div className="bento-card rounded-2xl p-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                Live Traffic
+              </span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {isRunning ? (status.engine ? `${status.engine} engine` : "sing-box") : "idle"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              <div className="rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
+                  <TrendingDown className="h-3.5 w-3.5 text-emerald-500" />
+                  Download
+                </div>
+                <p className="mt-1 font-mono text-xl font-bold tabular-nums text-foreground">
+                  {formatRate(current?.down_bps ?? 0)}
+                </p>
+                <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                  total {formatBytes(current?.down_total ?? 0)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
+                  <TrendingUp className="h-3.5 w-3.5 text-cyan-500" />
+                  Upload
+                </div>
+                <p className="mt-1 font-mono text-xl font-bold tabular-nums text-foreground">
+                  {formatRate(current?.up_bps ?? 0)}
+                </p>
+                <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                  total {formatBytes(current?.up_total ?? 0)}
+                </p>
+              </div>
+            </div>
+
+            {/* Dynamic Non-Clipping Sensitive SVG Sparkline */}
+            <SparklineWave isRunning={isRunning} samples={trafficLive.samples} current={current} />
+          </div>
+
+          {/* Bento 3: Per-App Split Tunneling Snapshot */}
+          <div className="bento-card rounded-2xl p-5 flex flex-col justify-between flex-1">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                Per-App Routing
+              </span>
+              <button
+                type="button"
+                onClick={() => onNavigateTab?.("routing")}
+                className="text-xs text-emerald-400 hover:underline cursor-pointer flex items-center gap-1 font-medium"
+              >
+                Manage ({vpnProcesses.length + directProcesses.length} active) ↗
+              </button>
+            </div>
+
+            {vpnProcesses.length === 0 && directProcesses.length === 0 ? (
+              <div className="text-xs text-muted-foreground/80 py-1">
+                All applications route through VPN by default. Click manage to customize split tunneling.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                {vpnProcesses.slice(0, 4).map((app: string) => (
+                  <div key={app} className="flex items-center gap-1.5 bg-background/70 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span className="font-mono text-foreground text-[11px]">{app}</span>
+                    <span className="text-[10px] text-emerald-400 font-mono">VPN</span>
+                  </div>
+                ))}
+                {directProcesses.slice(0, 2).map((app: string) => (
+                  <div key={app} className="flex items-center gap-1.5 bg-background/50 border border-border/80 px-2.5 py-1 rounded-lg text-xs text-muted-foreground">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                    <span className="font-mono text-[11px]">{app}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">Direct</span>
+                  </div>
+                ))}
+                {vpnProcesses.length + directProcesses.length > 6 && (
+                  <span className="text-[10px] font-mono text-muted-foreground self-center">
+                    +{vpnProcesses.length + directProcesses.length - 6} more
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
-          {!canStart && !isRunning && !isTransition && (
-            <p className="text-[11px] text-muted-foreground">
-              {profiles.length === 0
-                ? "No servers yet — head to Servers to import a link."
-                : "Click above to bring the tunnel up."}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Live traffic direction remains distinguishable through labels and icons. */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <TrendingDown className="h-3 w-3" />
-              Download
-            </div>
-            <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-foreground">
-              {formatRate(current?.down_bps ?? 0)}
-            </p>
-            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-              total {formatBytes(current?.down_total ?? 0)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <TrendingUp className="h-3 w-3" />
-              Upload
-            </div>
-            <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-foreground">
-              {formatRate(current?.up_bps ?? 0)}
-            </p>
-            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-              total {formatBytes(current?.up_total ?? 0)}
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Process info */}
-      <Card>
-        <CardContent className="grid grid-cols-3 gap-4 p-4 text-center sm:grid-cols-3">
-          <Metric label="Status" value={statusLabel} />
-          <Metric
-            label="Uptime"
-            value={formatUptime(status.uptime_secs)}
-            mono
-          />
-          <Metric
-            label="Config"
-            value={configName || "—"}
-            mono
-          />
-        </CardContent>
-      </Card>
-
       {error && (
-        <Card className="border-destructive/30 bg-destructive/5">
+        <Card className="border-destructive/30 bg-destructive/10">
           <CardContent className="flex items-start gap-2 p-3 text-xs text-destructive">
             <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span className="break-words">{error}</span>
@@ -319,13 +385,23 @@ export function HomeTab({
 
       {/* All-servers strip — quick visual switcher. */}
       {profiles.length > 0 && (
-        <Card>
-          <CardContent className="p-3">
-            <div className="mb-2 flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <Server className="h-3 w-3" />
-              Servers ({profiles.length})
+        <Card className="bento-card p-4">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <div className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+              <Server className="h-3.5 w-3.5 text-emerald-400" />
+              All Servers ({profiles.length})
             </div>
-            <GroupedHomeProfileRows
+            <button
+              type="button"
+              onClick={() => setQuickAddOpen(true)}
+              className="flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-950/60 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900/60 transition shadow-sm"
+              title="Add Server or Subscription"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add</span>
+            </button>
+          </div>
+          <GroupedHomeProfileRows
             profiles={profiles}
             selectedIndex={selectedIndex}
             readyProfileMetadata={readyProfileMetadata}
@@ -335,15 +411,268 @@ export function HomeTab({
             onSelect={onSelect}
             mode="grid"
           />
-          </CardContent>
         </Card>
       )}
 
-      {/* App shell + sing-box auto-update. Auto-checks on mount; the
-          user can force a refresh with the per-row Check button. */}
-      <UpdateCard
-        currentSingboxVersion={currentSingboxVersion}
-        onSingboxUpdated={onSingboxUpdated}
+      {/* Quick Add Modal */}
+      {quickAddOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setQuickAddOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-border/90 bg-[#0c0d14] p-6 shadow-2xl space-y-4 ring-1 ring-white/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/50 p-2 text-emerald-400">
+                  <Link2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">
+                    Add Server or Subscription
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Paste share links or subscription URLs (one per line)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAddOpen(false)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <textarea
+              value={quickAddText}
+              onChange={(e) => setQuickAddText(e.target.value)}
+              placeholder={
+                "vless://uuid@host:port?type=tcp&security=reality&pbk=...\n" +
+                "https://provider.example.com/sub?token=ABCD-1234"
+              }
+              className="min-h-[120px] w-full resize-y rounded-xl border border-border/80 bg-[#07080c] px-3.5 py-2.5 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-emerald-500/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+              spellCheck={false}
+              autoFocus
+            />
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickAddOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!quickAddText.trim()}
+                onClick={() => {
+                  if (quickAddText.trim()) {
+                    onAddLinks?.(quickAddText.trim());
+                    setQuickAddText("");
+                    setQuickAddOpen(false);
+                  }
+                }}
+                className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium px-4"
+              >
+                Import
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SparklineWave({
+  isRunning,
+  samples,
+  current,
+}: {
+  isRunning: boolean;
+  samples: TrafficSample[];
+  current: TrafficSample | null;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Keep target samples in a ref so the animation loop always accesses the latest data
+  const dataRef = useRef({
+    samples,
+    current,
+    isRunning,
+  });
+  dataRef.current = { samples, current, isRunning };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    const pointCount = 28;
+    const currentDown = new Float32Array(pointCount);
+    const currentUp = new Float32Array(pointCount);
+    let smoothedPeak = 1024 * 32;
+
+    const startTime = performance.now();
+
+    const render = (now: number) => {
+      const { samples: liveSamples, current: liveCurrent, isRunning: active } = dataRef.current;
+      const elapsed = (now - startTime) / 1000;
+
+      // Handle high-DPI crisp canvas rendering
+      const dpr = window.devicePixelRatio || 1;
+      const width = canvas.clientWidth || 240;
+      const height = canvas.clientHeight || 54;
+      if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+      }
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      const bottomY = height - 6;
+      const topY = 6;
+      const usableHeight = bottomY - topY;
+
+      // Extract target values from recent samples
+      const recent = liveSamples.slice(-pointCount);
+      const rawMaxDown = Math.max(...recent.map((s) => s.down_bps), liveCurrent?.down_bps ?? 0, 0);
+      const rawMaxUp = Math.max(...recent.map((s) => s.up_bps), liveCurrent?.up_bps ?? 0, 0);
+      const rawPeak = Math.max(rawMaxDown, rawMaxUp);
+      const targetPeak = Math.max(rawPeak, 1024 * 16);
+
+      // Smooth peak scale transition
+      smoothedPeak += (targetPeak - smoothedPeak) * 0.08;
+
+      // Calculate target down/up points with LERP
+      for (let i = 0; i < pointCount; i++) {
+        const sampleIdx = recent.length - pointCount + i;
+        const s = sampleIdx >= 0 ? recent[sampleIdx] : undefined;
+        const downBps = s ? s.down_bps : 0;
+        const upBps = s ? s.up_bps : 0;
+
+        const targetRatioDown = Math.min(1, Math.max(0, downBps / smoothedPeak));
+        const targetRatioUp = Math.min(1, Math.max(0, upBps / smoothedPeak));
+
+        const targetScaledDown = Math.pow(targetRatioDown, 0.7);
+        const targetScaledUp = Math.pow(targetRatioUp, 0.7);
+
+        // Organic idle breathing wave
+        const idleWave = active
+          ? (Math.sin(elapsed * 2.5 + (i / pointCount) * Math.PI * 2) * 0.5 + 0.5) * 0.08
+          : 0.02;
+
+        const finalTargetDown = Math.max(targetScaledDown, idleWave);
+        const finalTargetUp = targetScaledUp;
+
+        // Smooth LERP per frame (fluid 60 FPS easing)
+        currentDown[i] += (finalTargetDown - currentDown[i]) * 0.1;
+        currentUp[i] += (finalTargetUp - currentUp[i]) * 0.1;
+      }
+
+      // Build points coordinates
+      const downPoints: { x: number; y: number }[] = [];
+      const upPoints: { x: number; y: number }[] = [];
+
+      for (let i = 0; i < pointCount; i++) {
+        const x = (i / (pointCount - 1)) * width;
+        const yDown = bottomY - currentDown[i] * usableHeight;
+        const yUp = bottomY - currentUp[i] * usableHeight;
+        downPoints.push({ x, y: yDown });
+        upPoints.push({ x, y: yUp });
+      }
+
+      // Draw Download Wave Fill Gradient
+      const grad = ctx.createLinearGradient(0, topY, 0, bottomY);
+      grad.addColorStop(0, active ? "rgba(16, 185, 129, 0.35)" : "rgba(16, 185, 129, 0.08)");
+      grad.addColorStop(1, "rgba(16, 185, 129, 0.0)");
+
+      ctx.beginPath();
+      ctx.moveTo(downPoints[0].x, downPoints[0].y);
+      for (let i = 0; i < downPoints.length - 1; i++) {
+        const p0 = downPoints[i];
+        const p1 = downPoints[i + 1];
+        const mx = (p0.x + p1.x) / 2;
+        ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
+      }
+      ctx.lineTo(width, height);
+      ctx.lineTo(0, height);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Draw Download Main Curve Line with subtle glow
+      ctx.beginPath();
+      ctx.moveTo(downPoints[0].x, downPoints[0].y);
+      for (let i = 0; i < downPoints.length - 1; i++) {
+        const p0 = downPoints[i];
+        const p1 = downPoints[i + 1];
+        const mx = (p0.x + p1.x) / 2;
+        ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
+      }
+      ctx.strokeStyle = active ? "#10b981" : "#3f3f46";
+      ctx.lineWidth = active ? 2.5 : 1.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      if (active) {
+        ctx.shadowColor = "rgba(16, 185, 129, 0.45)";
+        ctx.shadowBlur = 6;
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Draw Upload Line if active and has data
+      if (active && rawMaxUp > 0) {
+        ctx.beginPath();
+        ctx.moveTo(upPoints[0].x, upPoints[0].y);
+        for (let i = 0; i < upPoints.length - 1; i++) {
+          const p0 = upPoints[i];
+          const p1 = upPoints[i + 1];
+          const mx = (p0.x + p1.x) / 2;
+          ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
+        }
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Draw Leading Pulse Point on active
+      if (active) {
+        const lastPt = downPoints[downPoints.length - 1];
+        const pulse = Math.sin(elapsed * 4) * 0.5 + 0.5;
+        ctx.beginPath();
+        ctx.arc(lastPt.x - 2, lastPt.y, 3 + pulse * 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#34d399";
+        ctx.fill();
+        ctx.strokeStyle = "#090a0f";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  return (
+    <div className="h-14 w-full pt-1 relative overflow-hidden">
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block pointer-events-none"
       />
     </div>
   );
@@ -351,12 +680,12 @@ export function HomeTab({
 
 export function powerButtonClasses(statusLabel: Status): string {
   if (statusLabel === "running") {
-    return "border-success/40 bg-success/10 text-success shadow-success/20 hover:border-success/60 hover:bg-success/15 focus-visible:ring-success/40";
+    return "border-emerald-500/50 bg-success bg-gradient-to-tr from-emerald-500 to-teal-400 text-zinc-950 glow-button shadow-xl shadow-emerald-500/30 hover:scale-105 active:scale-95";
   }
   if (statusLabel === "starting" || statusLabel === "stopping") {
     return "border-foreground/20 bg-foreground/5";
   }
-  return "border-muted-foreground/40 bg-muted/40 text-muted-foreground hover:border-foreground/50 hover:bg-muted/60 hover:text-foreground";
+  return "border-muted-foreground/40 bg-muted/40 text-muted-foreground hover:border-foreground/50 hover:bg-muted/60 hover:text-foreground hover:scale-105 active:scale-95";
 }
 
 function connectionProfileLabel(profile: ConnectionProfile): string {
@@ -471,19 +800,25 @@ function ProfileChoice({
   compact: boolean;
 }) {
   const display = connectionProfileDisplay(row.profile, readyProfileMetadata, geoipByIp, latencyByTag);
+  const isSelected = row.index === selectedIndex;
   return (
     <button
       type="button"
-      onClick={() => {
+      onClick={(e) => {
+        e.stopPropagation();
         onSelect(row.index);
         onSelectionDone?.();
       }}
       className={cn(
-        "flex w-full items-center gap-2 rounded text-left text-xs transition-colors",
-        compact ? "px-2 py-1.5" : "border border-border bg-card/30 px-2 py-1.5 hover:bg-accent",
-        row.index === selectedIndex
-          ? compact ? "bg-foreground/5" : "border-foreground/30 bg-foreground/5"
-          : compact ? "hover:bg-accent" : "",
+        "flex w-full items-center gap-2 rounded-lg text-left text-xs transition-colors",
+        compact ? "px-2.5 py-2" : "border border-border/80 bg-[#07080c]/60 px-3 py-2 hover:bg-secondary/80",
+        isSelected
+          ? compact
+            ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800/50 font-medium"
+            : "border-emerald-500/50 bg-emerald-950/40 text-emerald-300 font-medium"
+          : compact
+            ? "hover:bg-secondary/80 text-foreground"
+            : "hover:border-border text-foreground",
       )}
     >
       <FlagIcon code={display.code} size={compact ? 16 : 14} className="shrink-0 self-center" />
@@ -516,7 +851,10 @@ function GroupedHomeProfileRows({
   mode: "picker" | "grid";
 }) {
   const grouped = groupHomeProfiles(profiles);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // In picker mode, expand all subscription groups by default so all servers are immediately selectable
+  const [expanded, setExpanded] = useState<Set<string>>(() =>
+    new Set(grouped.subscriptions.map((g) => g.id)),
+  );
   const selected = profiles[selectedIndex];
   const selectedSubscriptionId = selected?.kind === "subscription"
     ? selected.reference.subscription_id
@@ -556,7 +894,7 @@ function GroupedHomeProfileRows({
                 <ProfileChoice key={row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} />
               ))}
             </div>
-          ) : <ul className="list-none">{renderRows(grouped.manual)}</ul>}
+          ) : <ul className="list-none space-y-1">{renderRows(grouped.manual)}</ul>}
         </li>
       )}
       {grouped.subscriptions.map((group) => {
@@ -565,25 +903,30 @@ function GroupedHomeProfileRows({
           <li className="list-none" key={group.id}>
             <button
               type="button"
-              onClick={() => setExpanded((current) => {
-                const next = new Set(current);
-                if (next.has(group.id)) next.delete(group.id); else next.add(group.id);
-                return next;
-              })}
-              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[10px] uppercase tracking-wider text-muted-foreground hover:bg-accent"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setExpanded((current) => {
+                  const next = new Set(current);
+                  if (next.has(group.id)) next.delete(group.id); else next.add(group.id);
+                  return next;
+                });
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[10px] uppercase tracking-wider text-muted-foreground hover:bg-secondary/80 hover:text-foreground transition"
               aria-expanded={isExpanded}
             >
               <ChevronDown className={cn("h-3 w-3 transition-transform", !isExpanded && "-rotate-90")} />
-              <span className="min-w-0 flex-1 truncate">{subscriptionGroupLabel(group.id, subscriptionNames)}</span>
-              <span className="font-mono normal-case">{group.rows.length}</span>
+              <span className="min-w-0 flex-1 truncate font-medium">{subscriptionGroupLabel(group.id, subscriptionNames)}</span>
+              <span className="font-mono normal-case rounded bg-background/50 px-1.5 py-0.2 text-[10px]">{group.rows.length}</span>
             </button>
             {isExpanded && (mode === "grid" ? (
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 pt-1">
                 {group.rows.map((row) => (
                   <ProfileChoice key={row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} />
                 ))}
               </div>
-            ) : <ul className="list-none">{renderRows(group.rows)}</ul>)}
+            ) : <ul className="list-none space-y-1 pt-1">{renderRows(group.rows)}</ul>)}
           </li>
         );
       })}
@@ -644,14 +987,18 @@ function ServerPicker({
   const selectedMs = selectedDisplay?.ms;
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative z-50">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((value) => !value);
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
         disabled={profiles.length === 0}
         className={cn(
-          "flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1.5 text-xs",
-          "hover:bg-accent disabled:opacity-50",
+          "flex items-center gap-2 rounded-full border border-border/80 bg-background/80 px-3 py-1.5 text-xs shadow-sm",
+          "hover:bg-secondary hover:border-border transition-all disabled:opacity-50",
         )}
       >
         <FlagIcon code={selectedFlag.code} size={16} className="shrink-0" />
@@ -667,26 +1014,28 @@ function ServerPicker({
       {open && profiles.length > 0 && (
         <div
           className={cn(
-            "absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2",
-            "w-80 max-h-96 overflow-auto rounded-md border border-border bg-card shadow-2xl",
+            "absolute left-0 top-full z-[100] mt-2",
+            "w-84 max-h-96 overflow-y-auto rounded-xl border border-border/90 bg-[#0c0d14] shadow-2xl shadow-black/95 p-1.5 backdrop-blur-xl ring-1 ring-white/10",
           )}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          <ul className="p-1">
-            {/* "Auto" entry — resets default_outbound to null so
-                the `auto` urltest decides based on latency. We use
-                index -1 to mean "no specific pick". */}
+          <ul className="space-y-1">
+            {/* "Auto" entry */}
             <li>
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   onSelect(-1);
                   setOpen(false);
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs",
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition",
                   selectedIndex === -1
-                    ? "bg-foreground/5"
-                    : "hover:bg-accent",
+                    ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800/50 font-medium"
+                    : "hover:bg-secondary/80 text-foreground",
                 )}
               >
                 <span
@@ -710,7 +1059,10 @@ function ServerPicker({
               subscriptionNames={subscriptionNames}
               geoipByIp={geoipByIp}
               latencyByTag={latencyByTag}
-              onSelect={onSelect}
+              onSelect={(idx) => {
+                onSelect(idx);
+                setOpen(false);
+              }}
               onSelectionDone={() => setOpen(false)}
               mode="picker"
             />

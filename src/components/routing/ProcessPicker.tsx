@@ -130,40 +130,40 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
   };
 
   return (
-    <div className="mt-2 rounded-md border border-border bg-background/40">
+    <div className="mt-3 rounded-xl border border-border/80 bg-[#07080c] overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         disabled={disabled}
         className={cn(
-          "w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground",
+          "w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-muted-foreground hover:text-foreground font-medium transition",
           disabled && "opacity-50 cursor-not-allowed hover:text-muted-foreground",
         )}
       >
-        <span className="flex items-center gap-1.5">
-          <ListChecks size={12} />
+        <span className="flex items-center gap-2">
+          <ListChecks size={13} className="text-emerald-400" />
           {open ? "Hide process list" : "Pick from running processes…"}
         </span>
         {selected.length > 0 && (
-          <span className="text-[10px] text-foreground/80">
-            {selected.length} selected
+          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+            {selected.length} active
           </span>
         )}
       </button>
       {open && (
-        <div className="border-t border-border p-2 space-y-2">
+        <div className="border-t border-border/80 p-3 space-y-3">
           {/* Search + refresh */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search process name…"
               disabled={disabled}
-              className="flex-1 rounded-md bg-background border border-input px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-lg bg-[#0b0c12] border border-border/80 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={browseExecutable}
               disabled={disabled || browsing}
@@ -176,7 +176,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
               )}
             </Button>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={fetchList}
               disabled={loading}
@@ -192,7 +192,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
 
           {/* Status line */}
           {error ? (
-            <div className="rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] text-destructive-foreground flex items-center justify-between">
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive-foreground flex items-center justify-between font-mono">
               <span>Failed to list processes: {error}</span>
               <button
                 type="button"
@@ -204,16 +204,16 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
               </button>
             </div>
           ) : loading && processes.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground px-1">
+            <div className="text-[11px] text-muted-foreground px-1 font-mono">
               Loading processes…
             </div>
           ) : processes.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground px-1">
+            <div className="text-[11px] text-muted-foreground px-1 font-mono">
               No running processes available. You can still use the file
               button above to choose any installed executable.
             </div>
           ) : (
-            <div className="text-[11px] text-muted-foreground px-1">
+            <div className="text-[11px] text-muted-foreground px-1 font-mono">
               {filtered.length} of {processes.length}
               {query && ` matching “${query}”`}
             </div>
@@ -221,7 +221,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
 
           {/* List */}
           {filtered.length > 0 && (
-            <div className="max-h-56 overflow-y-auto rounded border border-border bg-background">
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-border/80 bg-[#0b0c12] p-1 divide-y divide-border/20">
               {filtered.map((p) => {
                 const active = selectedSet.has(SELECTED_KEY(p.name));
                 return (
@@ -231,23 +231,23 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
                     onClick={() => toggle(p.name)}
                     disabled={disabled}
                     className={cn(
-                      "w-full flex items-center justify-between gap-2 px-2 py-1 text-xs text-left transition",
-                      "hover:bg-accent",
-                      active && "bg-primary/15",
+                      "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs text-left rounded-md transition",
+                      "hover:bg-emerald-950/30",
+                      active && "bg-emerald-950/50 text-emerald-300 font-medium",
                       disabled && "opacity-50 cursor-not-allowed hover:bg-transparent",
                     )}
                   >
                     <span className="flex items-center gap-2 min-w-0">
                       <span
                         className={cn(
-                          "inline-block w-3 h-3 rounded-sm border flex-shrink-0",
+                          "inline-block w-3.5 h-3.5 rounded border flex-shrink-0 transition",
                           active
-                            ? "bg-primary border-primary"
-                            : "border-input",
+                            ? "bg-emerald-500 border-emerald-500"
+                            : "border-border/80 bg-background/50",
                         )}
                         aria-hidden
                       />
-                      <span className="truncate text-foreground">
+                      <span className="truncate text-foreground font-mono">
                         {p.name}
                       </span>
                     </span>

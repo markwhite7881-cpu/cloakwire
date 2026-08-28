@@ -207,8 +207,8 @@ export function ProfileCard({ outbound, geoipByIp, onRemove }: Props) {
   return (
     <div
       className={cn(
-        "group rounded-md border border-border bg-card/40 p-3 transition-colors",
-        "hover:border-primary/30"
+        "group rounded-xl border border-border/80 bg-card/60 p-3.5 transition-all duration-150 shadow-sm",
+        "hover:border-border hover:bg-card/90"
       )}
     >
       <div className="flex items-start gap-2">

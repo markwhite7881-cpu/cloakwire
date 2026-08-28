@@ -129,13 +129,13 @@ export function SettingsScreen({
     )?.id ?? "custom";
 
   const inputCls =
-    "rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring";
+    "rounded-xl border border-white/10 bg-[#07080c] px-3 py-2 text-xs text-foreground focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40";
 
   return (
     <div className="flex flex-col gap-4 p-4">
       <SectionCard>
         <SectionHeader title="General" />
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-white/5">
           <SettingRow
             label="Auto-connect"
             hint="Connect on app start."
@@ -145,15 +145,6 @@ export function SettingsScreen({
                 onChange={onAutoConnectChange}
                 label="Auto-connect"
               />
-            }
-          />
-          <SettingRow
-            label="VPN engines"
-            hint="Manual and share-link profiles use sing-box; bundle profiles use their declared engine."
-            control={
-              <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-200">
-                sing-box + xray
-              </span>
             }
           />
           <SettingRow
@@ -188,7 +179,7 @@ export function SettingsScreen({
 
       <SectionCard>
         <SectionHeader title="Network" />
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-white/5">
           <SettingRow
             label="DNS provider"
             control={
@@ -238,7 +229,7 @@ export function SettingsScreen({
 
       <SectionCard>
         <SectionHeader title="About" />
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-white/5">
           <SettingRow
             label="Core versions"
             hint="Bundled sing-box and Xray cores."
@@ -252,9 +243,9 @@ export function SettingsScreen({
             <button
               type="button"
               onClick={onOpenLogs}
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-border text-sm text-foreground active:bg-accent"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#07080c] text-sm text-foreground active:scale-[0.98] transition"
             >
-              <Terminal className="h-3.5 w-3.5" />
+              <Terminal className="h-4 w-4 text-emerald-400" />
               View logs
             </button>
           </div>
@@ -263,10 +254,10 @@ export function SettingsScreen({
               type="button"
               onClick={onRefreshAllSubs}
               disabled={subsFetching}
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-border text-sm text-foreground active:bg-accent disabled:opacity-50"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-zinc-950 text-sm font-semibold shadow-md shadow-emerald-500/20 active:scale-[0.98] transition disabled:opacity-50"
             >
               <RefreshCw
-                className={cn("h-3.5 w-3.5", subsFetching && "animate-spin")}
+                className={cn("h-4 w-4 stroke-[2.5]", subsFetching && "animate-spin")}
               />
               Check subscription updates
             </button>

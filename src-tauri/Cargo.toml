@@ -1,6 +1,6 @@
 [package]
 name = "cloakwire"
-version = "1.3.2"
+version = "1.4.0"
 description = "Cloakwire - privacy-first dual-engine GUI VPN client"
 authors = ["Alexey"]
 license = "MIT"

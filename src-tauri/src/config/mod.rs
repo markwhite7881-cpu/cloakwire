@@ -385,9 +385,11 @@ fn build_route(settings: &GeneratorSettings) -> Value {
     let r = &settings.routing;
 
     let mut rules: Vec<Value> = Vec::new();
-    // 0. DNS bypass — always on, hard-coded.
-    rules.push(json!({ "network": "dns", "action": "direct" }));
-    // 1. Optional sniff action.
+    // 0. DNS hijacking — capture DNS queries into sing-box's internal resolver.
+    rules.push(json!({ "action": "hijack-dns", "port": [53] }));
+    // 1. Private IP / LAN bypass — always route local traffic directly.
+    rules.push(json!({ "action": "route", "ip_is_private": true, "outbound": "direct" }));
+    // 2. Optional sniff action.
     if r.sniff {
         rules.push(json!({ "action": "sniff" }));
     }
@@ -862,14 +864,18 @@ mod tests {
 
     #[test]
     fn routing_includes_ipv6_reject_and_lan_bypass() {
-        // Routing 2.0 default: hard-coded DNS-bypass + sniff + empty
-        // user rules. Verify those two system rules are present.
+        // Routing 2.0 default: hard-coded hijack-dns + private IP bypass + sniff + empty
+        // user rules. Verify those system rules are present.
         let cfg = Config::build(&fixture_outbounds(), &GeneratorSettings::default());
         let rules = cfg["route"]["rules"].as_array().unwrap();
-        // DNS bypass (hard-coded)
+        // DNS hijack (hard-coded)
         assert!(rules
             .iter()
-            .any(|r| r.get("network") == Some(&json!("dns"))));
+            .any(|r| r.get("action") == Some(&json!("hijack-dns"))));
+        // Private IP bypass (hard-coded)
+        assert!(rules
+            .iter()
+            .any(|r| r.get("ip_is_private") == Some(&json!(true)) && r.get("outbound") == Some(&json!("direct"))));
         // Sniff action (since sniff=true by default)
         assert!(rules
             .iter()

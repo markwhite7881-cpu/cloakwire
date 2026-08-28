@@ -12,7 +12,7 @@ import cloakwireLogo from "@/assets/cloakwire-logo.png";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { StatusPill } from "@/components/StatusPill";
-import { Tabs, type TabDef } from "@/components/Tabs";
+import { TabBar, Tabs, type TabDef } from "@/components/Tabs";
 import { HomeTab } from "@/components/HomeTab";
 import { ServersTab } from "@/components/ServersTab";
 import { LogsTab } from "@/components/LogsTab";
@@ -934,11 +934,12 @@ export default function App() {
             readyProfileMetadata={readyProfileMetadata}
             subscriptionNames={subscriptionNames}
             geoipByIp={geoip.byIp}
-            currentSingboxVersion={version?.version ?? null}
-            onSingboxUpdated={refetchSingboxVersion}
             onSelect={onSelectProfile}
             onConnect={onStart}
             onDisconnect={onStop}
+            routingOptions={settings.routing}
+            onNavigateTab={(t) => setActiveTab(t as TabId)}
+            onAddLinks={(text) => setPendingLinks(text)}
           />
         ),
       },
@@ -991,6 +992,8 @@ export default function App() {
             onConfigPath={(p) => {
               if (p) setConfigPath(p);
             }}
+            currentSingboxVersion={version?.version ?? null}
+            onSingboxUpdated={refetchSingboxVersion}
           />
         ),
       },
@@ -1057,10 +1060,11 @@ export default function App() {
       {/* Decorative background grid (matches classquiz) */}
       <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
 
-      {/* Header — single slim row, brand + status + controls. */}
-      <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-border bg-card/40 px-6 py-2.5 backdrop-blur">
+      {/* Header — Unified Linear Bento Titlebar with Centered Segmented Nav */}
+      <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-border/80 bg-card/60 px-6 py-3 backdrop-blur-md">
+        {/* Left: Brand */}
         <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md bg-primary/15 ring-1 ring-primary/30">
+          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/30">
             <img
               src={cloakwireLogo}
               alt="Cloakwire"
@@ -1069,14 +1073,14 @@ export default function App() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold tracking-tight">
+              <h1 className="text-sm font-semibold tracking-tight text-foreground">
                 Cloakwire
               </h1>
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-mono border-border/70">
                 v1.3.2
               </Badge>
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] font-mono text-muted-foreground">
               {version || xrayVersion
                 ? [
                     version ? `sing-box ${version.version}` : null,
@@ -1084,10 +1088,19 @@ export default function App() {
                   ].filter(Boolean).join(" · ")
                 : binary?.exists
                   ? basename(binary.path)
-                  : "scanning for binaries…"}
+                  : "scanning binaries…"}
             </p>
           </div>
         </div>
+
+        {/* Center: Segmented Floating Pill Nav */}
+        <TabBar
+          tabs={tabs}
+          active={activeTab}
+          onChange={(id) => setActiveTab(id as TabId)}
+        />
+
+        {/* Right: Protection Status Pill */}
         <div className="flex items-center gap-2">
           <StatusPill
             status={status.status}
@@ -1134,12 +1147,8 @@ export default function App() {
       )}
 
       {/* Body — fills the rest of the viewport with the active tab. */}
-      <main className="relative z-10 flex min-h-0 flex-1 flex-col">
-        <Tabs
-          tabs={tabs}
-          active={activeTab}
-          onChange={(id) => setActiveTab(id as TabId)}
-        />
+      <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {tabs.find((t) => t.id === activeTab)?.content}
       </main>
     </div>
   );

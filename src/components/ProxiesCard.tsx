@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   ChevronDown,
@@ -161,17 +161,17 @@ export function ProxiesCard({ status }: Props) {
   );
 
   return (
-    <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+    <div className="bento-card rounded-2xl overflow-hidden">
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         aria-expanded={!collapsed}
-        className="flex w-full items-center justify-between gap-2 p-5 pb-3 text-left transition-colors hover:bg-card/60"
+        className="flex w-full items-center justify-between gap-2 p-5 pb-3 text-left transition-colors hover:bg-card/40"
       >
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
-              <Network className="h-4 w-4 text-muted-foreground" />
+              <Network className="h-4 w-4 text-emerald-400" />
               Proxies
               <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
                 {groups.length}

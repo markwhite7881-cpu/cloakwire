@@ -57,7 +57,7 @@ export function RoutingScreen({
           title="Mode"
           description="Where traffic goes when no rule matches."
         />
-        <div className="grid grid-cols-3 gap-1.5 p-3">
+        <div className="grid grid-cols-3 gap-2 p-3">
           {GLOBAL_MODES.map((m) => {
             const active = r.final_outbound === m.id;
             return (
@@ -68,10 +68,10 @@ export function RoutingScreen({
                 aria-pressed={active}
                 title={m.hint}
                 className={cn(
-                  "rounded-md border px-2 py-2 text-xs font-medium transition-colors",
+                  "rounded-xl border py-2.5 px-2 text-xs font-medium transition-all duration-200",
                   active
-                    ? "border-foreground/40 bg-foreground/10 text-foreground"
-                    : "border-border text-muted-foreground active:bg-accent active:text-foreground",
+                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 font-semibold shadow-sm"
+                    : "border-white/5 bg-[#07080c] text-muted-foreground active:scale-95 hover:text-foreground",
                 )}
               >
                 {m.label}
@@ -186,7 +186,7 @@ function PerAppSection({
     <SectionCard>
       <SectionHeader title="Per-app routing" />
       <div className="space-y-3 p-3">
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-2">
           {APP_MODES.map((m) => (
             <button
               key={m.id}
@@ -194,10 +194,10 @@ function PerAppSection({
               onClick={() => onModeChange(m.id)}
               aria-pressed={mode === m.id}
               className={cn(
-                "rounded-md border px-2 py-2 text-[11px] font-medium transition-colors",
+                "rounded-xl border py-2.5 px-2 text-[11px] font-medium transition-all duration-200",
                 mode === m.id
-                  ? "border-foreground/40 bg-foreground/10 text-foreground"
-                  : "border-border text-muted-foreground active:bg-accent active:text-foreground",
+                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 font-semibold shadow-sm"
+                  : "border-white/5 bg-[#07080c] text-muted-foreground active:scale-95 hover:text-foreground",
               )}
             >
               {m.label}
@@ -206,7 +206,7 @@ function PerAppSection({
         </div>
 
         {!hasRouteRules && appList.length === 0 && (
-          <div className="rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+          <div className="rounded-xl border border-white/5 bg-[#07080c] px-3.5 py-2.5 text-xs text-muted-foreground">
             Add a route rule or select apps to customize routing.
           </div>
         )}
@@ -216,9 +216,9 @@ function PerAppSection({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-xs text-foreground active:bg-accent"
+              className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#07080c] px-3.5 py-2.5 text-xs text-foreground active:bg-secondary/60 transition"
             >
-              <span>{pickerLabel}</span>
+              <span className="font-medium">{pickerLabel}</span>
               <ChevronDown
                 className={cn(
                   "h-3.5 w-3.5 text-muted-foreground transition-transform",
@@ -228,14 +228,14 @@ function PerAppSection({
             </button>
 
             {expanded && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 rounded-md border border-input bg-background px-2.5">
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#07080c] px-3">
                   <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search apps"
-                    className="h-8 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                    className="h-9 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
                   />
                 </div>
                 {error && <p className="text-xs text-destructive">{error}</p>}
@@ -255,29 +255,29 @@ function PerAppSection({
                   </p>
                 )}
                 {apps != null && (
-                  <ul className="max-h-72 divide-y divide-border overflow-y-auto rounded-md border border-border">
+                  <ul className="max-h-72 divide-y divide-white/5 overflow-y-auto rounded-xl border border-white/5 bg-[#07080c]">
                     {visibleApps.map((a) => (
                       <li key={a.packageName}>
                         <button
                           type="button"
                           onClick={() => toggle(a.packageName)}
-                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left active:bg-accent/60"
+                          className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left active:bg-secondary/60 transition"
                         >
                           <span
                             className={cn(
-                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition",
                               selected.has(a.packageName)
-                                ? "border-foreground/40 bg-foreground/10"
+                                ? "border-emerald-400 bg-emerald-500/20"
                                 : "border-muted-foreground/40",
                             )}
                             aria-hidden
                           >
                             {selected.has(a.packageName) && (
-                              <span className="h-2 w-2 rounded-sm bg-foreground" />
+                              <span className="h-2 w-2 rounded-sm bg-emerald-400" />
                             )}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-xs font-medium">
+                            <span className="block truncate text-xs font-medium text-foreground">
                               {a.label}
                             </span>
                             <span className="block truncate font-mono text-[10px] text-muted-foreground">
@@ -318,23 +318,31 @@ function summarizeMatchers(rule: CustomRule): string {
   if (m.domain_keyword?.length) parts.push(...m.domain_keyword.map((d) => `*${d}*`));
   if (m.ip_cidr?.length) parts.push(...m.ip_cidr);
   if (m.rule_set?.length) parts.push(...m.rule_set.map((t) => `[${t}]`));
-  if (m.port?.length) parts.push(...m.port.map((p) => `:${p}`));
-  if (m.process_name?.length) parts.push(...m.process_name);
-  return parts.join(", ") || "all traffic";
+  return parts.join(", ");
 }
 
-/** Guess the matcher for a typed value: CIDR/IP → ip_cidr, else domain_suffix. */
-function buildRule(group: RuleGroupId, value: string): CustomRule {
-  const isIp = /^[\d:.\/a-fA-F]+$/.test(value) && /[\d]/.test(value) && (value.includes("/") || value.includes(".") || value.includes(":"));
+function buildRule(group: RuleGroupId, input: string): CustomRule {
+  const trimmed = input.trim();
+  const isCidr =
+    /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(trimmed) ||
+    trimmed.includes(":");
+  const matchers = isCidr
+    ? { ip_cidr: [trimmed] }
+    : trimmed.startsWith("*.")
+      ? { domain_suffix: [trimmed.slice(2)] }
+      : trimmed.startsWith("[") && trimmed.endsWith("]")
+        ? { rule_set: [trimmed.slice(1, -1)] }
+        : { domain: [trimmed] };
+  const action =
+    group === "block"
+      ? ({ kind: "reject" } as const)
+      : ({ kind: "route", outbound: group === "direct" ? "direct" : "proxy" } as const);
   return {
     id: newRuleId(),
-    label: value,
+    label: trimmed,
     enabled: true,
-    matchers: isIp ? { ip_cidr: [value] } : { domain_suffix: [value] },
-    action:
-      group === "block"
-        ? { kind: "reject" }
-        : { kind: "route", outbound: group === "direct" ? "direct" : "proxy" },
+    matchers,
+    action,
   };
 }
 
@@ -362,26 +370,26 @@ function RuleGroup({
   };
 
   return (
-    <details className="group rounded-lg border border-border bg-card open:bg-card">
-      <summary className="flex cursor-pointer select-none list-none items-center gap-2 px-4 py-3 text-sm font-semibold tracking-tight [&::-webkit-details-marker]:hidden">
+    <details className="group bento-card rounded-2xl border border-white/5 bg-[#0c0d14]/90 open:bg-[#0c0d14]/90 shadow-lg">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-2 px-4 py-3.5 text-sm font-semibold tracking-tight text-foreground [&::-webkit-details-marker]:hidden">
         <span className="advanced-arrow text-xs text-muted-foreground" />
         {title}
-        <span className="text-[10px] font-normal text-muted-foreground">
+        <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono text-[10px] font-normal text-muted-foreground">
           {mine.length}
         </span>
       </summary>
-      <div className="space-y-2 border-t border-border px-3 pb-3 pt-2.5">
+      <div className="space-y-3 border-t border-white/5 px-4 pb-4 pt-3">
         <p className="text-[11px] text-muted-foreground">{hint}</p>
         {mine.length === 0 ? (
           <p className="py-1 text-[11px] italic text-muted-foreground/70">
             No entries.
           </p>
         ) : (
-          <ul className="divide-y divide-border rounded-md border border-border">
+          <ul className="divide-y divide-white/5 rounded-xl border border-white/5 bg-[#07080c]">
             {mine.map((rule) => (
-              <li key={rule.id} className="flex items-center gap-2 px-3 py-2">
+              <li key={rule.id} className="flex items-center gap-3 px-3.5 py-2.5">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">
+                  <p className="truncate text-xs font-medium text-foreground">
                     {rule.label || "rule"}
                   </p>
                   <p className="truncate font-mono text-[10px] text-muted-foreground">
@@ -403,7 +411,7 @@ function RuleGroup({
                   type="button"
                   onClick={() => onChange(rules.filter((r) => r.id !== rule.id))}
                   aria-label={`Remove ${rule.label || "rule"}`}
-                  className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground active:bg-destructive/10 active:text-destructive"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 transition"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -419,16 +427,16 @@ function RuleGroup({
               if (e.key === "Enter") add();
             }}
             placeholder={group === "block" ? "ads.example.com" : "example.com or 1.2.3.0/24"}
-            className="h-8 w-full rounded-md border border-input bg-background px-2.5 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-10 w-full rounded-xl border border-white/10 bg-[#07080c] px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-emerald-500/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
           />
           <button
             type="button"
             onClick={add}
             disabled={!value.trim()}
             aria-label="Add entry"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground active:bg-primary/90 disabled:opacity-50"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20 active:scale-95 transition disabled:opacity-50"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 stroke-[2.5]" />
           </button>
         </div>
       </div>

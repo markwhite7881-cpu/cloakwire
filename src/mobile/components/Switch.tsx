@@ -26,20 +26,20 @@ export function Switch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-11 shrink-0 rounded-full border transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "relative h-6 w-11 shrink-0 rounded-full border transition-all duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
         "disabled:cursor-not-allowed disabled:opacity-50",
         checked
-          ? "border-emerald-400/50 bg-emerald-500/25"
-          : "border-border bg-muted",
+          ? "border-emerald-500 bg-emerald-500 shadow-md shadow-emerald-500/25"
+          : "border-border/80 bg-[#07080c]",
       )}
     >
       <span
         className={cn(
-          "absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-all",
+          "absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-all duration-200",
           checked
-            ? "left-[calc(100%-1.25rem)] bg-emerald-300"
-            : "left-1 bg-muted-foreground",
+            ? "left-[calc(100%-1.25rem)] bg-zinc-950 shadow-sm"
+            : "left-1 bg-zinc-400",
         )}
       />
     </button>
