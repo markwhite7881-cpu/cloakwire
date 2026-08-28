@@ -12,8 +12,11 @@ if [ "${SKIP_TAURI_BUILD:-0}" != "1" ]; then
   npm run tauri:build -- --bundles deb,appimage
 fi
 
-DEB_DIR="src-tauri/target/release/bundle/deb"
-APPIMAGE_DIR="src-tauri/target/release/bundle/appimage"
+TARGET_BASE="${CARGO_TARGET_DIR:-src-tauri/target}"
+DEB_DIR="$TARGET_BASE/release/bundle/deb"
+APPIMAGE_DIR="$TARGET_BASE/release/bundle/appimage"
+if [ ! -d "$DEB_DIR" ]; then DEB_DIR="src-tauri/target/release/bundle/deb"; fi
+if [ ! -d "$APPIMAGE_DIR" ]; then APPIMAGE_DIR="src-tauri/target/release/bundle/appimage"; fi
 DEB_SRC="$(find "$DEB_DIR" -maxdepth 1 -type f -name 'Cloakwire_*_amd64.deb' -print -quit 2>/dev/null || true)"
 APPIMAGE_SRC="$(find "$APPIMAGE_DIR" -maxdepth 1 -type f -name '*.AppImage' -print -quit 2>/dev/null || true)"
 [ -n "$DEB_SRC" ] || { echo "ERROR: no DEB produced in $DEB_DIR" >&2; exit 1; }
