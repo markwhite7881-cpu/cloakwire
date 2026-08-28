@@ -183,9 +183,8 @@ Cloakwire focuses on clean usability and performance:
 ### Config — mode and DNS
 ![Config tab](dist-release/screenshots/03-config.png)
 
-### Routing — simple and advanced
-![Routing tab — simple UX](dist-release/screenshots/04-routing.png)
-![Routing tab — Advanced](dist-release/screenshots/05-routing-advanced.png)
+### Routing — routing and rules
+![Routing tab](dist-release/screenshots/04-routing.png)
 
 ---
 

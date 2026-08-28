@@ -183,9 +183,8 @@ Cloakwire спроектирован с упором на современный
 ### Config — режим работы и DNS
 ![Config tab](dist-release/screenshots/03-config.png)
 
-### Routing — простой и продвинутый
-![Routing tab — simple UX](dist-release/screenshots/04-routing.png)
-![Routing tab — Advanced](dist-release/screenshots/05-routing-advanced.png)
+### Routing — маршрутизация и правила
+![Routing tab](dist-release/screenshots/04-routing.png)
 
 ---
 
