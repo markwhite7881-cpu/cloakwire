@@ -108,7 +108,7 @@ impl SubscriptionHttpClient {
         // per-subscription UA override is tracked as a v1.3.2
         // follow-up; for now this default works against the providers
         // we have verified (sub.hat.onl, anivka, subconverter).
-        let user_agent = "ClashforWindows/0.20.39".to_string();
+        let user_agent = "v2rayN/6.40".to_string();
         let _ = (app_version, platform);
         let response = self
             .client

@@ -70,7 +70,7 @@ impl SubscriptionHttpClient {
         // profile, while this de-facto Clash UA receives the real YAML/link body.
         // Keep app_version/platform in the API for device headers and a future
         // per-subscription override.
-        let user_agent = "ClashforWindows/0.20.39";
+        let user_agent = "v2rayN/6.40";
         let _ = (app_version, platform);
         let response = self
             .client

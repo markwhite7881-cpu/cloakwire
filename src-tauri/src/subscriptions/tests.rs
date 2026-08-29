@@ -143,7 +143,7 @@ async fn sends_exact_headers_and_parses_metadata() {
         .unwrap();
     let captured = captured.await.unwrap();
 
-    assert_eq!(captured.header("user-agent"), "ClashforWindows/0.20.39");
+    assert_eq!(captured.header("user-agent"), "v2rayN/6.40");
     assert_eq!(captured.header("accept"), "application/json, text/plain");
     assert_eq!(captured.header("x-device-os"), "Windows");
     assert_eq!(captured.header("x-device-model"), "Cloakwire Desktop");
