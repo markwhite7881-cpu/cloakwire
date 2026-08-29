@@ -17,7 +17,7 @@ Cross-platform · Lightweight Rust/Tauri Core · VLESS Reality / Hysteria 2 / TU
 
 <br/>
 
-**[ 🇷🇺 Читать на русском (Russian README) ](README.ru.md)**
+**[ 🇷🇺 Читать документацию на русском языке (Russian README) ](README.ru.md)**
 
 <br/>
 
@@ -37,76 +37,73 @@ Cross-platform · Lightweight Rust/Tauri Core · VLESS Reality / Hysteria 2 / TU
 | 🐧 **Linux** | [⬇️ **Download .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.deb) | [⬇️ **Download .AppImage** (Portable)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.AppImage) | x86_64 |
 | 🤖 **Android** | [⬇️ **Download .apk**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_arm64-v8a.apk) | — | arm64-v8a |
 
-> 🔒 Every binary is cryptographically signed with **Minisign** (`.sig`) and verified with SHA-256 checksums in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/SHA256SUMS.txt).
+> 🔒 Every desktop release binary is cryptographically signed with **Minisign** (`.sig`) and verified with SHA-256 checksums in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/SHA256SUMS.txt).
 
 ---
 
-## 🚀 Quick Start in 3 Steps
+## 🚀 Quick Start
 
-```
- 1. Download & Install        2. Paste Node / Subscription Link       3. Click Power to Connect
-┌────────────────────────┐   ┌───────────────────────────────────┐   ┌────────────────────────┐
-│  Get the installer for │──▶│  Import vless://, ss://, hy2://   │──▶│  Enjoy unblocked, fast │
-│  Windows, Mac or phone │   │  or any Base64/Clash sub URL      │   │  and private internet  │
-└────────────────────────┘   └───────────────────────────────────┘   └────────────────────────┘
-```
+### 1. Download & Install
+Download the installer or portable bundle for your operating system from the table above.
 
-1. **Install Cloakwire** from the download table above.
-2. Click **Add Server** or paste your subscription link (`vless://`, `vmess://`, `ss://`, `trojan://`, `hy2://`, `tuic://`, `wireguard://`, or Base64 / Clash subscription URLs).
-3. Tap the central **Power Orb** to connect. Your traffic is encrypted, low-latency, and censorship-resistant.
+### 2. Import Your Subscription or Node
+Click **Add Server** or paste your connection link (`vless://`, `vmess://`, `ss://`, `trojan://`, `hy2://`, `tuic://`, `wireguard://`, or any Base64 / Clash subscription URL). The clipboard helper will detect compatible links automatically.
+
+### 3. Connect
+Tap the central **Power Orb**. Cloakwire establishes the encrypted proxy tunnel with real-time latency probing and automatic DNS hijacking prevention.
 
 ---
 
-## 🛡️ Trust, Privacy & Security
+## 🛡️ Trust, Privacy & Verification
 
-### Why do Windows or macOS show an "Unverified Developer" warning on first launch?
-Cloakwire is **100% free and open source**. Commercial proprietary certificates cost hundreds of dollars annually (Microsoft EV Cert: $400+/yr, Apple Developer: $99/yr).
+### Why do Windows SmartScreen or macOS Gatekeeper show a warning?
+Cloakwire is **100% free and open-source software**. We do not purchase commercial code signing certificates (which cost $400+/year for Microsoft EV Authenticode and $99/year for Apple Developer).
 - **Windows SmartScreen**: Click **"More info"** → **"Run anyway"**.
 - **macOS Gatekeeper**: Right-click `Cloakwire.app` → select **"Open"** (or allow under *System Settings → Privacy & Security*).
-- **Verify Integrity**: You can verify any downloaded file using our public Minisign key or check SHA-256 hashes against `SHA256SUMS.txt`. All builds are 100% reproducible from source.
+- **Verification**: All desktop packages are cryptographically signed with our public Minisign key (`.sig` files available on GitHub Releases) and listed with SHA-256 hashes in `SHA256SUMS.txt`. All build scripts and source code are open for inspection in this repository.
 
 ```powershell
 # Verify Windows installer checksum:
 (Get-FileHash Cloakwire_1.4.0_x64-setup.exe -Algorithm SHA256).Hash.ToLower()
 ```
 
-### Privacy Guarantee
-- **No Logs, No Telemetry**: We collect zero analytics, zero crash dumps, and zero IP data.
-- **Secure Dual-DNS**: System DNS is routed through encrypted DoH (`dns.google`) over the proxy tunnel, completely preventing ISP DNS poisoning and eavesdropping.
-- **Sandboxed Subscription Parsing**: Subscription links and tokens are parsed in the native Rust backend and never leaked to the web view.
+### Privacy Guarantees
+- **Zero Telemetry**: No tracking, no analytical beacons, no crash dump reporting, zero external network requests outside user-configured proxies.
+- **Encrypted DNS Routing**: In proxy mode, domain lookups are routed through encrypted DNS-over-HTTPS (`dns.google`) over the proxy tunnel, preventing ISP domain interception and DNS poisoning.
+- **Backend Subscription Processing**: Subscriptions and authentication tokens are fetched and decoded directly in the native Rust backend and isolated from the UI web layer.
 
 ---
 
-## ⚔️ Why Cloakwire? (Comparison)
+## ⚔️ Architecture & Design Comparison
 
-| Feature | Cloakwire | v2rayN | Clash Verge / Mihomo | Hiddify |
+| Characteristic | Cloakwire | v2rayN | Clash Verge / Mihomo | Hiddify |
 |---|---|---|---|---|
-| **User Interface** | **Linear Bento Dark UI (Clean & Fast)** | Legacy WinForms (2000s era) | Technical YAML-centric | Flutter (heavy animation) |
-| **Resource Usage** | **⚡ Ultralight Rust/Tauri (<35 MB RAM)** | 🐢 .NET runtime (~120 MB RAM) | Electron (~150 MB RAM) | Flutter Runtime (~100 MB RAM) |
-| **Dual Engine** | **✅ sing-box + Xray (Auto-Fallback)** | ⚠️ Manual switching | ❌ Clash/Mihomo only | ⚠️ sing-box only |
-| **Live Traffic Wave** | **✅ 60 FPS Canvas Waveform** | ❌ Text counters only | ⚠️ Basic SVG chart | ⚠️ Basic graph |
-| **Smart Split Routing** | **✅ 1-Click "Apps via VPN" / "Apps Direct"** | ⚠️ Complex regex routing | ⚠️ Complex YAML rules | ⚠️ Basic per-app |
-| **Modern Protocols** | **✅ VLESS Reality, Vision, Hysteria 2, TUIC** | ✅ Full protocols | ⚠️ Protocol variations | ✅ Full protocols |
-| **Platforms** | **Windows, macOS, Linux, Android** | Windows only | Windows, macOS, Linux | Cross-platform |
+| **UI Framework** | **Linear Bento UI (React/Tailwind)** | Classic .NET / WinForms | Web/Electron | Flutter multi-platform |
+| **Idle Memory (RAM)** | **~35 MB (Rust + OS Webview)** | ~120 MB (.NET runtime) | ~150 MB (Chromium helper) | ~100 MB (Flutter engine) |
+| **Core Architecture** | **Dual sing-box + Xray (Auto-Fallback)** | Manual core selection | Mihomo (Clash Meta) | sing-box core |
+| **Traffic Visualization** | **60 FPS Hardware Canvas Wave** | Numeric text counters | SVG/Canvas graph | Canvas graph |
+| **Split Tunneling** | **1-Click "Apps via VPN" / "Apps Direct"** | Regex routing rules | YAML rule sets | Per-app picker |
+| **Protocol Coverage** | **VLESS, VMess, Trojan, SS, Hysteria 2, TUIC** | Full protocol support | Protocol-dependent | Full protocol support |
+| **Supported Platforms** | **Windows, macOS, Linux, Android** | Windows | Windows, macOS, Linux | Cross-platform |
 
 ---
 
 ## 🌟 Key Features
 
 ### 🎨 Linear Bento UI Design
-A sleek dark aesthetic inspired by modern engineering tools: high-contrast zinc palette, subtle emerald glow indicators, real-time KB/s speed counters, and an interactive 60 FPS live traffic wave canvas.
+A minimal, engineering-focused dark interface: high-contrast zinc palette, subtle emerald connection glow, real-time download and upload counters in KB/s, and a smooth 60 FPS live canvas traffic wave.
 
 ### 🧩 Intelligent Dual-Engine Architecture
-- **sing-box (Default Core)**: Blazing fast packet processing, TUN mode, per-app routing, and native URL-test auto-migration.
-- **Xray Core (Automatic Fallback)**: Automatically selected for advanced proxy bundles requiring Xray-specific extensions without breaking user experience.
+- **sing-box (Default Engine)**: High-performance packet processing, low CPU overhead, system TUN mode, per-app routing, and native URL-test auto-migration.
+- **Xray Core (Automatic Fallback)**: Automatically activates when importing specialized configurations requiring Xray-specific extensions without user friction.
 
 ### 🎯 Smart App Routing (Split Tunneling)
-- **Apps via VPN**: Route only chosen apps (e.g. Telegram, Discord, Browser) through the encrypted tunnel while leaving everything else on fast local internet.
-- **Apps Direct**: Send all traffic through VPN except sensitive local apps like online banking or government services.
+- **Apps via VPN**: Route specific applications (e.g. Telegram, Discord, Browser) through the encrypted tunnel while preserving maximum domestic connection speeds for everything else.
+- **Apps Direct**: Send all system traffic through the VPN while keeping sensitive services (e.g. banking, local intranet) on direct unproxied connections.
 
 ### 🌐 Auto Country Detection & Latency Probing
-- Automatically extracts ISO country flags (e.g. 🇳🇱 Netherlands, 🇩🇪 Germany, 🇪🇪 Estonia) from server tags.
-- Probes all nodes in parallel to display accurate round-trip ping (ms) and signal strength.
+- Detects ISO country flags (e.g. 🇳🇱 Netherlands, 🇩🇪 Germany, 🇪🇪 Estonia) from server names.
+- Probes all nodes in parallel with TCP/HTTP latency tests to display accurate round-trip ping (ms).
 
 ---
 
