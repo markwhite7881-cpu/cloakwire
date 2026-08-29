@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ChevronDown,
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { flagForProfile } from "@/lib/flags";
 import { profileLabel, profileEndpoint, isSupported } from "@/lib/outbound";
 import { isValidProfileSelection } from "@/lib/profileSelection";
-import type { HomeProfileMetadata, RoutingOptions, Status, StatusReport, TrafficSample } from "@/lib/types";
+import type { HomeProfileMetadata, Outbound, RoutingOptions, Status, StatusReport, TrafficSample } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
 const inTauri =
@@ -50,6 +50,7 @@ export interface HomeTabProps {
   subscriptionNames: ReadonlyMap<string, string>;
   /** ip → country-code map, populated by the useGeoIp hook. */
   geoipByIp: Record<string, string>;
+  subscriptionOutbounds?: Record<string, { outbounds: Outbound[] }>;
   onSelect: (index: number) => void;
   onConnect: () => void;
   onDisconnect: () => void;
@@ -71,6 +72,7 @@ export function HomeTab({
   readyProfileMetadata,
   subscriptionNames,
   geoipByIp,
+  subscriptionOutbounds,
   onSelect,
   onConnect,
   onDisconnect,
@@ -85,14 +87,19 @@ export function HomeTab({
   const isTransition = statusLabel === "starting" || statusLabel === "stopping";
   const trafficLive = useTrafficStream(isRunning || !inTauri, profiles.length);
   const current = trafficLive.current;
-  // Subscription summaries do not disclose endpoints, so only manual
-  // profiles participate in endpoint latency probing.
-  const latency = useServerLatency(
-    profiles
+
+  // Probe latency for both manual profiles and hydrated subscription outbounds.
+  const allOutbounds = useMemo(() => {
+    const manual = profiles
       .filter((profile): profile is Extract<ConnectionProfile, { kind: "manual" }> => profile.kind === "manual")
-      .map((profile) => profile.outbound),
-    isRunning,
-  );
+      .map((profile) => profile.outbound);
+    const subOutbounds = subscriptionOutbounds
+      ? Object.values(subscriptionOutbounds).flatMap((r) => r.outbounds)
+      : [];
+    return [...manual, ...subOutbounds];
+  }, [profiles, subscriptionOutbounds]);
+
+  const latency = useServerLatency(allOutbounds, isRunning);
 
   const headline = (() => {
     if (statusLabel === "running") return "Connected";
@@ -126,35 +133,37 @@ export function HomeTab({
 
   const activeIsAuto = activeOutbound === "auto";
   const activeProfile = activeOutbound
-    ? profiles.find(
-        (profile) =>
-          profile.kind === "manual" &&
-          isSupported(profile.outbound) &&
-          profile.outbound.tag === activeOutbound,
-      )
+    ? profiles.find((profile) => {
+        if (profile.kind === "manual" && isSupported(profile.outbound)) {
+          return profile.outbound.tag === activeOutbound;
+        }
+        if (profile.kind === "subscription") {
+          return profile.label === activeOutbound;
+        }
+        return false;
+      })
     : undefined;
-  const activeSupported =
-    activeProfile?.kind === "manual" && isSupported(activeProfile.outbound)
-      ? activeProfile.outbound
-      : null;
+
   const activeFlag = activeIsAuto
     ? { flag: "🌐", code: "??" }
-    : activeSupported
+    : activeOutbound
       ? flagForProfile({
-          tag: activeSupported.tag,
-          server: activeSupported.server,
+          tag: activeOutbound,
           geoipByIp,
         })
       : null;
   const activeName = activeIsAuto
     ? "Auto (urltest)"
-    : activeSupported
-      ? profileLabel(activeSupported)
+    : activeOutbound ?? null;
+
+  const selectedTag = selected?.kind === "manual" && isSupported(selected.outbound)
+    ? selected.outbound.tag
+    : selected?.kind === "subscription"
+      ? selected.label
       : null;
-  const selectedManual = selected?.kind === "manual" ? selected.outbound : null;
   const activeMatchesPicked =
     activeOutbound == null ||
-    (selectedIndex >= 0 && selectedManual && isSupported(selectedManual) && selectedManual.tag === activeOutbound);
+    (selectedIndex >= 0 && selectedTag === activeOutbound);
   const userPicked = !activeMatchesPicked
     ? selectedIndex === -1
       ? "Auto"
@@ -198,9 +207,11 @@ export function HomeTab({
             <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 font-mono text-[11px] text-muted-foreground shadow-sm">
               {isXrayRunning
                 ? "Xray Core"
-                : activeSupported?.protocol
-                  ? `${activeSupported.protocol.toUpperCase()} ${"tls" in activeSupported && activeSupported.tls?.reality ? "• Reality" : ""}`
-                  : "sing-box"}
+                : activeProfile?.kind === "manual" && isSupported(activeProfile.outbound)
+                  ? `${activeProfile.outbound.protocol.toUpperCase()} ${"tls" in activeProfile.outbound && activeProfile.outbound.tls?.reality ? "• Reality" : ""}`
+                  : activeProfile?.kind === "subscription"
+                    ? activeProfile.protocol.toUpperCase()
+                    : "sing-box"}
             </span>
           </div>
 
@@ -741,12 +752,15 @@ export function connectionProfileDisplay(
   latencyByTag: Map<string, number>,
 ): { flag: string; code: string; label: string; protocol: string; ms: number | undefined; key: string } {
   if (profile.kind === "subscription") {
+    const flag = flagForProfile({
+      tag: profile.label,
+      geoipByIp,
+    });
     return {
-      flag: "🌐",
-      code: "??",
+      ...flag,
       label: profile.label,
       protocol: profile.protocol,
-      ms: undefined,
+      ms: latencyByTag.get(profile.label),
       key: `${profile.reference.subscription_id}-${profile.reference.link_key}`,
     };
   }
@@ -760,7 +774,7 @@ export function connectionProfileDisplay(
       code,
       label: profile.name,
       protocol: profile.engine === "singbox" ? "sing-box" : "Xray",
-      ms: metadata?.latency_ms ?? undefined,
+      ms: metadata?.latency_ms ?? latencyByTag.get(profile.name),
       key: `${profile.subscriptionId}-${profile.key}`,
     };
   }

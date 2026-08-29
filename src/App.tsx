@@ -868,15 +868,14 @@ export default function App() {
       // index === -1 means "Auto (best latency)" — drop the pin,
       // let the `auto` urltest decide.
       const isAuto = index === -1;
-      // Resolve the new settings value up front, in two distinct
-      // branches, so TypeScript's narrowing is happy in the async
-      // closure below and the path is obvious for a human reader.
-      const selectedManual = selectedManualOutbound(profiles, index);
+      const selected = profiles[index];
       const pickedTag = isAuto
         ? null
-        : selectedManual && isSupported(selectedManual)
-          ? selectedManual.tag
-          : null;
+        : selected?.kind === "manual" && isSupported(selected.outbound)
+          ? selected.outbound.tag
+          : selected?.kind === "subscription"
+            ? selected.label
+            : null;
       setSelectedIndex(index);
       setSettings((prev) => ({
         ...prev,
@@ -938,6 +937,7 @@ export default function App() {
             readyProfileMetadata={readyProfileMetadata}
             subscriptionNames={subscriptionNames}
             geoipByIp={geoip.byIp}
+            subscriptionOutbounds={subs.lastResult}
             onSelect={onSelectProfile}
             onConnect={onStart}
             onDisconnect={onStop}

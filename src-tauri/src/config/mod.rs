@@ -211,35 +211,9 @@ impl Config {
                 "tag": "auto",
                 "outbounds": profile_tags,
                 "url": "https://www.gstatic.com/generate_204",
-                // Re-measure every 30s and pick strictly the lowest
-                // latency. `tolerance: 0` disables the "stick to
-                // current unless much better" behaviour — the
-                // selector will migrate to any faster server as
-                // soon as it appears, which is what the user
-                // expects from "Auto (best latency)".
                 "interval": "30s",
-                "tolerance": 0,
-                // Drop the current member from the running set when
-                // the urltest picks a faster server, so half-open
-                // connections through the now-slower server get
-                // re-opened on the new one instead of dragging out
-                // a slow tail. Without this flag the switch is
-                // mostly cosmetic for already-open sockets — the
-                // old server keeps serving the stale streams.
-                //
-                // Note: this flag was temporarily set to `false`
-                // while debugging an unrelated DNS issue (the TUN
-                // interface's auto-derived DNS server landed inside
-                // the same /30 as the TUN address, so Windows
-                // treated it as an on-link neighbour and never
-                // actually sent the packets — see the OS-level DNS
-                // fix in `process.rs` that explicitly sets
-                // `netsh interface ip set dns` for the TUN
-                // interface). With the TUN-DNS bug fixed, this
-                // flag is safe to keep on and we want it on: the
-                // urltest is supposed to actually migrate traffic
-                // when a faster server appears.
-                "interrupt_exist_connections": true,
+                "tolerance": 50,
+                "interrupt_exist_connections": false,
             }));
         }
 
@@ -717,16 +691,14 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     if remote_type == "https" {
         // Resolve the DoH hostname via our plain-UDP local resolver.
         remote_obj.insert("domain_resolver".into(), Value::String("local".into()));
-    } else {
-        // Resolve the DoT/DoQ hostname via direct.
-        remote_obj.insert("detour".into(), Value::String("direct".into()));
     }
+    remote_obj.insert("detour".into(), Value::String("proxy".into()));
 
     json!({
         "servers": [Value::Object(local_obj), Value::Object(remote_obj)],
-        // Use the local resolver as the catch-all. This guarantees
-        // DNS works even if the DoH server is unreachable.
-        "final": "local",
+        // Remote resolver queries over proxy tunnel (bypasses ISP DNS blocking/poisoning).
+        // Outbound domain endpoints resolve via local domain_resolver.
+        "final": "remote",
         "strategy": "prefer_ipv4"
     })
 }
@@ -1235,8 +1207,10 @@ mod tests {
         assert_eq!(remote["tag"], "remote");
         assert_eq!(remote["type"], "https");
         assert_eq!(remote["server"], "dns.google");
-        // DoH should reference local domain_resolver.
+        // DoH should reference local domain_resolver and proxy detour.
         assert_eq!(remote["domain_resolver"], "local");
+        assert_eq!(remote["detour"], "proxy");
+        assert_eq!(cfg["dns"]["final"], "remote");
     }
 
     #[test]

@@ -51,6 +51,29 @@ describe("HomeTab presentation helpers", () => {
     });
   });
 
+  it("extracts flag and latency for subscription link profiles", () => {
+    const subProfile: ConnectionProfile = {
+      kind: "subscription",
+      reference: { subscription_id: "sub-1", link_key: "index-0" },
+      label: "🇳🇱 Нидерланды 1",
+      protocol: "vless",
+    };
+
+    expect(
+      connectionProfileDisplay(
+        subProfile,
+        new Map(),
+        {},
+        new Map([["🇳🇱 Нидерланды 1", 38]]),
+      ),
+    ).toMatchObject({
+      code: "NL",
+      label: "🇳🇱 Нидерланды 1",
+      protocol: "vless",
+      ms: 38,
+    });
+  });
+
   it("uses safe subscription summary names for grouped labels", () => {
     expect(subscriptionGroupLabel("subscription-1", new Map([["subscription-1", "Work subscription"]]))).toBe("Work subscription");
     expect(subscriptionGroupLabel("missing", new Map())).toBe("Subscription");
