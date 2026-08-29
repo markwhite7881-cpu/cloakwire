@@ -292,8 +292,8 @@ async fn start_ready_profile_inner(
     };
 
     #[cfg(target_os = "macos")]
-    if let Some((_host, _http_port, socks_port)) = proxy {
-        let tun_config = crate::xray::generate_tun_forwarder_config(socks_port);
+    if let Some((_, _http_port, socks_port)) = proxy.as_ref() {
+        let tun_config = crate::xray::generate_tun_forwarder_config(*socks_port);
         if let Ok(tun_config_path) = write_runtime_config(&app, &tun_config) {
             if let Ok(singbox_bin) = singbox::locate_binary(&app) {
                 let run_id = pm.active_run_id();
