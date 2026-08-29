@@ -65,50 +65,6 @@ where
     })
 }
 
-pub fn generate_tun_forwarder_config(socks_port: u16) -> Value {
-    serde_json::json!({
-        "log": {
-            "level": "warn"
-        },
-        "inbounds": [
-            {
-                "type": "tun",
-                "tag": "tun-in",
-                "address": [
-                    "172.19.0.1/30",
-                    "fdfe:dcba:9876::1/126"
-                ],
-                "auto_route": true,
-                "strict_route": false,
-                "stack": "system",
-                "mtu": 9000
-            }
-        ],
-        "outbounds": [
-            {
-                "type": "socks",
-                "tag": "socks-out",
-                "server": "127.0.0.1",
-                "server_port": socks_port
-            },
-            {
-                "type": "direct",
-                "tag": "direct"
-            }
-        ],
-        "route": {
-            "auto_detect_interface": true,
-            "rules": [
-                {
-                    "ip_is_private": true,
-                    "outbound": "direct"
-                }
-            ],
-            "final": "socks-out"
-        }
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
