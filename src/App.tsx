@@ -788,9 +788,9 @@ export default function App() {
   }, []);
 
   // Link / subscription parser (auto-detect).
-  const onParseLinks = useCallback(() => {
+  const onImportText = useCallback((rawText: string) => {
     void (async () => {
-      const text = pendingLinks.trim();
+      const text = rawText.trim();
       if (!text) return;
       setParsing(true);
       setError(null);
@@ -840,7 +840,7 @@ export default function App() {
         // Promote detected subscription URLs.
         for (const u of result.subscriptions) {
           try {
-            subs.add({ url: u });
+            await subs.add({ url: u });
           } catch {
             // ignore malformed URL
           }
@@ -857,7 +857,11 @@ export default function App() {
         setParsing(false);
       }
     })();
-  }, [pendingLinks, inTauri, subs]);
+  }, [inTauri, subs]);
+
+  const onParseLinks = useCallback(() => {
+    onImportText(pendingLinks);
+  }, [onImportText, pendingLinks]);
 
   const onSelectProfile = useCallback(
     async (index: number) => {
@@ -939,7 +943,7 @@ export default function App() {
             onDisconnect={onStop}
             routingOptions={settings.routing}
             onNavigateTab={(t) => setActiveTab(t as TabId)}
-            onAddLinks={(text) => setPendingLinks(text)}
+            onAddLinks={onImportText}
           />
         ),
       },

@@ -253,10 +253,10 @@ async fn snapshot_never_serializes_or_debug_formats_link_credentials() {
     assert_eq!(snapshot.link_outbounds.len(), 1);
     assert_eq!(snapshot.link_outbounds[0].links.len(), 2);
     assert_eq!(snapshot.link_outbounds[0].links[0].key, "index-0");
-    assert_eq!(snapshot.link_outbounds[0].links[0].label, "vless link 1");
+    assert_eq!(snapshot.link_outbounds[0].links[0].label, "ProviderLabel");
     assert_eq!(snapshot.link_outbounds[0].links[0].protocol, "vless");
     assert_eq!(snapshot.link_outbounds[0].links[1].key, "index-1");
-    assert_eq!(snapshot.link_outbounds[0].links[1].label, "trojan link 2");
+    assert_eq!(snapshot.link_outbounds[0].links[1].label, "AnotherLabel");
     assert_eq!(snapshot.link_outbounds[0].links[1].protocol, "trojan");
     let _ = server.await;
 }

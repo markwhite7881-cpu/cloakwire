@@ -388,6 +388,7 @@ export function useSubscriptions() {
       });
       try {
         await api.removeSubscription(id);
+        await load();
         await loadOutbounds();
       } catch (e) {
         if (previous) {
@@ -396,7 +397,7 @@ export function useSubscriptions() {
         throw e;
       }
     },
-    [subs, loadOutbounds],
+    [subs, load, loadOutbounds],
   );
 
   const setIntervalFor = useCallback(

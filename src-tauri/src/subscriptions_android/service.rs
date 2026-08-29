@@ -704,10 +704,19 @@ fn snapshot(records: Vec<SubscriptionRecord>) -> SubscriptionSnapshot {
                 .link_outbounds
                 .iter()
                 .enumerate()
-                .map(|(index, outbound)| SubscriptionLinkSummary {
-                    key: format!("index-{index}"),
-                    label: format!("{} link {}", outbound.protocol(), index + 1),
-                    protocol: outbound.protocol().to_owned(),
+                .map(|(index, outbound)| {
+                    let protocol = outbound.protocol().to_owned();
+                    let display = outbound.display_name();
+                    let label = if !display.trim().is_empty() {
+                        display
+                    } else {
+                        format!("{protocol} link {}", index + 1)
+                    };
+                    SubscriptionLinkSummary {
+                        key: format!("index-{index}"),
+                        label,
+                        protocol,
+                    }
                 })
                 .collect(),
         })
