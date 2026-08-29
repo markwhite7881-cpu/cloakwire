@@ -960,6 +960,51 @@ pub fn clear_system_proxy() -> AppResult<()> {
 }
 
 #[cfg(windows)]
+fn notify_wininet_proxy_change() {
+    unsafe {
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn LoadLibraryA(lp_lib_file_name: *const u8) -> *mut std::ffi::c_void;
+            fn GetProcAddress(
+                h_module: *mut std::ffi::c_void,
+                lp_proc_name: *const u8,
+            ) -> *mut std::ffi::c_void;
+            fn FreeLibrary(h_lib_module: *mut std::ffi::c_void) -> i32;
+        }
+
+        let module = LoadLibraryA(b"wininet.dll\0".as_ptr());
+        if module.is_null() {
+            return;
+        }
+        let proc = GetProcAddress(module, b"InternetSetOptionW\0".as_ptr());
+        if !proc.is_null() {
+            type InternetSetOptionFn = unsafe extern "system" fn(
+                *mut std::ffi::c_void,
+                u32,
+                *mut std::ffi::c_void,
+                u32,
+            ) -> i32;
+            let func: InternetSetOptionFn = std::mem::transmute(proc);
+            const INTERNET_OPTION_SETTINGS_CHANGED: u32 = 39;
+            const INTERNET_OPTION_REFRESH: u32 = 37;
+            func(
+                std::ptr::null_mut(),
+                INTERNET_OPTION_SETTINGS_CHANGED,
+                std::ptr::null_mut(),
+                0,
+            );
+            func(
+                std::ptr::null_mut(),
+                INTERNET_OPTION_REFRESH,
+                std::ptr::null_mut(),
+                0,
+            );
+        }
+        FreeLibrary(module);
+    }
+}
+
+#[cfg(windows)]
 pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
     apply_system_proxy_with_socks(host, port, port)
 }
@@ -983,6 +1028,7 @@ pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16
     settings
         .set_value("ProxyServer", &proxy)
         .map_err(|e| AppError::Spawn(format!("set ProxyServer: {e}")))?;
+    notify_wininet_proxy_change();
     Ok(())
 }
 
@@ -1001,6 +1047,8 @@ pub fn clear_system_proxy() -> AppResult<()> {
     settings
         .set_value("ProxyEnable", &0u32)
         .map_err(|e| AppError::Spawn(format!("clear ProxyEnable: {e}")))?;
+    let _ = settings.set_value("ProxyServer", &"");
+    notify_wininet_proxy_change();
     Ok(())
 }
 
