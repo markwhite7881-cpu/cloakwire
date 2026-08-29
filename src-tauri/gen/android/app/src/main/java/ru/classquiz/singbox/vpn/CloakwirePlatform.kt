@@ -131,7 +131,7 @@ class CloakwirePlatform(private val service: CloakwireVpnService) : PlatformInte
       ?: throw Exception("VpnService.Builder.establish() returned null — VPN permission revoked?")
     val goPfd = pfd.dup()
     val goFd = goPfd.detachFd()
-    service.onTunEstablished(pfd, goFd)
+    service.onTunEstablished(pfd)
     return goFd
   }
 

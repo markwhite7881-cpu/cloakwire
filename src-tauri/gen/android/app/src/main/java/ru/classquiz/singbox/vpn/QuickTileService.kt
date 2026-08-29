@@ -88,15 +88,25 @@ class QuickTileService : TileService() {
       launchApp()
       return
     }
+    val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    val engine = prefs.getString(KEY_LAST_ENGINE, CloakwireVpnService.ENGINE_SINGBOX) ?: CloakwireVpnService.ENGINE_SINGBOX
+    val apps = prefs.getString(KEY_LAST_APPS, "[]") ?: "[]"
+    val appsMode = prefs.getString(KEY_LAST_APPS_MODE, "exclude") ?: "exclude"
+    val serverName = prefs.getString(KEY_LAST_SERVER, "") ?: ""
+
     val intent = Intent(this, CloakwireVpnService::class.java)
       .setAction(CloakwireVpnService.ACTION_START)
       .putExtra(CloakwireVpnService.EXTRA_CONFIG_PATH, configFile.absolutePath)
+      .putExtra(CloakwireVpnService.EXTRA_ENGINE, engine)
+      .putExtra(CloakwireVpnService.EXTRA_APPS, apps)
+      .putExtra(CloakwireVpnService.EXTRA_APPS_MODE, appsMode)
+      .putExtra(CloakwireVpnService.EXTRA_SERVER_NAME, serverName)
     try {
       startForegroundService(intent)
       // Optimistic UI: pretend we're connecting so the tile doesn't
       // look dead for the ~1s it takes the service to start.
       qsTile?.let {
-        it.label = "Cloakwire"
+        it.label = serverName.ifBlank { "Cloakwire" }
         it.icon = Icon.createWithResource(this, R.drawable.ic_tile)
         it.state = Tile.STATE_ACTIVE
         it.updateTile()
@@ -108,8 +118,21 @@ class QuickTileService : TileService() {
 
   private fun launchApp() {
     val launch = packageManager.getLaunchIntentForPackage(packageName) ?: return
-    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    startActivityAndCollapse(launch)
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    try {
+      if (android.os.Build.VERSION.SDK_INT >= 34) {
+        val pending = android.app.PendingIntent.getActivity(
+          this, 0, launch,
+          android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        startActivityAndCollapse(pending)
+      } else {
+        @Suppress("DEPRECATION")
+        startActivityAndCollapse(launch)
+      }
+    } catch (e: Exception) {
+      Log.e(tag, "launchApp failed: ${e.message}")
+    }
   }
 
   private fun refreshTile() {
@@ -140,6 +163,9 @@ class QuickTileService : TileService() {
   companion object {
     private const val PREFS = "cloakwire_state"
     private const val KEY_LAST_SERVER = "last_server_name"
+    private const val KEY_LAST_ENGINE = "last_engine"
+    private const val KEY_LAST_APPS = "last_apps"
+    private const val KEY_LAST_APPS_MODE = "last_apps_mode"
 
     /**
      * Asks the system to invoke [onStartListening] on the currently-

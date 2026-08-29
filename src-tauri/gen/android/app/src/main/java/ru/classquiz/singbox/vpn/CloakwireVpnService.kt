@@ -65,6 +65,7 @@ class CloakwireVpnService : VpnService() {
     private const val KEY_LAST_ENGINE = "last_engine"
     private const val KEY_LAST_APPS = "last_apps"
     private const val KEY_LAST_APPS_MODE = "last_apps_mode"
+    private const val KEY_IS_CONNECTED = "is_user_connected"
 
     /** Live service instance (null while stopped). */
     @Volatile var active: CloakwireVpnService? = null
@@ -90,7 +91,7 @@ class CloakwireVpnService : VpnService() {
 
     fun lastEngine(context: android.content.Context): String =
       context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
-        .getString(KEY_LAST_ENGINE, ENGINE_XRAY) ?: ENGINE_XRAY
+        .getString(KEY_LAST_ENGINE, ENGINE_SINGBOX) ?: ENGINE_SINGBOX
 
     fun activeLogFile(context: android.content.Context): File {
       val engine = VpnEvents.activeEngine.ifBlank { lastEngine(context) }
@@ -105,15 +106,13 @@ class CloakwireVpnService : VpnService() {
 
   /** Session-scoped TUN descriptor; the service is the sole owner. */
   @Volatile private var tunPfd: ParcelFileDescriptor? = null
-  @Volatile private var goTunFd: Int = -1
   @Volatile private var sessionActive = false
   @Volatile private var engineRestarts = 0
   @Volatile private var starting = false
 
   /** Called by CloakwirePlatform after libbox establishes its TUN. */
-  fun onTunEstablished(pfd: ParcelFileDescriptor, goFd: Int = -1) {
+  fun onTunEstablished(pfd: ParcelFileDescriptor) {
     tunPfd = pfd
-    goTunFd = goFd
   }
 
   fun mainActivityPendingIntent(): PendingIntent {
@@ -155,18 +154,19 @@ class CloakwireVpnService : VpnService() {
           ?: "exclude"
         val serverName = intent.getStringExtra(EXTRA_SERVER_NAME).orEmpty()
         val engine = intent.getStringExtra(EXTRA_ENGINE)
-          ?: prefs.getString(KEY_LAST_ENGINE, ENGINE_XRAY)
-          ?: ENGINE_XRAY
+          ?: prefs.getString(KEY_LAST_ENGINE, ENGINE_SINGBOX)
+          ?: ENGINE_SINGBOX
         acceptStart(configPath, apps, appsMode, serverName, engine)
         return START_STICKY
       }
       else -> {
         // Process restarted by the system with no intent. Resume the
-        // persisted session if we have one; otherwise stay stopped.
+        // persisted session ONLY if the user was actively connected; otherwise stay stopped.
+        val prefs = getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+        val wasConnected = prefs.getBoolean(KEY_IS_CONNECTED, false)
         val persisted = configFile(this)
-        if (persisted.exists() && !sessionActive) {
-          val prefs = getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
-          val engine = prefs.getString(KEY_LAST_ENGINE, ENGINE_XRAY) ?: ENGINE_XRAY
+        if (wasConnected && persisted.exists() && !sessionActive) {
+          val engine = prefs.getString(KEY_LAST_ENGINE, ENGINE_SINGBOX) ?: ENGINE_SINGBOX
           val apps = prefs.getString(KEY_LAST_APPS, "[]") ?: "[]"
           val appsMode = prefs.getString(KEY_LAST_APPS_MODE, "exclude") ?: "exclude"
           acceptStart(persisted.absolutePath, apps, appsMode, engine = engine)
@@ -194,6 +194,7 @@ class CloakwireVpnService : VpnService() {
     VpnEvents.setEngine(selectedEngine)
     getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
       .edit()
+      .putBoolean(KEY_IS_CONNECTED, true)
       .putString(KEY_LAST_ENGINE, selectedEngine)
       .putString(KEY_LAST_APPS, selectedApps)
       .putString(KEY_LAST_APPS_MODE, selectedAppsMode)
@@ -598,7 +599,10 @@ class CloakwireVpnService : VpnService() {
 
   private fun failSession(message: String) {
     VpnEvents.update(VpnEvents.STATE_ERROR, message)
-    runCatching { configFile(this).delete() }
+    getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_IS_CONNECTED, false)
+      .apply()
     runCatching { teardownComponents() }
     stopForeground(true)
     stopSelf()
@@ -610,7 +614,10 @@ class CloakwireVpnService : VpnService() {
     activeServerName = ""
     VpnEvents.setEngine("")
     VpnEvents.update(VpnEvents.STATE_STOPPED)
-    runCatching { configFile(this).delete() }
+    getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_IS_CONNECTED, false)
+      .apply()
     teardownComponents()
     stopForeground(true)
     stopSelf()
@@ -632,16 +639,11 @@ class CloakwireVpnService : VpnService() {
     runCatching { protectedProxy.stop() }
     tunPfd?.let { runCatching { it.close() } }
     tunPfd = null
-    if (goTunFd > 0) {
-      runCatching { ParcelFileDescriptor.adoptFd(goTunFd).close() }
-      goTunFd = -1
-    }
   }
 
   override fun onDestroy() {
     // The system can kill the service without ACTION_STOP (revoke,
     // always-on change, task removal) — make sure everything goes down.
-    runCatching { configFile(this).delete() }
     teardownComponents()
     active = null
     activeServerName = ""
