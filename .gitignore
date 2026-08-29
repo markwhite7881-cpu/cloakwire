@@ -2,7 +2,6 @@
 /dist
 /node_modules
 /src-tauri/target
-/src-tauri/gen
 /src-tauri/Cargo.lock
 src-tauri/binaries/*.exe
 src-tauri/binaries/*.dll
@@ -67,6 +66,7 @@ src-tauri/binaries/xray-*
 /src-tauri/gen/android/local.properties
 /src-tauri/gen/android/**/build
 /src-tauri/gen/android/**/*.iml
+/src-tauri/gen/android/jni
 # libbox.aar is a 28MB prebuilt binary — CI rebuilds it from the
 # Leadaxe/sing-box-lx fork (see .github/workflows/release-android.yml),
 # so the AAR itself is not committed.
