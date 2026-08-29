@@ -1140,8 +1140,10 @@ pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
         log::info!("macos-proxy: applying to {service}");
         run_networksetup(&["-setwebproxy", service.as_str(), host, port.as_str()]);
         run_networksetup(&["-setsecurewebproxy", service.as_str(), host, port.as_str()]);
+        run_networksetup(&["-setsocksfirewallproxy", service.as_str(), host, port.as_str()]);
         run_networksetup(&["-setwebproxystate", service.as_str(), "on"]);
         run_networksetup(&["-setsecurewebproxystate", service.as_str(), "on"]);
+        run_networksetup(&["-setsocksfirewallproxystate", service.as_str(), "on"]);
     }
     Ok(())
 }
@@ -1152,6 +1154,7 @@ pub fn clear_system_proxy() -> AppResult<()> {
         log::info!("macos-proxy: clearing on {service}");
         run_networksetup(&["-setwebproxystate", service.as_str(), "off"]);
         run_networksetup(&["-setsecurewebproxystate", service.as_str(), "off"]);
+        run_networksetup(&["-setsocksfirewallproxystate", service.as_str(), "off"]);
     }
     Ok(())
 }

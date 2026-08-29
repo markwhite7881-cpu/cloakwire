@@ -320,11 +320,7 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
     let want_mixed = matches!(mode, TunnelMode::SystemProxy | TunnelMode::Both);
 
     if want_tun {
-        let interface = settings
-            .tun_interface_name
-            .clone()
-            .unwrap_or_else(|| "singbox-tun".to_string());
-        arr.push(json!({
+        let mut tun_inbound = json!({
             "type": "tun",
             "tag": "tun-in",
             // sing-box 1.12+ removed the legacy `inet4_address` /
@@ -339,8 +335,28 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
             "mtu": 9000,
             "endpoint_independent_nat": false,
             "udp_timeout": "5m",
-            "interface_name": interface,
-        }));
+        });
+
+        let custom_interface = settings
+            .tun_interface_name
+            .as_deref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty());
+
+        if cfg!(target_os = "macos") {
+            // On macOS, omitting interface_name lets the kernel dynamically allocate the next
+            // free utun slot (e.g. utun5) avoiding EEXIST/EBUSY conflicts on utun0.
+            if let Some(if_name) = custom_interface {
+                if if_name != "singbox-tun" {
+                    tun_inbound["interface_name"] = json!(if_name);
+                }
+            }
+        } else {
+            let if_name = custom_interface.unwrap_or("singbox-tun");
+            tun_inbound["interface_name"] = json!(if_name);
+        }
+
+        arr.push(tun_inbound);
     }
 
     if want_mixed {

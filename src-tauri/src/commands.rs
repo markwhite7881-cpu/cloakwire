@@ -305,6 +305,20 @@ async fn start_resolved_singbox_profile(
     if let Some(route) = config_value.get_mut("route").and_then(|r| r.as_object_mut()) {
         route.insert("find_process".into(), serde_json::Value::Bool(true));
     }
+    #[cfg(target_os = "macos")]
+    if let Some(inbounds) = config_value.get_mut("inbounds").and_then(|i| i.as_array_mut()) {
+        for inbound in inbounds {
+            if inbound.get("type").and_then(|t| t.as_str()) == Some("tun") {
+                if let Some(obj) = inbound.as_object_mut() {
+                    if let Some(if_name) = obj.get("interface_name").and_then(|n| n.as_str()) {
+                        if if_name == "singbox-tun" || if_name == "utun" {
+                            obj.remove("interface_name");
+                        }
+                    }
+                }
+            }
+        }
+    }
     let path = write_runtime_config(&app, &config_value)?;
     if pm.is_running().await {
         if let Err(error) = pm.stop().await {
