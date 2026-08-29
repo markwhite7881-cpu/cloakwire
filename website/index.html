@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cloakwire — Next-Gen Privacy-First VPN Client</title>
+  <title>Cloakwire &mdash; Next-Gen Privacy-First VPN Client</title>
   <meta name="description" content="Next-generation, unblockable VPN client with dual sing-box + Xray engines and a hyper-responsive Linear Bento UI. Cross-platform, 100% open source." />
-  <link rel="icon" type="image/png" href="../src-tauri/icons/icon.png" />
+  <link rel="icon" type="image/png" href="icons/icon.png" />
   <!-- Tailwind CSS CDN for standalone landing page -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -58,7 +58,7 @@
   <header class="relative z-10 border-b border-white/5 bg-[#090a0f]/80 backdrop-blur-md sticky top-0">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <a href="#" class="flex items-center gap-3 group">
-        <img src="../src-tauri/icons/icon.png" alt="Cloakwire Logo" class="w-8 h-8 rounded-lg shadow-md group-hover:scale-105 transition-transform" />
+        <img src="icons/icon.png" alt="Cloakwire Logo" class="w-8 h-8 rounded-lg shadow-md group-hover:scale-105 transition-transform" />
         <span class="font-bold tracking-tight text-lg text-white">Cloakwire</span>
         <span class="text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">v1.4.0</span>
       </a>
@@ -89,7 +89,7 @@
 
       <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight sm:leading-tight mb-6">
         The unblockable VPN client<br/>
-        <span class="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">engineered for privacy & speed</span>
+        <span class="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">engineered for privacy &amp; speed</span>
       </h1>
 
       <p class="max-w-2xl mx-auto text-zinc-400 text-lg sm:text-xl font-normal mb-10 leading-relaxed">
@@ -109,14 +109,14 @@
 
       <!-- App Showcase Preview -->
       <div class="relative rounded-2xl p-2 bg-gradient-to-b from-white/10 to-transparent border border-white/10 shadow-2xl shadow-emerald-500/5">
-        <img src="../screenshots/hero-showcase.png" alt="Cloakwire UI Showcase" class="rounded-xl w-full border border-white/5 shadow-inner" />
+        <img src="screenshots/hero-showcase.png" alt="Cloakwire UI Showcase" class="rounded-xl w-full border border-white/5 shadow-inner" />
       </div>
     </section>
 
     <!-- Bento Grid Feature Highlights -->
     <section id="features" class="max-w-6xl mx-auto px-6 py-20 border-t border-white/5">
       <div class="text-center max-w-2xl mx-auto mb-16">
-        <h2 class="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-2">Designed for Power & Simplicity</h2>
+        <h2 class="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-2">Designed for Power &amp; Simplicity</h2>
         <p class="text-3xl font-bold text-white tracking-tight">Everything you need for uncensored browsing</p>
       </div>
 
@@ -133,7 +133,7 @@
               sing-box delivers ultra-low latency and low CPU usage. If a subscription requires proprietary Xray extensions, Cloakwire seamlessly falls back to Xray without breaking the UI.
             </p>
           </div>
-          <div class="mt-6 pt-4 border-t border-white/5 text-xs font-mono text-emerald-400">Automatic Fallback · Zero Config</div>
+          <div class="mt-6 pt-4 border-t border-white/5 text-xs font-mono text-emerald-400">Automatic Fallback &bull; Zero Config</div>
         </div>
 
         <!-- Bento Card 2: 60 FPS Traffic Wave -->
@@ -164,7 +164,7 @@
               1-click per-app routing: send blocked apps (Telegram, Discord, Browser) through VPN while keeping banking apps and local streaming directly on fast domestic internet.
             </p>
           </div>
-          <div class="mt-6 pt-4 border-t border-white/5 text-xs font-mono text-purple-400">Apps via VPN · Apps Direct</div>
+          <div class="mt-6 pt-4 border-t border-white/5 text-xs font-mono text-purple-400">Apps via VPN &bull; Apps Direct</div>
         </div>
 
       </div>
@@ -175,7 +175,7 @@
       <div class="text-center max-w-2xl mx-auto mb-16">
         <h2 class="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-2">Instant Setup</h2>
         <p class="text-3xl font-bold text-white tracking-tight">Download Cloakwire for your platform</p>
-        <p class="text-zinc-400 text-sm mt-2">Latest release: v1.4.0 · Verified with Minisign & SHA-256</p>
+        <p class="text-zinc-400 text-sm mt-2">Latest release: v1.4.0 &bull; Verified with Minisign &amp; SHA-256</p>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -183,7 +183,9 @@
         <!-- Windows -->
         <div class="bento-card rounded-xl p-6 flex flex-col justify-between text-left">
           <div>
-            <div class="text-2xl mb-2">🪟</div>
+            <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.551H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.849"/></svg>
+            </div>
             <h4 class="font-bold text-white text-base">Windows</h4>
             <p class="text-xs text-zinc-400 mt-1">Windows 10 / 11 (x64)</p>
           </div>
@@ -196,9 +198,11 @@
         <!-- macOS -->
         <div class="bento-card rounded-xl p-6 flex flex-col justify-between text-left">
           <div>
-            <div class="text-2xl mb-2">🍏</div>
+            <div class="w-8 h-8 rounded-lg bg-zinc-500/10 text-zinc-300 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.63-.76 1.06-1.82.94-2.88-.91.04-2.02.61-2.67 1.37-.58.67-1.09 1.75-.95 2.78 1.02.08 2.05-.51 2.68-1.27z"/></svg>
+            </div>
             <h4 class="font-bold text-white text-base">macOS</h4>
-            <p class="text-xs text-zinc-400 mt-1">macOS 12+ (Apple Silicon & Intel)</p>
+            <p class="text-xs text-zinc-400 mt-1">macOS 12+ (Silicon &amp; Intel)</p>
           </div>
           <div class="mt-6 flex flex-col gap-2">
             <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.dmg" class="w-full text-center py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-all">Apple Silicon (.dmg)</a>
@@ -209,7 +213,9 @@
         <!-- Linux -->
         <div class="bento-card rounded-xl p-6 flex flex-col justify-between text-left">
           <div>
-            <div class="text-2xl mb-2">🐧</div>
+            <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12.012 0c-4.084 0-7.394 3.31-7.394 7.394 0 2.457 1.205 4.636 3.056 5.986-1.127 1.58-1.802 3.51-1.802 5.602 0 .548.049 1.084.143 1.606-1.782.522-3.088 2.164-3.088 4.112 0 2.375 1.925 4.3 4.3 4.3h9.544c2.375 0 4.3-1.925 4.3-4.3 0-1.948-1.306-3.59-3.088-4.112.094-.522.143-1.058.143-1.606 0-2.092-.675-4.022-1.802-5.602 1.851-1.35 3.056-3.529 3.056-5.986C19.406 3.31 16.096 0 12.012 0z"/></svg>
+            </div>
             <h4 class="font-bold text-white text-base">Linux</h4>
             <p class="text-xs text-zinc-400 mt-1">Ubuntu / Debian / Fedora</p>
           </div>
@@ -222,7 +228,9 @@
         <!-- Android -->
         <div class="bento-card rounded-xl p-6 flex flex-col justify-between text-left">
           <div>
-            <div class="text-2xl mb-2">🤖</div>
+            <div class="w-8 h-8 rounded-lg bg-green-500/10 text-green-400 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4128 13.8533 8.0818 12 8.0818s-3.5902.331-5.1368.868L4.8409 5.4468a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
+            </div>
             <h4 class="font-bold text-white text-base">Android</h4>
             <p class="text-xs text-zinc-400 mt-1">Android 8.0+ (arm64-v8a)</p>
           </div>
@@ -256,45 +264,38 @@
           <tbody class="divide-y divide-white/5">
             <tr>
               <td class="py-4 px-6 font-medium text-white">UI Framework</td>
-              <td class="py-4 px-6 text-emerald-400 font-bold">Linear Bento (React/Tailwind)</td>
+              <td class="py-4 px-6 text-emerald-400 font-semibold">Linear Bento (React / Tailwind)</td>
               <td class="py-4 px-6 text-zinc-400">Classic .NET / WinForms</td>
               <td class="py-4 px-6 text-zinc-400">Web / Electron</td>
               <td class="py-4 px-6 text-zinc-400">Flutter multi-platform</td>
             </tr>
             <tr>
               <td class="py-4 px-6 font-medium text-white">Idle Memory (RAM)</td>
-              <td class="py-4 px-6 text-emerald-400 font-bold">⚡ ~35 MB (Rust + OS Webview)</td>
+              <td class="py-4 px-6 text-emerald-400 font-semibold">~35 MB (Rust + OS Webview)</td>
               <td class="py-4 px-6 text-zinc-400">~120 MB (.NET runtime)</td>
               <td class="py-4 px-6 text-zinc-400">~150 MB (Chromium helper)</td>
               <td class="py-4 px-6 text-zinc-400">~100 MB (Flutter engine)</td>
             </tr>
             <tr>
               <td class="py-4 px-6 font-medium text-white">Core Architecture</td>
-              <td class="py-4 px-6 text-emerald-400 font-bold">Dual sing-box + Xray (Auto-Fallback)</td>
+              <td class="py-4 px-6 text-emerald-400 font-semibold">Dual sing-box + Xray (Auto-Fallback)</td>
               <td class="py-4 px-6 text-zinc-400">Manual core selection</td>
               <td class="py-4 px-6 text-zinc-400">Mihomo (Clash Meta)</td>
               <td class="py-4 px-6 text-zinc-400">sing-box core</td>
             </tr>
             <tr>
               <td class="py-4 px-6 font-medium text-white">Traffic Visualization</td>
-              <td class="py-4 px-6 text-emerald-400 font-bold">60 FPS Hardware Canvas Wave</td>
+              <td class="py-4 px-6 text-emerald-400 font-semibold">60 FPS Hardware Canvas Wave</td>
               <td class="py-4 px-6 text-zinc-400">Numeric text counters</td>
-              <td class="py-4 px-6 text-zinc-400">SVG/Canvas graph</td>
+              <td class="py-4 px-6 text-zinc-400">SVG / Canvas graph</td>
               <td class="py-4 px-6 text-zinc-400">Canvas graph</td>
             </tr>
             <tr>
               <td class="py-4 px-6 font-medium text-white">Split Tunneling</td>
-              <td class="py-4 px-6 text-emerald-400 font-bold">1-Click "Apps via VPN" / "Direct"</td>
+              <td class="py-4 px-6 text-emerald-400 font-semibold">1-Click "Apps via VPN" / "Direct"</td>
               <td class="py-4 px-6 text-zinc-400">Regex routing rules</td>
               <td class="py-4 px-6 text-zinc-400">YAML rule sets</td>
               <td class="py-4 px-6 text-zinc-400">Per-app picker</td>
-            </tr>
-            <tr>
-              <td class="py-4 px-6 font-medium text-white">Live 60 FPS Traffic Wave</td>
-              <td class="py-4 px-6 text-emerald-400 font-bold">✅ Hardware Canvas</td>
-              <td class="py-4 px-6 text-zinc-500">❌ Text only</td>
-              <td class="py-4 px-6 text-zinc-500">⚠️ Basic Chart</td>
-              <td class="py-4 px-6 text-zinc-500">⚠️ Basic Chart</td>
             </tr>
           </tbody>
         </table>
@@ -313,17 +314,17 @@
         <details class="bento-card rounded-xl p-6 group cursor-pointer">
           <summary class="flex justify-between items-center font-bold text-white text-base list-none">
             <span>Why do Windows or macOS show an unverified developer warning?</span>
-            <span class="text-emerald-400 group-open:rotate-180 transition-transform">▼</span>
+            <svg class="w-4 h-4 text-emerald-400 transform group-open:rotate-180 transition-transform flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
           </summary>
           <p class="text-zinc-400 text-sm mt-3 leading-relaxed">
-            Cloakwire is 100% free and open-source without commercial monetization, so we do not purchase expensive enterprise certificates ($400+/yr). On Windows, click <strong>"More info" → "Run anyway"</strong>. On macOS, right-click the app and choose <strong>"Open"</strong>. All binaries are cryptographically signed with Minisign for in-app updates.
+            Cloakwire is 100% free and open-source without commercial monetization, so we do not purchase expensive enterprise certificates ($400+/yr). On Windows, click <strong>"More info" &rarr; "Run anyway"</strong>. On macOS, right-click the app and choose <strong>"Open"</strong>. All binaries are cryptographically signed with Minisign for in-app updates.
           </p>
         </details>
 
         <details class="bento-card rounded-xl p-6 group cursor-pointer">
           <summary class="flex justify-between items-center font-bold text-white text-base list-none">
             <span>What protocols and subscription formats are supported?</span>
-            <span class="text-emerald-400 group-open:rotate-180 transition-transform">▼</span>
+            <svg class="w-4 h-4 text-emerald-400 transform group-open:rotate-180 transition-transform flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
           </summary>
           <p class="text-zinc-400 text-sm mt-3 leading-relaxed">
             Cloakwire supports VLESS (Reality, XTLS-Vision), VMess, Trojan, Shadowsocks, Hysteria 2, TUIC, and WireGuard. It parses standard Base64 links, plaintext URL lists, Clash YAML configs, and custom JSON bundles.
@@ -333,7 +334,7 @@
         <details class="bento-card rounded-xl p-6 group cursor-pointer">
           <summary class="flex justify-between items-center font-bold text-white text-base list-none">
             <span>Does Cloakwire collect any user data or logs?</span>
-            <span class="text-emerald-400 group-open:rotate-180 transition-transform">▼</span>
+            <svg class="w-4 h-4 text-emerald-400 transform group-open:rotate-180 transition-transform flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
           </summary>
           <p class="text-zinc-400 text-sm mt-3 leading-relaxed">
             Zero logs, zero telemetry, zero trackers. DNS queries are encrypted via DNS-over-HTTPS through the VPN tunnel, and all configuration parsing happens locally in the native Rust backend.
@@ -348,13 +349,13 @@
   <footer class="relative z-10 border-t border-white/5 bg-[#090a0f] py-12 text-center text-xs text-zinc-500">
     <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-2">
-        <img src="../src-tauri/icons/icon.png" alt="Cloakwire" class="w-5 h-5 opacity-70" />
-        <span>© 2026 Cloakwire. Distributed under the MIT License.</span>
+        <img src="icons/icon.png" alt="Cloakwire" class="w-5 h-5 opacity-70" />
+        <span>&copy; 2026 Cloakwire. Distributed under the MIT License.</span>
       </div>
       <div class="flex gap-6">
         <a href="https://github.com/markwhite7881-cpu/cloakwire" class="hover:text-zinc-300 transition-colors">GitHub</a>
         <a href="https://github.com/markwhite7881-cpu/cloakwire/releases" class="hover:text-zinc-300 transition-colors">Releases</a>
-        <a href="../README.ru.md" class="hover:text-zinc-300 transition-colors">Русская версия</a>
+        <a href="https://github.com/markwhite7881-cpu/cloakwire/blob/main/README.ru.md" class="hover:text-zinc-300 transition-colors">Russian README (Документация)</a>
       </div>
     </div>
   </footer>
