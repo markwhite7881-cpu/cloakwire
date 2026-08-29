@@ -1016,6 +1016,7 @@ pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16
     // KDE's kwriteconfig if gsettings isn't available.
     let http_port_str = http_port.to_string();
     let socks_port_str = socks_port.to_string();
+    let proxy_url = format!("http://{host}:{http_port}");
 
     // Try gsettings (GNOME / MATE / Cinnamon / XFCE / Budgie / Pantheon).
     let gsettings_ok = std::process::Command::new("gsettings")
