@@ -398,7 +398,7 @@ fn parse_clash_transport(map: &serde_yaml::Mapping) -> Option<crate::parser::Tra
 fn classify_json(bytes: &[u8]) -> AppResult<ClassifiedPayload> {
     let value: Value = serde_json::from_slice(bytes)
         .map_err(|_| AppError::AmbiguousConfig("provider JSON is malformed".into()))?;
-    let values = match value {
+    let mut values = match value {
         Value::Object(_) => vec![value],
         Value::Array(values) if !values.is_empty() => values,
         Value::Array(_) => {
@@ -439,10 +439,59 @@ fn classify_json(bytes: &[u8]) -> AppResult<ClassifiedPayload> {
         engine = Some(detected);
     }
 
+    // Cap max bundle profiles to prevent unbounded memory/resource consumption
+    const MAX_SUBSCRIPTION_ITEMS: usize = 500;
+    if values.len() > MAX_SUBSCRIPTION_ITEMS {
+        values.truncate(MAX_SUBSCRIPTION_ITEMS);
+    }
+
     let children = classified_children(values);
     match engine.expect("non-empty config values always produce an engine") {
         DetectedEngine::Singbox => Ok(ClassifiedPayload::SingboxBundle(children)),
         DetectedEngine::Xray => Ok(ClassifiedPayload::XrayBundle(children)),
+    }
+}
+
+/// Sanitize full sing-box or Xray config bundles imported from external subscriptions:
+/// 1. Forces non-TUN inbounds (mixed, socks, http, etc.) to listen strictly on `127.0.0.1` (loopback only)
+///    to prevent external network exposure / open relay on LAN.
+/// 2. Restricts external controller endpoints (clash_api) to loopback `127.0.0.1`.
+pub fn sanitize_bundle_config(value: &mut Value) {
+    if let Some(inbounds) = value.get_mut("inbounds").and_then(|i| i.as_array_mut()) {
+        for inbound in inbounds {
+            if let Some(obj) = inbound.as_object_mut() {
+                let is_tun = obj.get("type").and_then(|t| t.as_str()) == Some("tun");
+                let is_proxy_inbound = obj
+                    .get("type")
+                    .and_then(|t| t.as_str())
+                    .is_some_and(|t| t == "mixed" || t == "socks" || t == "http" || t == "tproxy");
+                if !is_tun {
+                    if let Some(listen) = obj.get_mut("listen") {
+                        if let Some(s) = listen.as_str() {
+                            if s == "0.0.0.0" || s == "::" || s.is_empty() {
+                                *listen = Value::String("127.0.0.1".into());
+                            }
+                        }
+                    } else if is_proxy_inbound {
+                        obj.insert("listen".into(), Value::String("127.0.0.1".into()));
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(experimental) = value.get_mut("experimental").and_then(|e| e.as_object_mut()) {
+        if let Some(clash_api) = experimental.get_mut("clash_api").and_then(|c| c.as_object_mut()) {
+            if let Some(controller) = clash_api.get_mut("external_controller") {
+                if let Some(s) = controller.as_str() {
+                    if let Some((_, port)) = s.rsplit_once(':') {
+                        *controller = Value::String(format!("127.0.0.1:{port}"));
+                    } else {
+                        *controller = Value::String("127.0.0.1:9090".into());
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -523,7 +572,10 @@ fn pointer_exists(value: &Value, pointer: &str) -> bool {
     value.pointer(pointer).is_some()
 }
 
-fn classified_children(values: Vec<Value>) -> Vec<ClassifiedChild> {
+fn classified_children(mut values: Vec<Value>) -> Vec<ClassifiedChild> {
+    for value in &mut values {
+        sanitize_bundle_config(value);
+    }
     values
         .into_iter()
         .enumerate()
@@ -556,6 +608,7 @@ fn normalize_whitespace(value: &str) -> String {
 }
 
 fn classify_links(bytes: &[u8]) -> AppResult<ClassifiedPayload> {
+    const MAX_SUBSCRIPTION_ITEMS: usize = 500;
     let text = std::str::from_utf8(bytes)
         .map_err(|_| AppError::Subscription("subscription link payload is not UTF-8".into()))?;
     let lines = split_link_lines(text)?;
@@ -563,6 +616,9 @@ fn classify_links(bytes: &[u8]) -> AppResult<ClassifiedPayload> {
     let mut failures = Vec::new();
     let mut placeholders = 0usize;
     for (index, line) in lines.into_iter().enumerate() {
+        if outbounds.len() >= MAX_SUBSCRIPTION_ITEMS {
+            break;
+        }
         match parser::parse_link(&line) {
             Ok(outbound) => {
                 // Panels (e.g. Remnawave) answer unrecognized clients
@@ -907,5 +963,55 @@ rules: []
         };
         assert_eq!(result.outbounds.len(), 1);
         assert_eq!(result.outbounds[0].server(), Some("example.com"));
+    }
+
+    #[test]
+    fn sanitizes_bundle_inbounds_and_external_controller() {
+        let mut config = serde_json::json!({
+            "inbounds": [
+                {
+                    "type": "tun",
+                    "interface_name": "utun9"
+                },
+                {
+                    "type": "socks",
+                    "listen": "0.0.0.0",
+                    "listen_port": 1080
+                },
+                {
+                    "type": "http",
+                    "listen": "::",
+                    "listen_port": 8080
+                },
+                {
+                    "type": "mixed",
+                    "listen_port": 2080
+                }
+            ],
+            "experimental": {
+                "clash_api": {
+                    "external_controller": "0.0.0.0:9090",
+                    "secret": ""
+                }
+            }
+        });
+
+        super::sanitize_bundle_config(&mut config);
+
+        let inbounds = config["inbounds"].as_array().unwrap();
+        // tun should remain without listen
+        assert!(inbounds[0].get("listen").is_none());
+        // socks forced to 127.0.0.1
+        assert_eq!(inbounds[1]["listen"], "127.0.0.1");
+        // http forced to 127.0.0.1
+        assert_eq!(inbounds[2]["listen"], "127.0.0.1");
+        // mixed with missing listen forced to 127.0.0.1
+        assert_eq!(inbounds[3]["listen"], "127.0.0.1");
+
+        // clash_api external controller forced to loopback
+        assert_eq!(
+            config["experimental"]["clash_api"]["external_controller"],
+            "127.0.0.1:9090"
+        );
     }
 }

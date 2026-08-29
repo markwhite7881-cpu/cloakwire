@@ -5,7 +5,7 @@
 
 use std::ffi::OsString;
 use std::net::TcpListener;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use uuid::Uuid;
@@ -306,6 +306,7 @@ async fn start_resolved_singbox_profile(
     profile: crate::subscriptions::ResolvedChildProfile,
 ) -> AppResult<ReadyProfileResult> {
     let mut config_value = profile.config.clone();
+    crate::subscriptions::classify::sanitize_bundle_config(&mut config_value);
     if let Some(route) = config_value.get_mut("route").and_then(|r| r.as_object_mut()) {
         route.insert("find_process".into(), serde_json::Value::Bool(true));
     }
@@ -353,19 +354,55 @@ async fn start_resolved_singbox_profile(
     })
 }
 
-fn write_runtime_config(app: &AppHandle, value: &serde_json::Value) -> AppResult<PathBuf> {
-    let dir = app
-        .path()
-        .temp_dir()
+fn runtime_config_dir(app: &AppHandle) -> PathBuf {
+    app.path()
+        .app_cache_dir()
+        .or_else(|_| app.path().app_data_dir())
         .unwrap_or_else(|_| std::env::temp_dir())
-        .join("cloakwire-runtime");
-    std::fs::create_dir_all(&dir).map_err(AppError::Io)?;
+        .join("cloakwire-runtime")
+}
+
+fn create_secure_runtime_dir(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        let mut builder = std::fs::DirBuilder::new();
+        builder.recursive(true);
+        builder.mode(0o700);
+        builder.create(path)
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::create_dir_all(path)
+    }
+}
+
+fn write_secure_runtime_file(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)?;
+        file.write_all(data)?;
+        file.sync_all()
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::write(path, data)
+    }
+}
+
+fn write_runtime_config(app: &AppHandle, value: &serde_json::Value) -> AppResult<PathBuf> {
+    let dir = runtime_config_dir(app);
+    create_secure_runtime_dir(&dir).map_err(AppError::Io)?;
     let path = dir.join(format!("{}.json", Uuid::new_v4()));
-    std::fs::write(
-        &path,
-        serde_json::to_vec_pretty(value).map_err(AppError::Serde)?,
-    )
-    .map_err(AppError::Io)?;
+    let body = serde_json::to_vec_pretty(value).map_err(AppError::Serde)?;
+    write_secure_runtime_file(&path, &body).map_err(AppError::Io)?;
     Ok(path)
 }
 
@@ -423,20 +460,13 @@ pub async fn start_managed_singbox(
                 }
             };
         }
-        let dir = app
-            .path()
-            .temp_dir()
-            .unwrap_or_else(|_| std::env::temp_dir());
-        std::fs::create_dir_all(&dir).map_err(AppError::Io)?;
-        let path = dir.join("config.managed.profile.json");
         let mut config_value = profile.config.clone();
         if profile.engine == EngineKind::Singbox {
             if let Some(route) = config_value.get_mut("route").and_then(|r| r.as_object_mut()) {
                 route.insert("find_process".into(), serde_json::Value::Bool(true));
             }
         }
-        let body = serde_json::to_vec_pretty(&config_value).map_err(AppError::Serde)?;
-        std::fs::write(&path, body).map_err(AppError::Io)?;
+        let path = write_runtime_config(&app, &config_value)?;
         let (binary, args, controller_url) = match profile.engine {
             EngineKind::Singbox => (
                 singbox::locate_binary(&app)?,
@@ -486,14 +516,7 @@ pub async fn start_managed_singbox(
     outbounds.extend(subscription_outbounds);
     let outbounds = deduplicate_outbounds(outbounds)?;
     let value = config::Config::build(&outbounds, &input.settings);
-    let body = serde_json::to_vec_pretty(&value).map_err(AppError::Serde)?;
-    let dir = app
-        .path()
-        .temp_dir()
-        .unwrap_or_else(|_| std::env::temp_dir());
-    std::fs::create_dir_all(&dir).map_err(AppError::Io)?;
-    let path = dir.join("config.managed.json");
-    std::fs::write(&path, body).map_err(AppError::Io)?;
+    let path = write_runtime_config(&app, &value)?;
     let controller_url = format!("http://{}", input.settings.clash_api.external_controller);
     let status =
         start_connection(app, pm, path.display().to_string(), Some(controller_url)).await?;

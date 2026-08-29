@@ -112,10 +112,13 @@ jobs:
         #     some REALITY/VLESS servers still need (same as desktop).
         run: |
           set -e
-          git clone --depth 1 --branch lx --recurse-submodules --shallow-submodules \
-            https://github.com/Leadaxe/sing-box-lx.git /tmp/sing-box-src
+          git init /tmp/sing-box-src
           cd /tmp/sing-box-src
-          VER="$(git describe --tags --always)+android.$(git rev-parse --short HEAD)"
+          git remote add origin https://github.com/Leadaxe/sing-box-lx.git
+          git fetch --depth 1 origin ff40cf98cb80ca6c9e9ae823ad392045cb4d23de
+          git checkout FETCH_HEAD
+          git submodule update --init --recursive --depth 1
+          VER="$(git describe --tags --always 2>/dev/null || echo "1.12.0")+android.ff40cf9"
           echo "libbox version: $VER"
           BUILD_TAGS="with_gvisor,with_quic,with_wireguard,with_utls,with_naive_outbound,badlinkname,tfogo_checklinkname0,with_xhttp,with_awg,with_lx_command,with_lx_idle_suspend,with_openvpn,with_openconnect,with_clash_api"
           mkdir -p "$GITHUB_WORKSPACE/src-tauri/gen/android/app/libs"

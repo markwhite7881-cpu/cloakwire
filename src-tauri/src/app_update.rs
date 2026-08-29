@@ -12,7 +12,7 @@ use std::time::Duration;
 use base64::Engine;
 use minisign::{verify, PublicKeyBox, SignatureBox};
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use url::Url;
 
 use crate::error::{AppError, AppResult};
@@ -420,12 +420,57 @@ fn installer_kind_from_url(url: &Url) -> AppResult<InstallerKind> {
     installer_kind_from_asset_name(asset_name)
 }
 
-fn verified_installer_path(version: &str, kind: InstallerKind) -> PathBuf {
-    std::env::temp_dir().join("cloakwire-update").join(format!(
+fn verified_installer_dir(app: &AppHandle) -> PathBuf {
+    app.path()
+        .app_cache_dir()
+        .or_else(|_| app.path().app_data_dir())
+        .unwrap_or_else(|_| std::env::temp_dir())
+        .join("updates")
+}
+
+fn verified_installer_path(app: &AppHandle, version: &str, kind: InstallerKind) -> PathBuf {
+    verified_installer_dir(app).join(format!(
         "cloakwire-{version}-{}.{}",
         uuid::Uuid::new_v4(),
         kind.extension()
     ))
+}
+
+fn create_secure_directory(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        let mut builder = std::fs::DirBuilder::new();
+        builder.recursive(true);
+        builder.mode(0o700);
+        builder.create(path)
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::create_dir_all(path)
+    }
+}
+
+fn write_secure_file(path: &Path, data: &[u8], is_executable: bool) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mode = if is_executable { 0o700 } else { 0o600 };
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(mode)
+            .open(path)?;
+        file.write_all(data)?;
+        file.sync_all()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = is_executable;
+        std::fs::write(path, data)
+    }
 }
 
 fn spawn_installer_and_exit(app: &AppHandle, kind: InstallerKind, path: &Path) -> AppResult<()> {
@@ -608,10 +653,14 @@ pub async fn install_app_update(app: AppHandle, expected_version: Option<String>
         .map_err(|error| AppError::Network(format!("installer body: {error}")))?;
     verify_update_signature(UPDATER_PUBLIC_KEY, &artifact, &signature)?;
 
-    let path = verified_installer_path(&manifest.version, installer_kind);
+    let path = verified_installer_path(&app, &manifest.version, installer_kind);
     let parent = path.parent().expect("verified installer path has parent");
-    std::fs::create_dir_all(parent)?;
-    std::fs::write(&path, artifact)?;
+    create_secure_directory(parent)?;
+    write_secure_file(
+        &path,
+        &artifact,
+        installer_kind == InstallerKind::AppImage,
+    )?;
     spawn_installer_and_exit(&app, installer_kind, &path)
 }
 

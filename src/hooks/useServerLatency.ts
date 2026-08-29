@@ -41,6 +41,8 @@ export interface LatencyState {
 
 const PROBE_INTERVAL_MS = 10_000;
 const PROBE_TIMEOUT_MS = 2_000;
+const BATCH_SIZE = 12;
+const MAX_PROBED_PROFILES = 100;
 
 export function useServerLatency(
   profiles: Outbound[],
@@ -65,25 +67,31 @@ export function useServerLatency(
     let timer: number | null = null;
 
     const probe = async () => {
-      const supported = profilesRef.current.filter(isSupported);
+      const supported = profilesRef.current
+        .filter(isSupported)
+        .slice(0, MAX_PROBED_PROFILES);
       if (supported.length === 0) return;
       setLoading(true);
       const next = new Map<string, number>();
-      // Probe in parallel — each ping is at most `PROBE_TIMEOUT_MS`,
-      // so doing them serially would be 2s × N. With ~20 servers
-      // the parallel pass finishes in ~2s flat.
-      const results = await Promise.allSettled(
-        supported.map((p) =>
-          api
-            .pingEndpoint(p.server, p.port, PROBE_TIMEOUT_MS)
-            .then((d) => ({ tag: p.tag, ms: d }))
-            .catch(() => ({ tag: p.tag, ms: null as number | null })),
-        ),
-      );
-      if (cancelled) return;
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value.ms != null) {
-          next.set(r.value.tag, r.value.ms);
+
+      // Probe in bounded batches (max BATCH_SIZE concurrent connections)
+      // to avoid file descriptor / socket exhaustion on massive subscriptions.
+      for (let i = 0; i < supported.length; i += BATCH_SIZE) {
+        if (cancelled) return;
+        const chunk = supported.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          chunk.map((p) =>
+            api
+              .pingEndpoint(p.server, p.port, PROBE_TIMEOUT_MS)
+              .then((d) => ({ tag: p.tag, ms: d }))
+              .catch(() => ({ tag: p.tag, ms: null as number | null })),
+          ),
+        );
+        if (cancelled) return;
+        for (const r of results) {
+          if (r.status === "fulfilled" && r.value.ms != null) {
+            next.set(r.value.tag, r.value.ms);
+          }
         }
       }
       setByTag(next);
