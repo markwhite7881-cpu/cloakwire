@@ -52,11 +52,9 @@ export const DEFAULT_SETTINGS: GeneratorSettings = {
   },
   tun_interface_name: null,
   mixed_port: 2080,
-  // 77.88.8.8 (Yandex DNS) — reachable from RU, no on-link-neighbour
-  // collision with the TUN's /30 (which the TUN-DNS fix in
-  // process.rs::set_tun_dns_from_config additionally guards against
-  // at the OS level via `netsh interface ip set dns`).
-  local_dns: "77.88.8.8",
+  // 1.1.1.1 (Cloudflare Privacy DNS) — neutral privacy-first local resolver
+  // used for initial outbound domain resolution on direct.
+  local_dns: "1.1.1.1",
   // 8.8.8.8 (Google DNS-over-HTTPS) as the upstream we resolve via
   // the proxy. IP form (not `dns.google`) breaks the circular
   // DNS-for-DNS lookup if the local resolver can't reach the

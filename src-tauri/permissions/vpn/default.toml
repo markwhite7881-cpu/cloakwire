@@ -1,4 +1,4 @@
-# App-local mobile plugin "vpn" (Kotlin: ru.classquiz.singbox.vpn.VpnPlugin).
+# App-local mobile plugin "vpn" (Kotlin: app.cloakwire.client.vpn.VpnPlugin).
 # Its commands are @Command-annotated Kotlin methods discovered at runtime,
 # so no compile-time allow-* permissions exist — we define them here.
 

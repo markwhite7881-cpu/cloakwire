@@ -42,12 +42,15 @@ latest.json
 # raw tauri bundle output shouldn't pollute the repo)
 /src-tauri/target/release/bundle/deb/*.deb
 # Temporary / test scratch space
-.tmp*/
-release-staging/local-scratch/
 *.TRASH
 *.bak
 *portable.exe
 *portable.exe.sig
+*.tsbuildinfo
+test-*.json
+test-*.mjs
+test-*.js
+*.bat
 TAG_MESSAGE.txt
 # Linux build helper artifacts (WSL2)
 .wsl/

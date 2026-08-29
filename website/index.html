@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloakwire — Next-Gen Privacy-First VPN Client</title>
+  <meta name="description" content="Next-generation, unblockable VPN client with dual sing-box + Xray engines and a hyper-responsive Linear Bento UI. Cross-platform, 100% open source." />
+  <link rel="icon" type="image/png" href="../src-tauri/icons/icon.png" />
+  <!-- Tailwind CSS CDN for standalone landing page -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes pulseSlow {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.05); }
+    }
+    .glow-bg {
+      animation: pulseSlow 6s ease-in-out infinite;
+    }
+    .bento-card {
+      background: rgba(18, 19, 26, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.25s ease;
+    }
+    .bento-card:hover {
+      border-color: rgba(52, 211, 153, 0.3);
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body class="bg-[#090a0f] text-zinc-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-300 font-sans min-h-screen flex flex-col">
+
+  <!-- Background Decorative Glows -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-emerald-500/10 rounded-full blur-[120px] glow-bg"></div>
+    <div class="absolute top-[40%] -right-40 w-[500px] h-[400px] bg-blue-500/5 rounded-full blur-[140px]"></div>
+    <div class="absolute bottom-10 -left-40 w-[500px] h-[400px] bg-emerald-500/5 rounded-full blur-[140px]"></div>
+  </div>
+
+  <!-- Header / Navigation -->
+  <header class="relative z-10 border-b border-white/5 bg-[#090a0f]/80 backdrop-blur-md sticky top-0">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3 group">
+        <img src="../src-tauri/icons/icon.png" alt="Cloakwire Logo" class="w-8 h-8 rounded-lg shadow-md group-hover:scale-105 transition-transform" />
+        <span class="font-bold tracking-tight text-lg text-white">Cloakwire</span>
+        <span class="text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">v1.4.0</span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm text-zinc-400 font-medium">
+        <a href="#features" class="hover:text-white transition-colors">Features</a>
+        <a href="#downloads" class="hover:text-white transition-colors">Downloads</a>
+        <a href="#comparison" class="hover:text-white transition-colors">Comparison</a>
+        <a href="#faq" class="hover:text-white transition-colors">FAQ</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <a href="https://github.com/markwhite7881-cpu/cloakwire" target="_blank" rel="noopener" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-zinc-200 transition-all">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="relative z-10 flex-1">
+    <section class="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-xs font-mono mb-6">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>Dual sing-box + Xray Core Engine</span>
+      </div>
+
+      <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight sm:leading-tight mb-6">
+        The unblockable VPN client<br/>
+        <span class="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">engineered for privacy & speed</span>
+      </h1>
+
+      <p class="max-w-2xl mx-auto text-zinc-400 text-lg sm:text-xl font-normal mb-10 leading-relaxed">
+        Cross-platform client for Windows, macOS, Linux, and Android. Powered by lightweight native Rust/Tauri with modern VLESS Reality, Vision, and Hysteria 2.
+      </p>
+
+      <!-- Primary Dynamic Download CTA -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+        <a id="hero-download-btn" href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest" class="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-base shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all hover:scale-[1.02]">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span id="hero-download-text">Download for Windows</span>
+        </a>
+        <a href="#downloads" class="w-full sm:w-auto px-6 py-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 font-semibold text-base transition-all">
+          All Platforms (Mac, Linux, Android)
+        </a>
+      </div>
+
+      <!-- App Showcase Preview -->
+      <div class="relative rounded-2xl p-2 bg-gradient-to-b from-white/10 to-transparent border border-white/10 shadow-2xl shadow-emerald-500/5">
+        <img src="../screenshots/hero-showcase.png" alt="Cloakwire UI Showcase" class="rounded-xl w-full border border-white/5 shadow-inner" />
+      </div>
+    </section>
+
+    <!-- Bento Grid Feature Highlights -->
+    <section id="features" class="max-w-6xl mx-auto px-6 py-20 border-t border-white/5">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-2">Designed for Power & Simplicity</h2>
+        <p class="text-3xl font-bold text-white tracking-tight">Everything you need for uncensored browsing</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Bento Card 1: Dual Engine -->
+        <div class="bento-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-5">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Dual sing-box + Xray Engine</h3>
+            <p class="text-zinc-400 text-sm leading-relaxed">
+              sing-box delivers ultra-low latency and low CPU usage. If a subscription requires proprietary Xray extensions, Cloakwire seamlessly falls back to Xray without breaking the UI.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 text-xs font-mono text-emerald-400">Automatic Fallback · Zero Config</div>
+        </div>
+
+        <!-- Bento Card 2: 60 FPS Traffic Wave -->
+        <div class="bento-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-5">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">60 FPS Live Traffic Wave</h3>
+            <p class="text-zinc-400 text-sm leading-relaxed">
+              Hardware-accelerated live Canvas visualization dynamically reacts to your download and upload throughput in real-time on desktop and mobile.
+            </p>
+          </div>
+          <!-- Canvas Wave Simulation -->
+          <div class="mt-6 pt-4 border-t border-white/5">
+            <canvas id="demo-wave" class="w-full h-12 rounded bg-black/40 border border-white/5"></canvas>
+          </div>
+        </div>
+
+        <!-- Bento Card 3: Smart Split Tunneling -->
+        <div class="bento-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-5">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Smart Split Routing</h3>
+            <p class="text-zinc-400 text-sm leading-relaxed">
+              1-click per-app routing: send blocked apps (Telegram, Discord, Browser) through VPN while keeping banking apps and local streaming directly on fast domestic internet.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 text-xs font-mono text-purple-400">Apps via VPN · Apps Direct</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Downloads Matrix Section -->
+    <section id="downloads" class="max-w-5xl mx-auto px-6 py-20 border-t border-white/5">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-2">Instant Setup</h2>
+        <p class="text-3xl font-bold text-white tracking-tight">Download Cloakwire for your platform</p>
+        <p class="text-zinc-400 text-sm mt-2">Latest release: v1.4.0 · Verified with Minisign & SHA-256</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Windows -->
+        <div class="bento-card rounded-xl p-6 flex flex-col justify-between text-left">
+          <div>
+            <div class="text-2xl mb-2">🪟</div>
+            <h4 class="font-bold text-white text-base">Windows</h4>
+            <p class="text-xs text-zinc-400 mt-1">Windows 10 / 11 (x64)</p>
+          </div>
+          <div class="mt-6 flex flex-col gap-2">
+            <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64-setup.exe" class="w-full text-center py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-all">Download .exe</a>
+            <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64_en-US.msi" class="w-full text-center py-2 px-3 rounded-lg border border-white/10 hover:bg-white/5 text-zinc-300 text-xs transition-all">Download .msi</a>
+          </div>
+        </div>
+
+        <!-- macOS -->
+        <div class="bento-card rounded-xl p-6 flex flex-col justify-between text-left">
+          <div>
+            <div class="text-2xl mb-2">🍏</div>
+            <h4 class="font-bold text-white text-base">macOS</h4>
+            <p class="text-xs text-zinc-400 mt-1">macOS 12+ (Apple Silicon & Intel)</p>
+          </div>
+          <div class="mt-6 flex flex-col gap-2">
+            <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.dmg" class="w-full text-center py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-all">Apple Silicon (.dmg)</a>
+            <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64.dmg" class="w-full text-center py-2 px-3 rounded-lg border border-white/10 hover:bg-white/5 text-zinc-300 text-xs transition-all">Intel (.dmg)</a>
+          </div>
+        </div>
+
+        <!-- Linux -->
+        <div class="bento-card rounded-xl p-6 flex flex-col justify-between text-left">
+          <div>
+            <div class="text-2xl mb-2">🐧</div>
+            <h4 class="font-bold text-white text-base">Linux</h4>
+            <p class="text-xs text-zinc-400 mt-1">Ubuntu / Debian / Fedora</p>
+          </div>
+          <div class="mt-6 flex flex-col gap-2">
+            <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.deb" class="w-full text-center py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-all">Download .deb</a>
+            <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.AppImage" class="w-full text-center py-2 px-3 rounded-lg border border-white/10 hover:bg-white/5 text-zinc-300 text-xs transition-all">Download .AppImage</a>
+          </div>
+        </div>
+
+        <!-- Android -->
+        <div class="bento-card rounded-xl p-6 flex flex-col justify-between text-left">
+          <div>
+            <div class="text-2xl mb-2">🤖</div>
+            <h4 class="font-bold text-white text-base">Android</h4>
+            <p class="text-xs text-zinc-400 mt-1">Android 8.0+ (arm64-v8a)</p>
+          </div>
+          <div class="mt-6 flex flex-col gap-2">
+            <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_arm64-v8a.apk" class="w-full text-center py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-all">Download .apk</a>
+            <a href="https://github.com/markwhite7881-cpu/cloakwire/releases/latest" class="w-full text-center py-2 px-3 rounded-lg border border-white/10 hover:bg-white/5 text-zinc-300 text-xs transition-all">Release Notes</a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Comparison Table Section -->
+    <section id="comparison" class="max-w-5xl mx-auto px-6 py-20 border-t border-white/5">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-2">Benchmarking</h2>
+        <p class="text-3xl font-bold text-white tracking-tight">How Cloakwire compares</p>
+      </div>
+
+      <div class="bento-card rounded-2xl overflow-x-auto">
+        <table class="w-full text-left text-sm text-zinc-300">
+          <thead class="bg-white/5 border-b border-white/10 text-xs font-mono uppercase text-zinc-400">
+            <tr>
+              <th class="py-4 px-6">Feature</th>
+              <th class="py-4 px-6 text-emerald-400 font-bold">Cloakwire</th>
+              <th class="py-4 px-6">v2rayN</th>
+              <th class="py-4 px-6">Clash Verge</th>
+              <th class="py-4 px-6">Hiddify</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <tr>
+              <td class="py-4 px-6 font-medium text-white">Modern Linear Bento UI</td>
+              <td class="py-4 px-6 text-emerald-400 font-bold">✅ Dark & Fast</td>
+              <td class="py-4 px-6 text-zinc-500">❌ WinForms</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ Complex YAML</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ Heavy Flutter</td>
+            </tr>
+            <tr>
+              <td class="py-4 px-6 font-medium text-white">Memory Usage (RAM)</td>
+              <td class="py-4 px-6 text-emerald-400 font-bold">⚡ &lt;35 MB (Rust)</td>
+              <td class="py-4 px-6 text-zinc-500">~120 MB (.NET)</td>
+              <td class="py-4 px-6 text-zinc-500">~150 MB (Electron)</td>
+              <td class="py-4 px-6 text-zinc-500">~100 MB (Flutter)</td>
+            </tr>
+            <tr>
+              <td class="py-4 px-6 font-medium text-white">Dual Engine (sing-box + Xray)</td>
+              <td class="py-4 px-6 text-emerald-400 font-bold">✅ Auto-Fallback</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ Manual Core</td>
+              <td class="py-4 px-6 text-zinc-500">❌ Mihomo only</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ sing-box only</td>
+            </tr>
+            <tr>
+              <td class="py-4 px-6 font-medium text-white">Smart Split Tunneling</td>
+              <td class="py-4 px-6 text-emerald-400 font-bold">✅ 1-Click Pickers</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ Regex Rules</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ YAML Rules</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ Basic</td>
+            </tr>
+            <tr>
+              <td class="py-4 px-6 font-medium text-white">Live 60 FPS Traffic Wave</td>
+              <td class="py-4 px-6 text-emerald-400 font-bold">✅ Hardware Canvas</td>
+              <td class="py-4 px-6 text-zinc-500">❌ Text only</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ Basic Chart</td>
+              <td class="py-4 px-6 text-zinc-500">⚠️ Basic Chart</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Trust & FAQ Section -->
+    <section id="faq" class="max-w-4xl mx-auto px-6 py-20 border-t border-white/5">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-2">Transparency</h2>
+        <p class="text-3xl font-bold text-white tracking-tight">Frequently Asked Questions</p>
+      </div>
+
+      <div class="space-y-4">
+        
+        <details class="bento-card rounded-xl p-6 group cursor-pointer">
+          <summary class="flex justify-between items-center font-bold text-white text-base list-none">
+            <span>Why do Windows or macOS show an unverified developer warning?</span>
+            <span class="text-emerald-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <p class="text-zinc-400 text-sm mt-3 leading-relaxed">
+            Cloakwire is 100% free and open-source without commercial monetization, so we do not purchase expensive enterprise certificates ($400+/yr). On Windows, click <strong>"More info" → "Run anyway"</strong>. On macOS, right-click the app and choose <strong>"Open"</strong>. All binaries are cryptographically signed with Minisign for in-app updates.
+          </p>
+        </details>
+
+        <details class="bento-card rounded-xl p-6 group cursor-pointer">
+          <summary class="flex justify-between items-center font-bold text-white text-base list-none">
+            <span>What protocols and subscription formats are supported?</span>
+            <span class="text-emerald-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <p class="text-zinc-400 text-sm mt-3 leading-relaxed">
+            Cloakwire supports VLESS (Reality, XTLS-Vision), VMess, Trojan, Shadowsocks, Hysteria 2, TUIC, and WireGuard. It parses standard Base64 links, plaintext URL lists, Clash YAML configs, and custom JSON bundles.
+          </p>
+        </details>
+
+        <details class="bento-card rounded-xl p-6 group cursor-pointer">
+          <summary class="flex justify-between items-center font-bold text-white text-base list-none">
+            <span>Does Cloakwire collect any user data or logs?</span>
+            <span class="text-emerald-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <p class="text-zinc-400 text-sm mt-3 leading-relaxed">
+            Zero logs, zero telemetry, zero trackers. DNS queries are encrypted via DNS-over-HTTPS through the VPN tunnel, and all configuration parsing happens locally in the native Rust backend.
+          </p>
+        </details>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="relative z-10 border-t border-white/5 bg-[#090a0f] py-12 text-center text-xs text-zinc-500">
+    <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <img src="../src-tauri/icons/icon.png" alt="Cloakwire" class="w-5 h-5 opacity-70" />
+        <span>© 2026 Cloakwire. Distributed under the MIT License.</span>
+      </div>
+      <div class="flex gap-6">
+        <a href="https://github.com/markwhite7881-cpu/cloakwire" class="hover:text-zinc-300 transition-colors">GitHub</a>
+        <a href="https://github.com/markwhite7881-cpu/cloakwire/releases" class="hover:text-zinc-300 transition-colors">Releases</a>
+        <a href="../README.ru.md" class="hover:text-zinc-300 transition-colors">Русская версия</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Dynamic OS Detection & Live Canvas Wave Simulation Script -->
+  <script>
+    // 1. Detect visitor's OS and update primary CTA button
+    (function() {
+      const ua = navigator.userAgent.toLowerCase();
+      const btn = document.getElementById('hero-download-btn');
+      const text = document.getElementById('hero-download-text');
+
+      if (ua.includes('android')) {
+        btn.href = 'https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_arm64-v8a.apk';
+        text.innerText = 'Download for Android (.apk)';
+      } else if (ua.includes('mac')) {
+        btn.href = 'https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.dmg';
+        text.innerText = 'Download for macOS (Apple Silicon)';
+      } else if (ua.includes('linux')) {
+        btn.href = 'https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.deb';
+        text.innerText = 'Download for Linux (.deb)';
+      } else {
+        btn.href = 'https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64-setup.exe';
+        text.innerText = 'Download for Windows (.exe)';
+      }
+    })();
+
+    // 2. Interactive Canvas Wave simulation
+    (function() {
+      const canvas = document.getElementById('demo-wave');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let step = 0;
+
+      function resize() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.beginPath();
+        ctx.moveTo(0, h / 2);
+        for (let x = 0; x < w; x++) {
+          const y = h / 2 + Math.sin((x * 0.03) + step) * 8 * Math.sin(step * 0.5) + Math.cos((x * 0.015) - step) * 4;
+          ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(52, 211, 153, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+        ctx.fill();
+
+        step += 0.05;
+        requestAnimationFrame(draw);
+      }
+      draw();
+    })();
+  </script>
+</body>
+</html>

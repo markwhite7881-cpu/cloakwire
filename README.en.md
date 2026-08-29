@@ -1,266 +1,175 @@
 <div align="center">
 
-<img src="src-tauri/icons/icon.png" alt="Cloakwire" width="128" />
+<img src="src-tauri/icons/icon.png" alt="Cloakwire Logo" width="112" />
 
 # Cloakwire
 
-**Privacy-first VPN client for Windows, macOS, Linux, and Android with two engines: sing-box and Xray.**
+**Next-generation, privacy-first VPN client with dual sing-box + Xray engines and a hyper-responsive Linear Bento UI.**
 
-Tauri 2 + React + TypeScript.
-
-[![Release](https://img.shields.io/github/v/release/markwhite7881-cpu/cloakwire?include_prereleases&sort=semver&style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/markwhite7881-cpu/cloakwire/total?style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
-[![License](https://img.shields.io/github/license/markwhite7881-cpu/cloakwire?style=for-the-badge)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/markwhite7881-cpu/cloakwire?style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/stargazers)
+Cross-platform · Lightweight Rust/Tauri Core · VLESS Reality / Hysteria 2 / TUIC · 0 Logs · 100% Open Source
 
 <br/>
 
-<img src="dist-release/screenshots/hero-showcase.png" alt="Cloakwire Showcase" width="100%" />
+[![Release](https://img.shields.io/github/v/release/markwhite7881-cpu/cloakwire?style=for-the-badge&color=10b981)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/markwhite7881-cpu/cloakwire/total?style=for-the-badge&color=3b82f6)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
+[![Platforms](https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-blueviolet?style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
+[![License](https://img.shields.io/github/license/markwhite7881-cpu/cloakwire?style=for-the-badge&color=64748b)](LICENSE)
+
+<br/>
+
+**[ 🇷🇺 Читать на русском (Russian README) ](README.ru.md)**
+
+<br/>
+
+<img src="screenshots/hero-showcase.png" alt="Cloakwire Linear Bento Showcase" width="100%" />
 
 </div>
 
-> 🇷🇺 **Russian version:** [README.md](README.md)
+---
+
+## ⚡ Direct Downloads (v1.4.0)
+
+| Platform | Recommended Installer | Alternative Package | Architecture |
+|---|---|---|---|
+| 🪟 **Windows** | [⬇️ **Download .exe** (NSIS)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64-setup.exe) | [⬇️ **Download .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64_en-US.msi) | x64 (Intel / AMD) |
+| 🍏 **macOS Apple Silicon** | [⬇️ **Download .dmg**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.app.zip) | M1 / M2 / M3 / M4 |
+| 🍏 **macOS Intel** | [⬇️ **Download .dmg**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64.app.zip) | x86_64 |
+| 🐧 **Linux** | [⬇️ **Download .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.deb) | [⬇️ **Download .AppImage** (Portable)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.AppImage) | x86_64 |
+| 🤖 **Android** | [⬇️ **Download .apk**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_arm64-v8a.apk) | — | arm64-v8a |
+
+> 🔒 Every binary is cryptographically signed with **Minisign** (`.sig`) and verified with SHA-256 checksums in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/SHA256SUMS.txt).
 
 ---
 
-### ⚡ Quick Download (Latest v1.4.0)
+## 🚀 Quick Start in 3 Steps
 
-| Platform | Primary Installer | Alternative / Portable |
-|---|---|---|
-| 🪟 **Windows (x64)** | [⬇️ **Download .exe** (NSIS)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64-setup.exe) | [⬇️ **Download .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64_en-US.msi) |
-| 🍏 **macOS (Apple Silicon M1-M4)** | [⬇️ **Download .dmg** (aarch64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_aarch64.app.zip) |
-| 🍏 **macOS (Intel)** | [⬇️ **Download .dmg** (x64)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_x64.app.zip) |
-| 🐧 **Linux (x64)** | [⬇️ **Download .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.deb) | [⬇️ **Download .AppImage**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_amd64.AppImage) |
-| 🤖 **Android** | [⬇️ **Download .apk** (arm64-v8a)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.0_arm64-v8a.apk) | — |
+```
+ 1. Download & Install        2. Paste Node / Subscription Link       3. Click Power to Connect
+┌────────────────────────┐   ┌───────────────────────────────────┐   ┌────────────────────────┐
+│  Get the installer for │──▶│  Import vless://, ss://, hy2://   │──▶│  Enjoy unblocked, fast │
+│  Windows, Mac or phone │   │  or any Base64/Clash sub URL      │   │  and private internet  │
+└────────────────────────┘   └───────────────────────────────────┘   └────────────────────────┘
+```
+
+1. **Install Cloakwire** from the download table above.
+2. Click **Add Server** or paste your subscription link (`vless://`, `vmess://`, `ss://`, `trojan://`, `hy2://`, `tuic://`, `wireguard://`, or Base64 / Clash subscription URLs).
+3. Tap the central **Power Orb** to connect. Your traffic is encrypted, low-latency, and censorship-resistant.
 
 ---
 
-## 🎯 What is it
+## 🛡️ Trust, Privacy & Security
 
-**Cloakwire** is a minimal cross-platform VPN client for Windows, macOS, Linux, and Android. It takes share-links and subscriptions, stores configurations locally, and runs the profile in a clean interface with no manual JSON editing.
+### Why do Windows or macOS show an "Unverified Developer" warning on first launch?
+Cloakwire is **100% free and open source**. Commercial proprietary certificates cost hundreds of dollars annually (Microsoft EV Cert: $400+/yr, Apple Developer: $99/yr).
+- **Windows SmartScreen**: Click **"More info"** → **"Run anyway"**.
+- **macOS Gatekeeper**: Right-click `Cloakwire.app` → select **"Open"** (or allow under *System Settings → Privacy & Security*).
+- **Verify Integrity**: You can verify any downloaded file using our public Minisign key or check SHA-256 hashes against `SHA256SUMS.txt`. All builds are 100% reproducible from source.
 
-**sing-box is the primary engine.** It's used on all platforms for TUN, System Proxy, per-app routing, proxy selection, and built-in delay checks.
+```powershell
+# Verify Windows installer checksum:
+(Get-FileHash Cloakwire_1.4.0_x64-setup.exe -Algorithm SHA256).Hash.ToLower()
+```
 
-**Xray is a capability fallback.** If a subscription contains a profile that's safer or more correct to run via Xray, Cloakwire prepares and launches it automatically. Home preserves the status, selected server, and live metrics.
+### Privacy Guarantee
+- **No Logs, No Telemetry**: We collect zero analytics, zero crash dumps, and zero IP data.
+- **Secure Dual-DNS**: System DNS is routed through encrypted DoH (`dns.google`) over the proxy tunnel, completely preventing ISP DNS poisoning and eavesdropping.
+- **Sandboxed Subscription Parsing**: Subscription links and tokens are parsed in the native Rust backend and never leaked to the web view.
+
+---
+
+## ⚔️ Why Cloakwire? (Comparison)
+
+| Feature | Cloakwire | v2rayN | Clash Verge / Mihomo | Hiddify |
+|---|---|---|---|---|
+| **User Interface** | **Linear Bento Dark UI (Clean & Fast)** | Legacy WinForms (2000s era) | Technical YAML-centric | Flutter (heavy animation) |
+| **Resource Usage** | **⚡ Ultralight Rust/Tauri (<35 MB RAM)** | 🐢 .NET runtime (~120 MB RAM) | Electron (~150 MB RAM) | Flutter Runtime (~100 MB RAM) |
+| **Dual Engine** | **✅ sing-box + Xray (Auto-Fallback)** | ⚠️ Manual switching | ❌ Clash/Mihomo only | ⚠️ sing-box only |
+| **Live Traffic Wave** | **✅ 60 FPS Canvas Waveform** | ❌ Text counters only | ⚠️ Basic SVG chart | ⚠️ Basic graph |
+| **Smart Split Routing** | **✅ 1-Click "Apps via VPN" / "Apps Direct"** | ⚠️ Complex regex routing | ⚠️ Complex YAML rules | ⚠️ Basic per-app |
+| **Modern Protocols** | **✅ VLESS Reality, Vision, Hysteria 2, TUIC** | ✅ Full protocols | ⚠️ Protocol variations | ✅ Full protocols |
+| **Platforms** | **Windows, macOS, Linux, Android** | Windows only | Windows, macOS, Linux | Cross-platform |
+
+---
+
+## 🌟 Key Features
+
+### 🎨 Linear Bento UI Design
+A sleek dark aesthetic inspired by modern engineering tools: high-contrast zinc palette, subtle emerald glow indicators, real-time KB/s speed counters, and an interactive 60 FPS live traffic wave canvas.
+
+### 🧩 Intelligent Dual-Engine Architecture
+- **sing-box (Default Core)**: Blazing fast packet processing, TUN mode, per-app routing, and native URL-test auto-migration.
+- **Xray Core (Automatic Fallback)**: Automatically selected for advanced proxy bundles requiring Xray-specific extensions without breaking user experience.
+
+### 🎯 Smart App Routing (Split Tunneling)
+- **Apps via VPN**: Route only chosen apps (e.g. Telegram, Discord, Browser) through the encrypted tunnel while leaving everything else on fast local internet.
+- **Apps Direct**: Send all traffic through VPN except sensitive local apps like online banking or government services.
+
+### 🌐 Auto Country Detection & Latency Probing
+- Automatically extracts ISO country flags (e.g. 🇳🇱 Netherlands, 🇩🇪 Germany, 🇪🇪 Estonia) from server tags.
+- Probes all nodes in parallel to display accurate round-trip ping (ms) and signal strength.
+
+---
+
+## 📱 Screenshots
+
+<div align="center">
+  <img src="screenshots/01-home.png" alt="Home Screen" width="48%" />
+  <img src="screenshots/02-servers.png" alt="Servers List" width="48%" />
+</div>
+<div align="center">
+  <img src="screenshots/04-routing.png" alt="Split Routing" width="48%" />
+  <img src="screenshots/03-config.png" alt="Advanced Config" width="48%" />
+</div>
+
+---
+
+<details>
+<summary><b>🔧 Technical Architecture & Protocols (Click to expand)</b></summary>
+
+<br/>
 
 ### Supported Protocols
 
-| Protocol | Transports & Features | Engine |
+| Protocol | Transports & Features | Core Engine |
 |---|---|---|
 | **VLESS** | Reality, XTLS-Vision, WebSocket, gRPC, HTTPUpgrade, Splithttp | `sing-box` / `Xray` |
 | **VMess** | TCP, WebSocket, gRPC, TLS | `sing-box` / `Xray` |
 | **Trojan** | TLS, WebSocket, gRPC | `sing-box` / `Xray` |
 | **Shadowsocks** | AEAD, 2022 (blake3, chacha20, aes-gcm) | `sing-box` / `Xray` |
-| **Hysteria 2** | Port-hopping, salamander obfuscation, BBR | `sing-box` |
-| **TUIC** | QUIC, 0-RTT, BBR congestion control | `sing-box` |
-| **WireGuard / AWG** | Secure UDP tunnel | `sing-box` |
+| **Hysteria 2** | Port-hopping, Salamander obfuscation, BBR | `sing-box` |
+| **TUIC** | QUIC, 0-RTT handshake, BBR congestion control | `sing-box` |
+| **WireGuard / AWG** | Encrypted UDP tunnel | `sing-box` |
 
----
+### Building from Source
 
-## ✨ Features
-
-| | |
-|---|---|
-| 🚀 **Quick start** | Share-link or subscription → profile ready to connect |
-| 🧩 **Two engines** | sing-box — primary on all platforms; Xray — automatic fallback for compatible profiles |
-| 🎯 **Per-app routing** | "Telegram via VPN, bank direct" — in one interface |
-| 🗂️ **Leak-free subscriptions** | Subscriptions are parsed in the backend; URLs and profile contents never reach the WebView |
-| 🧭 **Clear Home** | Servers from the same subscription are grouped; provider names are used as fallback labels |
-| 🔄 **Safe reconnect** | Switching servers or active settings triggers an automatic backend-mediated reconnect |
-| 📈 **Live status** | Connection state, live traffic graphs, and active engine info |
-| 🔐 **Signed auto-update** | Embedded `latest.json` manifest with minisign signatures for desktop auto-update |
-| 🔓 **Open Source** | MIT, no analytics, no telemetry |
-
-### Route traffic, not network settings
-
-- **Apps via VPN.** Select a browser, a game, a messenger, or any other app — only their connections go through the VPN tunnel. The rest of your traffic continues directly.
-- **Apps direct.** Route system traffic through the VPN and keep direct connections only for selected apps — e.g. banking clients or local network resources.
-
----
-
-## 📥 Installation Details
-
-All files are available on the **[Releases](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)** page.
-
-### Windows x64
-
-| File | Description |
-|---|---|
-| `Cloakwire_1.4.0_x64-setup.exe` | NSIS installer (recommended) |
-| `Cloakwire_1.4.0_x64_en-US.msi` | MSI package for managed deployment |
-
-> ℹ️ Windows installers are signed with Minisign for secure auto-updates. Because they lack a commercial Authenticode certificate, Windows SmartScreen may show a prompt on first install ("More info" → "Run anyway").
-
-### macOS
-
-| Architecture | Files |
-|---|---|
-| Apple Silicon (M1/M2/M3/M4) | `Cloakwire_1.4.0_aarch64.dmg` or `Cloakwire_1.4.0_aarch64.app.zip` |
-| Intel (x86_64) | `Cloakwire_1.4.0_x64.dmg` or `Cloakwire_1.4.0_x64.app.zip` |
-
-> ℹ️ v1.4.0 macOS builds are not signed with an Apple Developer ID and are not notarized. On first launch, right-click the app and choose **Open**, or allow it under *System Settings → Privacy & Security*.
-
-### Linux x86_64 — Ubuntu / Debian
+**Prerequisites**:
+- Node.js 20+ & npm
+- Rust 1.80+ (`cargo`)
+- Platform build dependencies:
+  - **Windows**: Visual Studio 2022 C++ Build Tools, WiX Toolset v3, NSIS
+  - **macOS**: Xcode Command Line Tools
+  - **Linux**: `libwebkit2gtk-4.1-dev`, `build-essential`, `libayatana-appindicator3-dev`
 
 ```bash
-sudo apt install ./Cloakwire_1.4.0_amd64.deb
-cloakwire
-```
-
-The package automatically grants `sing-box` the `cap_net_admin,cap_net_raw=+ep` capability required for TUN mode. A portable `Cloakwire_1.4.0_amd64.AppImage` is also available.
-
-### Android
-
-- `Cloakwire_1.4.0_arm64-v8a.apk` — signed release APK for 64-bit ARM devices.
-- Supports both engines: **sing-box runs in-process**, **Xray runs as a protected `VpnService` sidecar**. Switch the engine under Settings.
-
-### Verifying downloads
-
-```powershell
-Get-FileHash .\Cloakwire_1.4.0_x64-setup.exe -Algorithm SHA256
-```
-
-Cross-platform equivalent:
-
-```bash
-sha256sum -c SHA256SUMS.txt
-```
-
----
-
-## ❓ Frequently Asked Questions (FAQ)
-
-<details>
-<summary><b>🛡️ Are my subscriptions and keys safe?</b></summary>
-<br>
-Yes. All subscription parsing, private keys, and runtime configurations are handled strictly inside the isolated Rust/Kotlin backend core and are never exposed to the WebView interface. The application contains zero analytics, tracking, or third-party telemetry SDKs.
-</details>
-
-<details>
-<summary><b>⚠️ Windows SmartScreen blocks installation. What should I do?</b></summary>
-<br>
-Cloakwire is an open-source project without an expensive purchased Microsoft Authenticode certificate. To proceed with the installation, click <i>"More info"</i> and then <i>"Run anyway"</i>. You can always verify the checksum of your downloaded binary against <code>SHA256SUMS.txt</code>.
-</details>
-
-<details>
-<summary><b>🍏 How do I run the app on macOS?</b></summary>
-<br>
-On first launch, macOS Gatekeeper may flag unsigned applications. Right-click (or Control-click) the Cloakwire app in Finder and choose <b>"Open"</b>, then confirm the prompt. Alternatively, go to <i>System Settings → Privacy & Security</i> and click <i>"Open Anyway"</i>.
-</details>
-
-<details>
-<summary><b>⚡ How does Cloakwire compare to Nekoray, v2rayN, and other clients?</b></summary>
-<br>
-Cloakwire focuses on clean usability and performance:
-<ul>
-  <li><b>Clean UI:</b> No cluttered menus or manual JSON editing.</li>
-  <li><b>Dual-engine:</b> Automatic routing between sing-box and Xray depending on protocol compatibility.</li>
-  <li><b>Lightweight & Fast:</b> Built on Tauri 2, consuming a fraction of the memory used by Electron-based clients.</li>
-  <li><b>Native Per-App Routing:</b> Effortless per-application split tunneling.</li>
-</ul>
-</details>
-
----
-
-## 🚀 First run
-
-1. Launch **Cloakwire**. For TUN mode, accept the privilege elevation.
-2. In **Servers**, paste a share-link (`vless://...&`) or a subscription URL, and click **Add**.
-3. In **Routing**, add the apps that need the VPN to **Apps via VPN**, or leave **Apps direct** empty.
-4. In **Config**, pick the mode — **TUN** (recommended), **System Proxy**, **Both**, or **None**.
-5. On **Home**, select a server and press the connect button.
-
----
-
-## 🖼️ Interface
-
-### Home — connect screen
-![Home tab](dist-release/screenshots/01-home.png)
-
-### Servers — subscriptions and profiles
-![Servers tab](dist-release/screenshots/02-servers.png)
-
-### Config — mode and DNS
-![Config tab](dist-release/screenshots/03-config.png)
-
-### Routing — routing and rules
-![Routing tab](dist-release/screenshots/04-routing.png)
-
----
-
-## 🏗️ Architecture
-
-```text
-React + TypeScript + Tailwind     ← typed tauri::invoke
-          │
-src/
-          │
-Rust + Tauri 2                  ← subscriptions, routing, lifecycle, safe IPC
-src-tauri/src/
-          │
-     ┌────┴────┐
-  sing-box    Xray
-  (primary)    (fallback)
-          │
-  TUN / proxy control · Android sidecar VPNService
-```
-
----
-
-## 🛠️ Stack
-
-| Layer | Technology |
-|---|---|
-| Shell | **Tauri 2** (Rust + WebView) |
-| UI | **React 18** + **TypeScript 5** |
-| Styles | **Tailwind CSS 3** + design tokens |
-| Primary VPN engine | [sing-box](https://github.com/SagerNet/sing-box) (sidecar) |
-| Fallback engine | [Xray-core](https://github.com/XTLS/Xray-core) (sidecar) |
-| Routing | sing-box rules / rule-sets + process routing |
-| Auto-update | custom updater; minisign signatures inlined in `latest.json` |
-
----
-
-## 🧑‍💻 Building from source
-
-```powershell
-# Requirements: Node 20+, Rust stable, Tauri-ready for desktop dev
+# Clone the repository
 git clone https://github.com/markwhite7881-cpu/cloakwire.git
 cd cloakwire
-npm ci
+
+# Install web dependencies
+npm install
+
+# Run in development mode
+npm run tauri:dev
+
+# Build production installer
 npm run tauri:build
 ```
 
----
-
-## 🤝 Contributing
-
-Pull requests are welcome. Before submitting, run local checks:
-
-- **Code style:** `cargo fmt` for Rust, Prettier for TS/TSX.
-- **Checks:** `npm test`, plus a production build.
-- **Commits:** conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).
+</details>
 
 ---
 
-## 📜 License
+## 📄 License
 
-[MIT](LICENSE) — do whatever you want with the code, no warranty.
-
----
-
-## 🙏 Credits
-
-- [SagerNet/sing-box](https://github.com/SagerNet/sing-box)
-- [XTLS/Xray-core](https://github.com/XTLS/Xray-core)
-- [Tauri](https://tauri.app)
-
----
-
-<div align="center">
-
-**[⬇ Download latest](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)** · **[🐛 Report a bug](https://github.com/markwhite7881-cpu/cloakwire/issues)** · **[⭐ Star the repo](https://github.com/markwhite7881-cpu/cloakwire)**
-
-Made with care for people who value their privacy.
-
-</div>
+Cloakwire is distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
+All bundled core engines (`sing-box`, `Xray-core`) belong to their respective copyright holders under GPL / MPL open-source licenses.

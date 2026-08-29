@@ -16,7 +16,7 @@
 # had renamed them. The glue surface drifts with every tauri/wry
 # release, so keep the whole app package; there is no other Kotlin
 # code here to shrink.
--keep class ru.classquiz.singbox.** { *; }
+-keep class app.cloakwire.client.** { *; }
 
 # hev-socks5-tunnel binds its four TProxy* natives with
 # RegisterNatives against the exact class name "hev/htproxy/TProxyService".

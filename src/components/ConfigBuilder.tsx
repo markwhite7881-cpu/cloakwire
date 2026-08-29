@@ -287,13 +287,13 @@ export function ConfigBuilder({
             <span className="text-muted-foreground">Local DNS</span>
             <input
               type="text"
-              placeholder="77.88.8.8"
+              placeholder="1.1.1.1"
               className="ml-auto w-44 truncate rounded border border-input bg-background px-2 py-0.5 font-mono text-[11px]"
               value={settings.local_dns ?? ""}
               onChange={(e) =>
                 update("local_dns", e.target.value || null)
               }
-              title="Plain-UDP DNS server (e.g. 77.88.8.8, 1.1.1.1). Avoid hostnames — they require a working DNS to resolve, which is exactly what this server is supposed to provide."
+              title="Plain-UDP DNS server (e.g. 1.1.1.1, 8.8.8.8). Avoid hostnames — they require a working DNS to resolve, which is exactly what this server is supposed to provide."
             />
           </label>
           <label className="flex items-center gap-2 rounded-md border border-border bg-card/30 px-2 py-1.5 text-xs">

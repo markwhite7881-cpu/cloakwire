@@ -50,8 +50,8 @@ if ($InstallPhone) {
     if (Test-Path $adb) {
         Write-Host "Installing APK to connected phone..." -ForegroundColor Cyan
         & $adb -s 3B15AV0166300000 install -r "$DistDir\Cloakwire_$Version`_arm64-v8a.apk"
-        & $adb -s 3B15AV0166300000 shell "am force-stop ru.classquiz.singbox"
-        & $adb -s 3B15AV0166300000 shell "am start -n ru.classquiz.singbox/.MainActivity"
+        & $adb -s 3B15AV0166300000 shell "am force-stop app.cloakwire.client"
+        & $adb -s 3B15AV0166300000 shell "am start -n app.cloakwire.client/.MainActivity"
     }
 }
 

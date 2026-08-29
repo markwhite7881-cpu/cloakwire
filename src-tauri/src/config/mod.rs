@@ -159,7 +159,7 @@ impl Default for GeneratorSettings {
             clash_api: ClashApiOptions::default(),
             tun_interface_name: None,
             mixed_port: Some(2080),
-            local_dns: Some("77.88.8.8".to_string()),
+            local_dns: Some("1.1.1.1".to_string()),
             remote_dns: Some("https://dns.google/dns-query".to_string()),
             // `None` here means "let `auto` (urltest) decide". The
             // frontend switches to a real tag the moment the user
@@ -670,7 +670,7 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     let local_input = settings
         .local_dns
         .clone()
-        .unwrap_or_else(|| "77.88.8.8".to_string());
+        .unwrap_or_else(|| "1.1.1.1".to_string());
     let remote_input = settings
         .remote_dns
         .clone()
@@ -1197,11 +1197,11 @@ mod tests {
         let cfg = Config::build(&fixture_outbounds(), &GeneratorSettings::default());
         let servers = cfg["dns"]["servers"].as_array().unwrap();
         assert_eq!(servers.len(), 2);
-        // Local default is 77.88.8.8 (Yandex DNS) — type=udp, no detour.
+        // Local default is 1.1.1.1 (Cloudflare DNS) — type=udp, no detour.
         let local = &servers[0];
         assert_eq!(local["tag"], "local");
         assert_eq!(local["type"], "udp");
-        assert_eq!(local["server"], "77.88.8.8");
+        assert_eq!(local["server"], "1.1.1.1");
         // Remote default is https://dns.google/dns-query — type=https, host stripped.
         let remote = &servers[1];
         assert_eq!(remote["tag"], "remote");

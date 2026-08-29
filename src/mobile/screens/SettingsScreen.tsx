@@ -15,12 +15,6 @@ const inTauri =
 /** DNS provider presets — write both local and remote upstreams. */
 const DNS_PRESETS: { id: string; label: string; local: string; remote: string }[] = [
   {
-    id: "yandex",
-    label: "Yandex (77.88.8.8)",
-    local: "77.88.8.8",
-    remote: "https://8.8.8.8/dns-query",
-  },
-  {
     id: "cloudflare",
     label: "Cloudflare (1.1.1.1)",
     local: "1.1.1.1",
@@ -31,6 +25,18 @@ const DNS_PRESETS: { id: string; label: string; local: string; remote: string }[
     label: "Google (8.8.8.8)",
     local: "8.8.8.8",
     remote: "https://dns.google/dns-query",
+  },
+  {
+    id: "quad9",
+    label: "Quad9 (9.9.9.9)",
+    local: "9.9.9.9",
+    remote: "https://dns.quad9.net/dns-query",
+  },
+  {
+    id: "yandex",
+    label: "Yandex (77.88.8.8)",
+    local: "77.88.8.8",
+    remote: "https://8.8.8.8/dns-query",
   },
 ];
 

@@ -1,4 +1,4 @@
-package hev.htproxy
+﻿package hev.htproxy
 
 /**
  * JNI binding surface for the bundled libhev-socks5-tunnel.so.
@@ -15,7 +15,7 @@ package hev.htproxy
  *
  * This class is intentionally a thin pass-through — it has no
  * business logic. Application code should depend on
- * `ru.classquiz.singbox.vpn.Tun2SocksService` instead, which
+ * `app.cloakwire.client.vpn.Tun2SocksService` instead, which
  * wraps these natives with config generation, lifecycle, logging,
  * and error handling.
  */

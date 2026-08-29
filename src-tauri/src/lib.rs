@@ -53,8 +53,8 @@ pub mod xray_config;
 use process::ProcessManager;
 use subscriptions::{HwidStore, SubscriptionHttpClient, SubscriptionService, SubscriptionStore};
 
-/// Registers the app-local Kotlin VPN plugin (`ru.classquiz.singbox
-/// .VpnPlugin`). The plugin name "vpn" is what the frontend uses:
+/// Registers the app-local Kotlin VPN plugin (`app.cloakwire.client
+/// .vpn.VpnPlugin`). The plugin name "vpn" is what the frontend uses:
 /// `invoke("plugin:vpn|start", ...)` / `addPluginListener("vpn", ...)`.
 ///
 /// On Android the returned `PluginHandle` is what the Rust
@@ -69,7 +69,7 @@ use subscriptions::{HwidStore, SubscriptionHttpClient, SubscriptionService, Subs
 fn vpn_mobile_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("vpn")
         .setup(|app, api| {
-            let handle = api.register_android_plugin("ru.classquiz.singbox.vpn", "VpnPlugin")?;
+            let handle = api.register_android_plugin("app.cloakwire.client.vpn", "VpnPlugin")?;
             // Stash the handle so `add_subscription` (and any future
             // command that needs to bridge into Kotlin) can call
             // `run_mobile_plugin_async` on it. Tauri only allows one
