@@ -84,12 +84,20 @@ class QuickTileService : TileService() {
     // server — the tile intentionally only resumes an existing
     // session, it never picks a new one.
     val configFile = CloakwireVpnService.configFile(this)
-    if (!configFile.exists()) {
+    if (!configFile.exists() || configFile.length() == 0L) {
+      Log.i(tag, "no config found, launching app")
       launchApp()
       return
     }
     val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-    val engine = prefs.getString(KEY_LAST_ENGINE, CloakwireVpnService.ENGINE_SINGBOX) ?: CloakwireVpnService.ENGINE_SINGBOX
+    var engine = prefs.getString(KEY_LAST_ENGINE, null)
+    if (engine.isNullOrBlank()) {
+      engine = if (configFile.name == "configuration.json" || configFile.name.contains("singbox")) {
+        CloakwireVpnService.ENGINE_SINGBOX
+      } else {
+        CloakwireVpnService.ENGINE_XRAY
+      }
+    }
     val apps = prefs.getString(KEY_LAST_APPS, "[]") ?: "[]"
     val appsMode = prefs.getString(KEY_LAST_APPS_MODE, "exclude") ?: "exclude"
     val serverName = prefs.getString(KEY_LAST_SERVER, "") ?: ""

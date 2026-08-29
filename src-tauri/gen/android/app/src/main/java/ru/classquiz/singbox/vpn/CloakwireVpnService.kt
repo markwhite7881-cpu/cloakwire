@@ -80,8 +80,13 @@ class CloakwireVpnService : VpnService() {
       private set
 
     /** Persisted last-session engine config; sticky restart reads it. */
-    fun configFile(context: android.content.Context): File =
-      File(context.filesDir, "xray-config.json")
+    fun configFile(context: android.content.Context): File {
+      val xray = File(context.filesDir, "xray-config.json")
+      if (xray.exists() && xray.length() > 0) return xray
+      val configJson = File(context.filesDir, "configuration.json")
+      if (configJson.exists() && configJson.length() > 0) return configJson
+      return xray
+    }
 
     fun logFile(context: android.content.Context): File =
       File(File(context.filesDir, "xray"), "xray.log")
@@ -743,15 +748,21 @@ class CloakwireVpnService : VpnService() {
       val file = File(configPath)
       if (!file.exists()) return null
       val outbounds = JSONObject(file.readText()).optJSONArray("outbounds") ?: return null
-      val proxyProtocols = setOf("vless", "vmess", "trojan", "shadowsocks", "http", "socks")
+      val proxyProtocols = setOf(
+        "vless", "vmess", "trojan", "shadowsocks", "tuic", "hysteria2", "hysteria",
+        "wireguard", "http", "socks", "shadowtls"
+      )
       for (i in 0 until outbounds.length()) {
         val ob = outbounds.getJSONObject(i)
-        if (ob.optString("protocol") in proxyProtocols) {
+        val proto = ob.optString("protocol").ifBlank { ob.optString("type") }
+        if (proto in proxyProtocols) {
           val tag = ob.optString("tag")
-          if (tag.isNotBlank() && tag != "proxy") {
+          if (tag.isNotBlank() && tag != "proxy" && tag != "auto" && tag != "direct" && tag != "block") {
             return tag
           }
-          return extractEndpointFromOutbound(ob) ?: tag.ifBlank { null }
+          val ep = extractEndpointFromOutbound(ob)
+          if (!ep.isNullOrBlank()) return ep
+          if (tag.isNotBlank() && tag != "proxy") return tag
         }
       }
       null
@@ -763,10 +774,14 @@ class CloakwireVpnService : VpnService() {
 
   /**
    * Read `address:port` from a vless/vmess/trojan/shadowsocks outbound's
-   * settings block (vnext[] or servers[]). Returns null if the structure
-   * isn't recognised.
+   * settings block (vnext[] or servers[]) or top-level server / server_port.
    */
   private fun extractEndpointFromOutbound(ob: JSONObject): String? {
+    val directServer = ob.optString("server")
+    if (directServer.isNotBlank()) {
+      val port = ob.optInt("server_port", 0)
+      return if (port > 0) "$directServer:$port" else directServer
+    }
     val settings = ob.optJSONObject("settings") ?: return null
     for (key in arrayOf("vnext", "servers")) {
       val arr = settings.optJSONArray(key) ?: continue
