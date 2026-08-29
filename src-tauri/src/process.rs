@@ -107,6 +107,8 @@ struct XrayTestState {
 pub struct ProcessManager {
     /// Currently running child process, if any.
     child: Mutex<Option<ChildSlot>>,
+    /// Auxiliary child process (e.g. sing-box TUN forwarder when running Xray).
+    aux_child: Mutex<Option<ChildSlot>>,
     /// Ring buffer of recent log lines.
     logs: Mutex<VecDeque<LogLine>>,
     /// Current snapshot used by the frontend.
@@ -144,6 +146,7 @@ impl Default for ProcessManager {
     fn default() -> Self {
         Self {
             child: Mutex::new(None),
+            aux_child: Mutex::new(None),
             logs: Mutex::new(VecDeque::with_capacity(LOG_BUFFER_CAPACITY)),
             status: Mutex::new(StatusReport::default()),
             started_at: Mutex::new(None),
@@ -181,8 +184,77 @@ impl ProcessManager {
         logs.push_back(line);
     }
 
+    pub fn active_run_id(&self) -> u64 {
+        self.active_run_id.load(Ordering::Acquire)
+    }
+
     pub async fn snapshot_status(&self) -> StatusReport {
         self.status.lock().await.clone()
+    }
+
+    pub async fn start_aux_child(
+        self: &Arc<Self>,
+        run_id: u64,
+        binary: PathBuf,
+        args: Vec<OsString>,
+        env: Vec<(String, String)>,
+    ) -> AppResult<()> {
+        if !self.is_active_run(run_id).await {
+            return Ok(());
+        }
+        let mut cmd = Command::new(&binary);
+        cmd.args(&args)
+            .envs(env.iter().map(|(k, v)| (k, v)))
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .stdin(std::process::Stdio::null())
+            .kill_on_drop(true);
+        #[cfg(windows)]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        let mut child = match cmd.spawn() {
+            Ok(child) => child,
+            Err(e) => {
+                return Err(AppError::Spawn(format!(
+                    "could not start auxiliary TUN forwarder: {e}"
+                )));
+            }
+        };
+
+        if let Some(stdout) = child.stdout.take() {
+            let manager = Arc::clone(self);
+            let reader = tokio::spawn(async move {
+                let mut lines = BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if let Some(line) = frontend_log_line(EngineKind::Singbox, &line) {
+                        manager.push_log(LogStream::Stdout, format!("[TUN] {line}")).await;
+                    }
+                }
+            });
+            #[cfg(test)]
+            self.stdio_readers.lock().await.push(reader);
+            #[cfg(not(test))]
+            drop(reader);
+        }
+        if let Some(stderr) = child.stderr.take() {
+            let manager = Arc::clone(self);
+            let reader = tokio::spawn(async move {
+                let mut lines = BufReader::new(stderr).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if let Some(line) = frontend_log_line(EngineKind::Singbox, &line) {
+                        manager.push_log(LogStream::Stderr, format!("[TUN] {line}")).await;
+                    }
+                }
+            });
+            #[cfg(test)]
+            self.stdio_readers.lock().await.push(reader);
+            #[cfg(not(test))]
+            drop(reader);
+        }
+        *self.aux_child.lock().await = Some(ChildSlot { run_id, child });
+        Ok(())
     }
 
     #[cfg(test)]
@@ -442,6 +514,11 @@ impl ProcessManager {
             }
         }
 
+        if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+        }
+
         // Try graceful first. The child is owned locally for the rest of this
         // async operation, so no child mutex guard can cross an await.
         let _ = child.start_kill();
@@ -655,6 +732,9 @@ impl ProcessManager {
         }
         self.stop_xray_telemetry().await;
         self.active_run_id.store(0, Ordering::Release);
+        if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
+            let _ = child.start_kill();
+        }
         *self.child.lock().await = None;
         *self.status.lock().await = StatusReport::default();
         #[cfg(test)]
@@ -687,6 +767,10 @@ impl ProcessManager {
     async fn finalize_exit(&self, run_id: u64, code: Option<i32>, err: Option<String>) {
         if self.active_run_id.load(Ordering::Acquire) != run_id {
             return;
+        }
+
+        if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
+            let _ = child.start_kill();
         }
 
         // Unexpected exits bypass `stop`; cancel the old run before another
