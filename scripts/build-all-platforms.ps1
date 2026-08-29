@@ -1,9 +1,9 @@
-﻿# Multi-platform release orchestration script for Cloakwire
+# Multi-platform release orchestration script for Cloakwire
 # Builds: Windows (NSIS + MSI), Android (ARM64 APK), Linux (DEB + AppImage via WSL), macOS (ARM64 + x64 DMG + ZIP via Mac mini)
 
 param(
-    [string]$Version = "1.4.0",
-    [switch]$InstallPhone = $true
+    [string]$Version = "1.4.1",
+    [bool]$InstallPhone = $false
 )
 
 $ErrorActionPreference = 'Stop'

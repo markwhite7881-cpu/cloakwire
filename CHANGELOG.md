@@ -1,9 +1,30 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.4.1] - 2026-08-29
+
+### 🛡️ Security Vulnerabilities Remediated & Hardening
+- **🔒 Auto-Updater TOCTOU Mitigation (`src-tauri/src/app_update.rs`)**:
+  - Moved installer staging from public `/tmp/cloakwire-update/` to private user application cache (`app.path().app_cache_dir().join("updates")`).
+  - Enforced strict POSIX permissions `0700` on directories and `0600` on staged binaries (`0700` for AppImage), preventing local race condition package tampering before privileged execution (`pkexec`).
+- **🔐 Secure Runtime Configuration Storage (`src-tauri/src/commands.rs`)**:
+  - Staged sing-box and Xray runtime configuration files (`config.managed.json`) with UUID paths inside private user cache (`app_cache_dir().join("cloakwire-runtime")`).
+  - Enforced strict `0600` POSIX file permissions to protect embedded credentials and Reality private keys from unprivileged local readers.
+- **🌐 Subscription Inbound & Clash API Sanitization (`src-tauri/src/subscriptions/classify.rs`)**:
+  - Implemented `sanitize_bundle_config()` which enforces `listen: "127.0.0.1"` on all socket-based inbounds (`mixed`, `socks`, `http`, `tproxy`) to prevent external LAN exposure.
+  - Restricted `clash_api.external_controller` strictly to loopback `127.0.0.1:<port>`.
+- **⚡ Latency Ping Concurrency Throttling & DoS Protection (`src/hooks/useServerLatency.ts` & `classify.rs`)**:
+  - Replaced unconstrained `Promise.allSettled` ping sweeps with 12-socket batch concurrency.
+  - Capped background latency probing to the first 100 profiles and imposed a 500-profile maximum import limit per subscription to prevent socket exhaustion.
+- **🔗 Supply Chain Reproducibility & Lockfile Pinning (`Cargo.lock`, `.github/workflows/release-android.yml`)**:
+  - Unignored and committed `src-tauri/Cargo.lock` to guarantee reproducible deterministic dependency resolution.
+  - Pinned `Leadaxe/sing-box-lx` repository clone in Android CI/CD workflow to verified commit hash `ff40cf98cb80ca6c9e9ae823ad392045cb4d23de`.
+
+---
 
 ## [1.4.0] - 2026-08-29
 
