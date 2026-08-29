@@ -18,6 +18,7 @@ pub struct PreparedXrayConfig {
     pub value: Value,
     pub proxy_host: String,
     pub proxy_port: u16,
+    pub socks_port: u16,
     pub applicability: RoutingApplicability,
     pub(crate) stats: stats::XrayStatsSpec,
 }
@@ -58,6 +59,7 @@ where
         value,
         proxy_host: inbound.proxy_host,
         proxy_port: inbound.proxy_port,
+        socks_port: inbound.socks_port,
         applicability: routing.applicability,
         stats,
     })

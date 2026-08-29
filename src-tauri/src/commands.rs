@@ -234,7 +234,11 @@ async fn start_ready_profile_inner(
             )?;
             let binary = xray::locate_binary(&app)?;
             let geodata = xray::geodata::ensure(&app).await?;
-            let proxy = (prepared.proxy_host.clone(), prepared.proxy_port);
+            let proxy = (
+                prepared.proxy_host.clone(),
+                prepared.proxy_port,
+                prepared.socks_port,
+            );
             (
                 prepared.value,
                 Some(proxy),
@@ -286,8 +290,8 @@ async fn start_ready_profile_inner(
             return Err(error);
         }
     };
-    if let Some((host, port)) = proxy {
-        if let Err(error) = crate::process::apply_system_proxy(&host, port) {
+    if let Some((host, http_port, socks_port)) = proxy {
+        if let Err(error) = crate::process::apply_system_proxy_with_socks(&host, http_port, socks_port) {
             let _ = pm.stop().await;
             let _ = crate::process::clear_system_proxy();
             return Err(error);

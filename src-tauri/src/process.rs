@@ -866,16 +866,26 @@ pub fn apply_system_proxy(_host: &str, _port: u16) -> AppResult<()> {
 }
 
 #[cfg(target_os = "android")]
+pub fn apply_system_proxy_with_socks(_host: &str, _http_port: u16, _socks_port: u16) -> AppResult<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "android")]
 pub fn clear_system_proxy() -> AppResult<()> {
     Ok(())
 }
 
 #[cfg(windows)]
 pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
+    apply_system_proxy_with_socks(host, port, port)
+}
+
+#[cfg(windows)]
+pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16) -> AppResult<()> {
     use winreg::enums::*;
     use winreg::RegKey;
 
-    let proxy = format!("{host}:{port}");
+    let proxy = format!("http={host}:{http_port};https={host}:{http_port};socks={host}:{socks_port}");
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let settings = hkcu
         .open_subkey_with_flags(
@@ -912,25 +922,16 @@ pub fn clear_system_proxy() -> AppResult<()> {
 
 #[cfg(target_os = "linux")]
 pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
+    apply_system_proxy_with_socks(host, port, port)
+}
+
+#[cfg(target_os = "linux")]
+pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16) -> AppResult<()> {
     // On Linux the system proxy is per-desktop-environment. We use
     // gsettings (GNOME, MATE, Cinnamon, XFCE) and fall back to
-    // KDE's kwriteconfig if gsettings isn't available. Other DEs
-    // (raw i3, sway) don't have a system-wide proxy concept and the
-    // user is expected to configure their browser / curl / etc.
-    // manually. We log a warning for unsupported DEs and continue
-    // — the user can still point individual apps at the proxy.
-    //
-    // This is best-effort: if every approach fails, we still return
-    // Ok(()) so the rest of the start path isn't blocked. The
-    // recommendation for full traffic coverage on Linux is TUN mode
-    // (not system_proxy), which captures at the network layer
-    // rather than relying on per-app proxy support.
-    let scheme = if host == "127.0.0.1" || host == "::1" || host == "localhost" {
-        "http"
-    } else {
-        "http"
-    };
-    let proxy_url = format!("{scheme}://{host}:{port}");
+    // KDE's kwriteconfig if gsettings isn't available.
+    let http_port_str = http_port.to_string();
+    let socks_port_str = socks_port.to_string();
 
     // Try gsettings (GNOME / MATE / Cinnamon / XFCE / Budgie / Pantheon).
     let gsettings_ok = std::process::Command::new("gsettings")
@@ -939,7 +940,6 @@ pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
         .map(|s| s.success())
         .unwrap_or(false);
     if gsettings_ok {
-        // mode=manual succeeded — set the actual proxy endpoints.
         let _ = std::process::Command::new("gsettings")
             .args(["set", "org.gnome.system.proxy.http", "host", host])
             .status();
@@ -948,7 +948,7 @@ pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
                 "set",
                 "org.gnome.system.proxy.http",
                 "port",
-                &port.to_string(),
+                http_port_str.as_str(),
             ])
             .status();
         let _ = std::process::Command::new("gsettings")
@@ -959,10 +959,21 @@ pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
                 "set",
                 "org.gnome.system.proxy.https",
                 "port",
-                &port.to_string(),
+                http_port_str.as_str(),
             ])
             .status();
-        log::info!("set GNOME system proxy to {proxy_url}");
+        let _ = std::process::Command::new("gsettings")
+            .args(["set", "org.gnome.system.proxy.socks", "host", host])
+            .status();
+        let _ = std::process::Command::new("gsettings")
+            .args([
+                "set",
+                "org.gnome.system.proxy.socks",
+                "port",
+                socks_port_str.as_str(),
+            ])
+            .status();
+        log::info!("set GNOME system proxy (http:{http_port}, socks:{socks_port})");
         return Ok(());
     }
 
@@ -1128,6 +1139,11 @@ fn run_networksetup(args: &[&str]) {
 
 #[cfg(target_os = "macos")]
 pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
+    apply_system_proxy_with_socks(host, port, port)
+}
+
+#[cfg(target_os = "macos")]
+pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16) -> AppResult<()> {
     let services = enabled_network_services();
     if services.is_empty() {
         return Err(AppError::Spawn(
@@ -1135,12 +1151,13 @@ pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
         ));
     }
 
-    let port = port.to_string();
+    let http_port_str = http_port.to_string();
+    let socks_port_str = socks_port.to_string();
     for service in &services {
-        log::info!("macos-proxy: applying to {service}");
-        run_networksetup(&["-setwebproxy", service.as_str(), host, port.as_str()]);
-        run_networksetup(&["-setsecurewebproxy", service.as_str(), host, port.as_str()]);
-        run_networksetup(&["-setsocksfirewallproxy", service.as_str(), host, port.as_str()]);
+        log::info!("macos-proxy: applying to {service} (http:{http_port}, socks:{socks_port})");
+        run_networksetup(&["-setwebproxy", service.as_str(), host, http_port_str.as_str()]);
+        run_networksetup(&["-setsecurewebproxy", service.as_str(), host, http_port_str.as_str()]);
+        run_networksetup(&["-setsocksfirewallproxy", service.as_str(), host, socks_port_str.as_str()]);
         run_networksetup(&["-setwebproxystate", service.as_str(), "on"]);
         run_networksetup(&["-setsecurewebproxystate", service.as_str(), "on"]);
         run_networksetup(&["-setsocksfirewallproxystate", service.as_str(), "on"]);

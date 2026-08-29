@@ -3,22 +3,24 @@ use serde_json::{json, Value};
 use crate::error::{AppError, AppResult};
 
 pub const MANAGED_HTTP_TAG: &str = "cloakwire-managed-http";
+pub const MANAGED_SOCKS_TAG: &str = "cloakwire-managed-socks";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ManagedHttpInbound {
     pub value: Value,
     pub proxy_host: String,
     pub proxy_port: u16,
+    pub socks_port: u16,
     pub traffic_tag: String,
     pub injected: bool,
 }
 
 pub fn ensure_managed_http_inbound<F>(
     mut value: Value,
-    port_allocator: F,
+    mut port_allocator: F,
 ) -> AppResult<ManagedHttpInbound>
 where
-    F: FnOnce() -> AppResult<u16>,
+    F: FnMut() -> AppResult<u16>,
 {
     let root = value
         .as_object_mut()
@@ -30,16 +32,24 @@ where
         .ok_or_else(|| AppError::UnsafeConfig("Xray inbounds must be an array".into()))?;
 
     let mut candidates = Vec::new();
+    let mut existing_socks = None;
+
     for (index, inbound) in inbounds.iter().enumerate() {
         let object = inbound
             .as_object()
             .ok_or_else(|| AppError::UnsafeConfig("Xray inbound must be an object".into()))?;
+        let proto = object.get("protocol").and_then(Value::as_str);
+        if proto == Some("socks") {
+            if let Ok(p) = valid_port(object.get("port")) {
+                existing_socks = Some(p);
+            }
+        }
         if object.get("tag").and_then(Value::as_str) == Some(MANAGED_HTTP_TAG) {
             return Err(AppError::UnsafeConfig(
                 "provider uses reserved Xray inbound tag".into(),
             ));
         }
-        if object.get("protocol").and_then(Value::as_str) != Some("http") {
+        if proto != Some("http") {
             continue;
         }
         let listen = object
@@ -62,6 +72,28 @@ where
         candidates.push((index, listen.to_string(), port, tag));
     }
 
+    let socks_port = match existing_socks {
+        Some(p) => p,
+        None => {
+            let p = port_allocator()?;
+            inbounds.push(json!({
+                "tag": MANAGED_SOCKS_TAG,
+                "listen": "127.0.0.1",
+                "port": p,
+                "protocol": "socks",
+                "settings": {
+                    "auth": "noauth",
+                    "udp": true
+                },
+                "sniffing": {
+                    "enabled": true,
+                    "destOverride": ["http", "tls", "quic"]
+                }
+            }));
+            p
+        }
+    };
+
     match candidates.len() {
         0 => {
             let port = port_allocator()?;
@@ -81,6 +113,7 @@ where
                 value,
                 proxy_host: "127.0.0.1".into(),
                 proxy_port: port,
+                socks_port,
                 traffic_tag: MANAGED_HTTP_TAG.into(),
                 injected: true,
             })
@@ -98,6 +131,7 @@ where
                 value,
                 proxy_host,
                 proxy_port,
+                socks_port,
                 traffic_tag,
                 injected: false,
             })
