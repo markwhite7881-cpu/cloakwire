@@ -12,7 +12,7 @@ Cross-platform · Lightweight Rust/Tauri Core · VLESS Reality / Hysteria 2 / TU
 
 [![Release](https://img.shields.io/github/v/release/markwhite7881-cpu/cloakwire?style=for-the-badge&color=10b981)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/markwhite7881-cpu/cloakwire/total?style=for-the-badge&color=3b82f6)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
-[![Platforms](https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-blueviolet?style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
+[![Platforms](https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Android-blueviolet?style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
 [![License](https://img.shields.io/github/license/markwhite7881-cpu/cloakwire?style=for-the-badge&color=64748b)](LICENSE)
 
 <br/>
@@ -34,7 +34,6 @@ Cross-platform · Lightweight Rust/Tauri Core · VLESS Reality / Hysteria 2 / TU
 | 🪟 **Windows** | [⬇️ **Download .exe** (NSIS)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_x64-setup.exe) | [⬇️ **Download .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_x64_en-US.msi) | x64 (Intel / AMD) |
 | 🍏 **macOS Apple Silicon** | [⬇️ **Download .dmg**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_aarch64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_aarch64.app.zip) | M1 / M2 / M3 / M4 |
 | 🍏 **macOS Intel** | [⬇️ **Download .dmg**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_x64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_x64.app.zip) | x86_64 |
-| 🐧 **Linux** | [⬇️ **Download .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_amd64.deb) | [⬇️ **Download .AppImage** (Portable)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_amd64.AppImage) | x86_64 |
 | 🤖 **Android** | [⬇️ **Download .apk**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_arm64-v8a.apk) | — | arm64-v8a |
 
 > 🔒 Every desktop release binary is cryptographically signed with **Minisign** (`.sig`) and verified with SHA-256 checksums in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/SHA256SUMS.txt).
@@ -84,7 +83,7 @@ Cloakwire is **100% free and open-source software**. We do not purchase commerci
 | **Traffic Visualization** | **60 FPS Hardware Canvas Wave** | Numeric text counters | SVG/Canvas graph | Canvas graph |
 | **Split Tunneling** | **1-Click "Apps via VPN" / "Apps Direct"** | Regex routing rules | YAML rule sets | Per-app picker |
 | **Protocol Coverage** | **VLESS, VMess, Trojan, SS, Hysteria 2, TUIC** | Full protocol support | Protocol-dependent | Full protocol support |
-| **Supported Platforms** | **Windows, macOS, Linux, Android** | Windows | Windows, macOS, Linux | Cross-platform |
+| **Supported Platforms** | **Windows, macOS, Android** | Windows | Windows, macOS, Linux | Cross-platform |
 
 ---
 
@@ -145,7 +144,6 @@ A minimal, engineering-focused dark interface: high-contrast zinc palette, subtl
 - Platform build dependencies:
   - **Windows**: Visual Studio 2022 C++ Build Tools, WiX Toolset v3, NSIS
   - **macOS**: Xcode Command Line Tools
-  - **Linux**: `libwebkit2gtk-4.1-dev`, `build-essential`, `libayatana-appindicator3-dev`
 
 ```bash
 # Clone the repository

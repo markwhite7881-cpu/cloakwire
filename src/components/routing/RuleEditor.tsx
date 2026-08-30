@@ -258,7 +258,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
               onChange={(v) => updateArray("source_port", v)}
             />
             <ChipField
-              label="Process name (Win/Mac/Linux)"
+              label="Process name (Win/Mac)"
               field="process_name"
               values={m.process_name}
               placeholder="chrome"

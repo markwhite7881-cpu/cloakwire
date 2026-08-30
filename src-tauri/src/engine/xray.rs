@@ -25,36 +25,8 @@ fn packaged_binary_metadata() -> Option<PackagedBinaryMetadata> {
     })
 }
 
-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-fn packaged_binary_metadata() -> Option<PackagedBinaryMetadata> {
-    Some(PackagedBinaryMetadata {
-        name: "xray-x86_64-unknown-linux-gnu",
-        sha256: "8255dd939c34cf966cc91517b6324dd3c8d0bcf49ffac8beca049a38c46845ed",
-        size: 36_577_406,
-    })
-}
-
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-fn packaged_binary_metadata() -> Option<PackagedBinaryMetadata> {
-    Some(PackagedBinaryMetadata {
-        name: "xray-aarch64-apple-darwin",
-        sha256: "5d9dd24c0aba4b6cfcc6a33a5d67f854816ee17f392bf932ec8176da46f7e404",
-        size: 33_678_802,
-    })
-}
-
-#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-fn packaged_binary_metadata() -> Option<PackagedBinaryMetadata> {
-    Some(PackagedBinaryMetadata {
-        name: "xray-x86_64-apple-darwin",
-        sha256: "afd0eaebb77994a18f29b00c5f50a4f7fbb77da06e24352d43035f3cad3c3786",
-        size: 35_723_312,
-    })
-}
-
 #[cfg(not(any(
     all(target_os = "windows", target_arch = "x86_64"),
-    all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64")
 )))]

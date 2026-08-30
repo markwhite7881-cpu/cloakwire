@@ -8,13 +8,7 @@
       "executableSha256": "15c2d007954ac53ba69b80ec91242786b3c0b71d52649165b4ca1d5cc96ef8f1",
       "executableSize": 35613696
     },
-    "x86_64-unknown-linux-gnu": {
-      "archiveUrl": "https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip",
-      "archiveMember": "xray",
-      "archiveSha256": "23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae",
-      "executableSha256": "8255dd939c34cf966cc91517b6324dd3c8d0bcf49ffac8beca049a38c46845ed",
-      "executableSize": 36577406
-    },
+
     "x86_64-apple-darwin": {
       "archiveUrl": "https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-macos-64.zip",
       "archiveMember": "xray",

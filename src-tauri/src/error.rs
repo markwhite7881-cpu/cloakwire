@@ -22,10 +22,7 @@ pub enum AppError {
     #[error("failed to spawn sing-box: {0}")]
     Spawn(String),
 
-    /// The sing-box binary is missing the Linux capabilities it needs
-    /// for TUN mode (`cap_net_admin` + `cap_net_raw`). The message
-    /// already contains the exact `setcap` command the user can run
-    /// to recover, so the frontend just needs to surface it.
+    /// The sing-box binary is missing TUN capabilities.
     #[error("sing-box missing TUN capabilities: {0}")]
     TunCapabilities(String),
 

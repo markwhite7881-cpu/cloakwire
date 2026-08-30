@@ -67,15 +67,10 @@ fn current_platform() -> Option<&'static str> {
     {
         Some("darwin-x86_64")
     }
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    {
-        Some("linux-x86_64")
-    }
     #[cfg(not(any(
         all(target_os = "windows", target_arch = "x86_64"),
         all(target_os = "macos", target_arch = "aarch64"),
-        all(target_os = "macos", target_arch = "x86_64"),
-        all(target_os = "linux", target_arch = "x86_64")
+        all(target_os = "macos", target_arch = "x86_64")
     )))]
     {
         None
@@ -359,8 +354,6 @@ pub async fn check_app_update(_app: AppHandle) -> AppResult<AppUpdateInfo> {
 enum InstallerKind {
     Exe,
     Msi,
-    Deb,
-    AppImage,
     Dmg,
 }
 
@@ -369,8 +362,6 @@ impl InstallerKind {
         match self {
             Self::Exe => "exe",
             Self::Msi => "msi",
-            Self::Deb => "deb",
-            Self::AppImage => "AppImage",
             Self::Dmg => "dmg",
         }
     }
@@ -378,7 +369,6 @@ impl InstallerKind {
     fn is_supported_on_current_platform(self) -> bool {
         match self {
             Self::Exe | Self::Msi => cfg!(windows),
-            Self::Deb | Self::AppImage => cfg!(target_os = "linux"),
             Self::Dmg => cfg!(target_os = "macos"),
         }
     }
@@ -397,16 +387,12 @@ fn installer_kind_from_asset_name(asset_name: &str) -> AppResult<InstallerKind> 
         ));
     }
 
-    if asset_name.ends_with(".AppImage") {
-        return Ok(InstallerKind::AppImage);
-    }
     match Path::new(asset_name)
         .extension()
         .and_then(|value| value.to_str())
     {
         Some("exe") => Ok(InstallerKind::Exe),
         Some("msi") => Ok(InstallerKind::Msi),
-        Some("deb") => Ok(InstallerKind::Deb),
         Some("dmg") => Ok(InstallerKind::Dmg),
         _ => Err(app_error("artifact name has an unsupported installer kind")),
     }
@@ -492,40 +478,6 @@ fn spawn_installer_and_exit(app: &AppHandle, kind: InstallerKind, path: &Path) -
             _ => {
                 return Err(app_error(
                     "verified installer kind is incompatible with Windows",
-                ))
-            }
-        };
-        command.spawn().map_err(|error| {
-            AppError::Spawn(format!(
-                "launch verified installer {}: {error}",
-                path.display()
-            ))
-        })?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let mut command = match kind {
-            InstallerKind::Deb => {
-                let mut command = std::process::Command::new("pkexec");
-                command.arg("dpkg").arg("-i").arg(path);
-                command
-            }
-            InstallerKind::AppImage => {
-                use std::os::unix::fs::PermissionsExt;
-                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).map_err(
-                    |error| {
-                        AppError::Spawn(format!(
-                            "make AppImage executable {}: {error}",
-                            path.display()
-                        ))
-                    },
-                )?;
-                std::process::Command::new(path)
-            }
-            _ => {
-                return Err(app_error(
-                    "verified installer kind is incompatible with Linux",
                 ))
             }
         };
@@ -656,11 +608,7 @@ pub async fn install_app_update(app: AppHandle, expected_version: Option<String>
     let path = verified_installer_path(&app, &manifest.version, installer_kind);
     let parent = path.parent().expect("verified installer path has parent");
     create_secure_directory(parent)?;
-    write_secure_file(
-        &path,
-        &artifact,
-        installer_kind == InstallerKind::AppImage,
-    )?;
+    write_secure_file(&path, &artifact, false)?;
     spawn_installer_and_exit(&app, installer_kind, &path)
 }
 
@@ -670,14 +618,6 @@ mod tests {
 
     #[test]
     fn package_kind_is_derived_from_validated_asset_name() {
-        assert_eq!(
-            installer_kind_from_asset_name("Cloakwire_1.2.1_amd64.deb").unwrap(),
-            InstallerKind::Deb
-        );
-        assert_eq!(
-            installer_kind_from_asset_name("Cloakwire_1.2.1_amd64.AppImage").unwrap(),
-            InstallerKind::AppImage
-        );
         assert_eq!(
             installer_kind_from_asset_name("Cloakwire_1.2.1_x64-setup.exe").unwrap(),
             InstallerKind::Exe
@@ -695,8 +635,8 @@ mod tests {
     #[test]
     fn rejects_unknown_or_unsafe_installer_asset_names() {
         assert!(installer_kind_from_asset_name("Cloakwire_1.2.1.tar.gz").is_err());
-        assert!(installer_kind_from_asset_name("../Cloakwire_1.2.1_amd64.deb").is_err());
-        assert!(installer_kind_from_asset_name("other_1.2.1_amd64.deb").is_err());
+        assert!(installer_kind_from_asset_name("../Cloakwire_1.2.1_x64-setup.exe").is_err());
+        assert!(installer_kind_from_asset_name("other_1.2.1_x64-setup.exe").is_err());
     }
 
     #[test]

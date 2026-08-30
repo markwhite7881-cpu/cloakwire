@@ -74,7 +74,7 @@ pub struct RoutingOptions {
     /// `route.final` outbound tag. Usually the "proxy" selector.
     pub final_outbound: String,
     /// `route.auto_detect_interface` — required for TUN to avoid
-    /// routing loops on Win / Mac / Linux.
+    /// routing loops on Win / Mac.
     #[serde(default = "default_true")]
     pub auto_detect_interface: bool,
     /// `route.default_domain_resolver` — the tag of the DNS server used
@@ -1535,8 +1535,7 @@ mod tests {
                 .unwrap_or_else(|_| std::path::PathBuf::from("src-tauri"));
             let host = match std::env::consts::OS {
                 "windows" => "sing-box-x86_64-pc-windows-msvc.exe".to_string(),
-                "macos" => format!("sing-box-{}-apple-darwin", std::env::consts::ARCH),
-                _ => format!("sing-box-{}-unknown-linux-gnu", std::env::consts::ARCH),
+                _ => format!("sing-box-{}-apple-darwin", std::env::consts::ARCH),
             };
             manifest_dir.join("binaries").join(host)
         };

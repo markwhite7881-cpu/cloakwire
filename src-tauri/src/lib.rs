@@ -140,7 +140,7 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
-            // Forward the `--minimized` flag (no-op on Windows/Linux)
+            // Forward the `--minimized` flag (no-op on Windows)
             // so the user can opt into starting in the background.
             Some(vec!["--minimized"]),
         ));

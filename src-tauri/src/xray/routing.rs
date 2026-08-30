@@ -346,7 +346,7 @@ fn add_simple_process_unavailable(
 }
 
 fn supports_process_matcher() -> bool {
-    cfg!(any(target_os = "windows", target_os = "linux"))
+    cfg!(target_os = "windows")
 }
 
 fn simple_processes(processes: &[String]) -> Vec<String> {
@@ -704,7 +704,7 @@ mod tests {
         assert_eq!(prepared.value["outbounds"].as_array().unwrap().len(), 2);
     }
 
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    #[cfg(target_os = "windows")]
     #[test]
     fn translates_simple_process_lists_on_supported_platforms() {
         let provider = json!({"outbounds":[{"tag":"proxy","protocol":"vless"}]});
@@ -733,7 +733,7 @@ mod tests {
         assert!(prepared.applicability.unavailable.is_empty());
     }
 
-    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn reports_simple_process_lists_as_unavailable_on_unsupported_platforms() {
         let provider = json!({"outbounds":[{"tag":"proxy","protocol":"vless"}]});
@@ -763,7 +763,7 @@ mod tests {
         assert!(!rendered.contains("C:\\Users\\private"));
     }
 
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    #[cfg(target_os = "windows")]
     #[test]
     fn translates_custom_process_name_and_path_matchers() {
         let provider = json!({"outbounds":[{"tag":"proxy","protocol":"vless"}]});

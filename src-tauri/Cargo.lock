@@ -635,7 +635,7 @@ dependencies = [
 
 [[package]]
 name = "cloakwire"
-version = "1.4.1"
+version = "1.4.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

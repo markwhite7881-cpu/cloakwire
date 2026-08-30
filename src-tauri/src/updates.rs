@@ -541,7 +541,7 @@ mod tests {
         let assets = vec![
             asset("sing-box-1.2.3-windows-amd64-cgo.zip"),
             asset("sing-box-1.2.3-windows-amd64.zip"),
-            asset("sing-box-1.2.3-linux-amd64.tar.gz"),
+            asset("sing-box-1.2.3-darwin-amd64.tar.gz"),
         ];
         assert_eq!(
             select_archive(&assets, "1.2.3", Platform::WindowsX86_64)

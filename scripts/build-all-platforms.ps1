@@ -1,5 +1,5 @@
 # Multi-platform release orchestration script for Cloakwire
-# Builds: Windows (NSIS + MSI), Android (ARM64 APK), Linux (DEB + AppImage via WSL), macOS (ARM64 + x64 DMG + ZIP via Mac mini)
+# Builds: Windows (NSIS + MSI), Android (ARM64 APK), macOS (ARM64 + x64 DMG + ZIP via Mac mini)
 
 param(
     [string]$Version = "1.4.1",
@@ -55,12 +55,8 @@ if ($InstallPhone) {
     }
 }
 
-# 3. Linux Build (via WSL)
-Write-Host "`n[3/4] Building Linux (.deb / .AppImage via WSL)..." -ForegroundColor Yellow
-wsl -e bash -l -c "export PATH=/home/alexeyka08/.cargo/bin:/usr/bin:`$PATH && export CARGO_TARGET_DIR=/tmp/cloakwire-target-linux && cd /mnt/c/Users/Public/cwdev/cloakwire-release-v132 && python3 scripts/prepare-xray-sidecar.py --target x86_64-unknown-linux-gnu && ./scripts/build-linux-deb.sh $Version"
-
-# 4. macOS Build (via Mac mini SSH)
-Write-Host "`n[4/4] Building macOS (Apple Silicon + Intel via Mac mini)..." -ForegroundColor Yellow
+# 3. macOS Build (via Mac mini SSH)
+Write-Host "`n[3/3] Building macOS (Apple Silicon + Intel via Mac mini)..." -ForegroundColor Yellow
 $sshKey = "C:\Users\Public\cwdev\.ssh\mavis_hermes"
 $macHost = "alexeyka@100.97.167.112"
 $sshExe = "C:\Program Files\Git\usr\bin\ssh.exe"

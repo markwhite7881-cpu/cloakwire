@@ -6,13 +6,13 @@
 
 **Кросс-платформенный privacy-first VPN-клиент нового поколения с двойным движком sing-box + Xray и интерфейсом в стиле Linear Bento.**
 
-Windows · macOS · Linux · Android · Нативный Rust/Tauri · VLESS Reality / Hysteria 2 / TUIC · 0 логов · 100% Open Source
+Windows · macOS · Android · Нативный Rust/Tauri · VLESS Reality / Hysteria 2 / TUIC · 0 логов · 100% Open Source
 
 <br/>
 
 [![Release](https://img.shields.io/github/v/release/markwhite7881-cpu/cloakwire?style=for-the-badge&color=10b981)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/markwhite7881-cpu/cloakwire/total?style=for-the-badge&color=3b82f6)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
-[![Platforms](https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-blueviolet?style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
+[![Platforms](https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Android-blueviolet?style=for-the-badge)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest)
 [![License](https://img.shields.io/github/license/markwhite7881-cpu/cloakwire?style=for-the-badge&color=64748b)](LICENSE)
 
 <br/>
@@ -34,7 +34,6 @@ Windows · macOS · Linux · Android · Нативный Rust/Tauri · VLESS Rea
 | 🪟 **Windows** | [⬇️ **Скачать .exe** (NSIS)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_x64-setup.exe) | [⬇️ **Скачать .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_x64_en-US.msi) | x64 (Intel / AMD) |
 | 🍏 **macOS Apple Silicon** | [⬇️ **Скачать .dmg**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_aarch64.dmg) | [⬇️ **Скачать .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_aarch64.app.zip) | M1 / M2 / M3 / M4 |
 | 🍏 **macOS Intel** | [⬇️ **Скачать .dmg**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_x64.dmg) | [⬇️ **Скачать .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_x64.app.zip) | x86_64 |
-| 🐧 **Linux** | [⬇️ **Скачать .deb** (Ubuntu / Debian)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_amd64.deb) | [⬇️ **Скачать .AppImage** (Портативный)](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_amd64.AppImage) | x86_64 |
 | 🤖 **Android** | [⬇️ **Скачать .apk**](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/Cloakwire_1.4.2_arm64-v8a.apk) | — | arm64-v8a |
 
 > 🔒 Все десктопные бинарные файлы подписаны ключом **Minisign** (`.sig`) и проверены контрольными суммами в [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/latest/download/SHA256SUMS.txt).
@@ -84,7 +83,7 @@ Cloakwire — это **100% бесплатное открытое ПО**. Мы �
 | **График трафика** | **60 FPS Hardware Canvas волна** | Текстовые счетчики | SVG/Canvas график | Canvas график |
 | **Разделение трафика** | **1 клик: «Приложения через VPN» / «Напрямую»** | Regex-правила маршрутизации | Наборы правил YAML | Выбор приложений |
 | **Поддержка протоколов** | **VLESS, VMess, Trojan, SS, Hysteria 2, TUIC** | Полная поддержка | Зависит от ядра | Полная поддержка |
-| **Платформы** | **Windows, macOS, Linux, Android** | Windows | Windows, macOS, Linux | Кросс-платформенный |
+| **Платформы** | **Windows, macOS, Android** | Windows | Windows, macOS, Linux | Кросс-платформенный |
 
 ---
 
@@ -145,7 +144,6 @@ Cloakwire — это **100% бесплатное открытое ПО**. Мы �
 - Зависимости платформы:
   - **Windows**: Visual Studio 2022 C++ Build Tools, WiX Toolset v3, NSIS
   - **macOS**: Xcode Command Line Tools
-  - **Linux**: `libwebkit2gtk-4.1-dev`, `build-essential`, `libayatana-appindicator3-dev`
 
 ```bash
 # Клонирование репозитория

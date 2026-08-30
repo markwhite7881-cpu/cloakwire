@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🛡️ Security Vulnerabilities Remediated & Hardening
 - **🔒 Auto-Updater TOCTOU Mitigation (`src-tauri/src/app_update.rs`)**:
   - Moved installer staging from public `/tmp/cloakwire-update/` to private user application cache (`app.path().app_cache_dir().join("updates")`).
-  - Enforced strict POSIX permissions `0700` on directories and `0600` on staged binaries (`0700` for AppImage), preventing local race condition package tampering before privileged execution (`pkexec`).
+  - Enforced strict permissions on directories and staged update binaries, preventing local package tampering before execution.
 - **🔐 Secure Runtime Configuration Storage (`src-tauri/src/commands.rs`)**:
   - Staged sing-box and Xray runtime configuration files (`config.managed.json`) with UUID paths inside private user cache (`app_cache_dir().join("cloakwire-runtime")`).
   - Enforced strict `0600` POSIX file permissions to protect embedded credentials and Reality private keys from unprivileged local readers.

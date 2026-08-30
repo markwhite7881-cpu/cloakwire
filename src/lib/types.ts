@@ -377,7 +377,7 @@ export interface RuleMatchers {
   port_range?: string[];
   source_port?: number[];
   source_port_range?: string[];
-  // process (Linux/Win/Mac)
+  // process (Win/Mac)
   process_name?: string[];
   process_path?: string[];
   process_path_regex?: string[];
@@ -455,7 +455,7 @@ export interface RoutingOptions {
   sniff: boolean;
   /** `route.final` outbound tag. */
   final_outbound: string;
-  /** `route.auto_detect_interface` — prevents TUN routing loop on Win/Mac/Linux. */
+  /** `route.auto_detect_interface` — prevents TUN routing loop on Win/Mac. */
   auto_detect_interface: boolean;
   /** `route.default_domain_resolver` tag (usually "local"). */
   default_domain_resolver: string;

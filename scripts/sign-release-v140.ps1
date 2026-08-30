@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$Version = "1.4.0"
 )
 
@@ -14,7 +14,6 @@ $BaseUrl = "https://github.com/markwhite7881-cpu/cloakwire/releases/download/v$V
 
 $artifacts = @(
     @{ File = "Cloakwire_$Version`_x64-setup.exe"; Platform = "windows-x86_64" },
-    @{ File = "Cloakwire_$Version`_amd64.deb"; Platform = "linux-x86_64" },
     @{ File = "Cloakwire_$Version`_aarch64.dmg"; Platform = "darwin-aarch64" },
     @{ File = "Cloakwire_$Version`_x64.dmg"; Platform = "darwin-x86_64" }
 )

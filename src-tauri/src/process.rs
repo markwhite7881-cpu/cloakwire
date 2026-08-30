@@ -941,8 +941,8 @@ fn public_config_path(engine: EngineKind, path: PathBuf) -> Option<PathBuf> {
 }
 
 // --- System proxy management ---------------------------------------
-// Windows uses WinINET registry keys, Linux uses desktop-environment
-// commands, and macOS uses `networksetup` per active network service.
+// Windows uses WinINET registry keys, and macOS uses `networksetup`
+// per active network service.
 
 #[cfg(target_os = "android")]
 pub fn apply_system_proxy(_host: &str, _port: u16) -> AppResult<()> {
@@ -1049,160 +1049,6 @@ pub fn clear_system_proxy() -> AppResult<()> {
         .map_err(|e| AppError::Spawn(format!("clear ProxyEnable: {e}")))?;
     let _ = settings.set_value("ProxyServer", &"");
     notify_wininet_proxy_change();
-    Ok(())
-}
-
-#[cfg(target_os = "linux")]
-pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
-    apply_system_proxy_with_socks(host, port, port)
-}
-
-#[cfg(target_os = "linux")]
-pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16) -> AppResult<()> {
-    // On Linux the system proxy is per-desktop-environment. We use
-    // gsettings (GNOME, MATE, Cinnamon, XFCE) and fall back to
-    // KDE's kwriteconfig if gsettings isn't available.
-    let http_port_str = http_port.to_string();
-    let socks_port_str = socks_port.to_string();
-    let proxy_url = format!("http://{host}:{http_port}");
-
-    // Try gsettings (GNOME / MATE / Cinnamon / XFCE / Budgie / Pantheon).
-    let gsettings_ok = std::process::Command::new("gsettings")
-        .args(["set", "org.gnome.system.proxy", "mode", "manual"])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-    if gsettings_ok {
-        let _ = std::process::Command::new("gsettings")
-            .args(["set", "org.gnome.system.proxy.http", "host", host])
-            .status();
-        let _ = std::process::Command::new("gsettings")
-            .args([
-                "set",
-                "org.gnome.system.proxy.http",
-                "port",
-                http_port_str.as_str(),
-            ])
-            .status();
-        let _ = std::process::Command::new("gsettings")
-            .args(["set", "org.gnome.system.proxy.https", "host", host])
-            .status();
-        let _ = std::process::Command::new("gsettings")
-            .args([
-                "set",
-                "org.gnome.system.proxy.https",
-                "port",
-                http_port_str.as_str(),
-            ])
-            .status();
-        let _ = std::process::Command::new("gsettings")
-            .args(["set", "org.gnome.system.proxy.socks", "host", host])
-            .status();
-        let _ = std::process::Command::new("gsettings")
-            .args([
-                "set",
-                "org.gnome.system.proxy.socks",
-                "port",
-                socks_port_str.as_str(),
-            ])
-            .status();
-        log::info!("set GNOME system proxy (http:{http_port}, socks:{socks_port})");
-        return Ok(());
-    }
-
-    // Try KDE (`kwriteconfig5` writes to kdeglobals; `dbus-send` to
-    // kioslave would also work but is more involved). kwriteconfig5
-    // doesn't trigger immediate re-read by running apps; users need
-    // to re-login or call `dbus-send --session --print-reply
-    // --dest=org.kde.kioslaves / kioslave5 reparseConfiguration`
-    // themselves. We still set it so newly-spawned apps pick it up.
-    let kwrite_ok = std::process::Command::new("kwriteconfig5")
-        .args([
-            "--file",
-            "kioslaverc",
-            "--group",
-            "Proxy Settings",
-            "--key",
-            "ProxyType",
-            "1",
-        ])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-    if kwrite_ok {
-        let _ = std::process::Command::new("kwriteconfig5")
-            .args([
-                "--file",
-                "kioslaverc",
-                "--group",
-                "Proxy Settings",
-                "--key",
-                "httpProxy",
-                &proxy_url,
-            ])
-            .status();
-        let _ = std::process::Command::new("kwriteconfig5")
-            .args([
-                "--file",
-                "kioslaverc",
-                "--group",
-                "Proxy Settings",
-                "--key",
-                "httpsProxy",
-                &proxy_url,
-            ])
-            .status();
-        log::info!("set KDE system proxy to {proxy_url} (re-login may be required)");
-        return Ok(());
-    }
-
-    // Last resort: drop a hint in the log. Per-DE and per-app proxy
-    // settings vary so much that blanket env-var writes (which only
-    // affect new processes spawned by the same shell) aren't worth
-    // silently confusing the user.
-    log::warn!(
-        "system_proxy: no gsettings and no kwriteconfig5 — cannot set a \
-         system-wide HTTP proxy on this desktop environment. Use TUN mode \
-         for full traffic coverage, or configure your apps to use \
-         {proxy_url} manually."
-    );
-    Ok(())
-}
-
-#[cfg(target_os = "linux")]
-pub fn clear_system_proxy() -> AppResult<()> {
-    // Reverse of apply_system_proxy: revert gsettings to 'none' and
-    // kwriteconfig5 to ProxyType=0. Best-effort, same caveats.
-    let gsettings_ok = std::process::Command::new("gsettings")
-        .args(["set", "org.gnome.system.proxy", "mode", "none"])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-    if gsettings_ok {
-        log::info!("cleared GNOME system proxy");
-        return Ok(());
-    }
-    let kwrite_ok = std::process::Command::new("kwriteconfig5")
-        .args([
-            "--file",
-            "kioslaverc",
-            "--group",
-            "Proxy Settings",
-            "--key",
-            "ProxyType",
-            "0",
-        ])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-    if kwrite_ok {
-        log::info!("cleared KDE system proxy");
-        return Ok(());
-    }
-    log::debug!(
-        "clear_system_proxy: no gsettings and no kwriteconfig5 on this \
-         system — nothing to clear."
-    );
     Ok(())
 }
 
@@ -1326,8 +1172,8 @@ pub fn clear_system_proxy() -> AppResult<()> {
 // Windows routes the DNS query normally through the TUN → sing-box
 // → upstream, and the whole resolution path works end-to-end.
 //
-// On macOS and Linux this is a no-op: the TUN device on those
-// platforms doesn't auto-derive a DNS server, so the bug doesn't
+// On macOS this is a no-op: the TUN device on macOS
+// doesn't auto-derive a DNS server, so the bug doesn't
 // occur.
 
 /// Read the sing-box config we just wrote, find the TUN interface
@@ -1421,182 +1267,8 @@ async fn set_tun_dns_from_config(
     }
 }
 
-/// On Linux, TUN mode requires the sing-box binary itself to hold
-/// `cap_net_admin` + `cap_net_raw` (it opens `/dev/net/tun` and
-/// configures addresses / routes via netlink, all of which need
-/// admin caps). The .deb's postinst applies these via `setcap` on
-/// install, but they can be stripped by an `apt upgrade` race, a
-/// manual `chmod`, or a package re-install. Detect the situation up
-/// front and surface a clear remediation message instead of letting
-/// sing-box die with "operation not permitted" half a second later.
-///
-/// Best-effort: missing `getcap` (rare — comes from `libcap2-bin`)
-/// or a non-TUN config are no-ops; we only block the spawn when
-/// TUN is actually requested AND the caps are missing.
-#[cfg(target_os = "linux")]
-async fn check_tun_capabilities(binary: &Path, config_path: &Path) -> Result<(), String> {
-    // 1) Read the config and check whether any inbound is TUN.
-    //    If not, there's nothing to verify — system_proxy and
-    //    "None" modes don't need cap_net_admin.
-    let content = tokio::fs::read_to_string(config_path)
-        .await
-        .map_err(|_| "could not read runtime configuration".to_string())?;
-    let json: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|_| "runtime configuration is invalid".to_string())?;
-    let has_tun = json
-        .get("inbounds")
-        .and_then(|i| i.as_array())
-        .map(|arr| {
-            arr.iter()
-                .any(|i| i.get("type").and_then(|t| t.as_str()) == Some("tun"))
-        })
-        .unwrap_or(false);
-    if !has_tun {
-        return Ok(());
-    }
-
-    // 2) `getcap` is shipped by `libcap2-bin` (optional on Debian,
-    //    standard on Ubuntu desktop). If it's not installed, fail
-    //    soft — sing-box itself will produce a clearer EPERM error
-    //    when it tries to open /dev/net/tun.
-    let output = match std::process::Command::new("getcap").arg(binary).output() {
-        Ok(output) => output,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            log::warn!("`getcap` is unavailable; skipping TUN capability preflight");
-            return Ok(());
-        }
-        Err(error) => {
-            return Err(format!(
-                "could not run `getcap` to verify TUN capabilities: {error}"
-            ));
-        }
-    };
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // 3) `getcap` output looks like:
-    //       /usr/bin/sing-box cap_net_admin,cap_net_raw=ep
-    //    TUN requires both capabilities; a partial report must be rejected.
-    if output.status.success() && has_required_tun_capabilities(&stdout) {
-        log::info!("sing-box TUN capabilities are ready");
-        return Ok(());
-    }
-
-    let _ = (stdout, stderr);
-    Err(
-        "TUN mode needs CAP_NET_ADMIN and CAP_NET_RAW on the sing-box binary. \
-         Reinstall the .deb (its postinstall restores these capabilities) or run:\n  \
-         sudo setcap cap_net_admin,cap_net_raw=+ep <sing-box-binary>"
-            .to_string(),
-    )
-}
-
-#[cfg(target_os = "linux")]
-fn has_required_tun_capabilities(getcap_output: &str) -> bool {
-    // `getcap <path>` emits at most one record for the supplied binary. Reject
-    // anything other than exactly one nonempty record, so a valid-looking line
-    // cannot mask malformed or ambiguous extra output.
-    let mut lines = getcap_output.lines().filter(|line| !line.trim().is_empty());
-    let Some(line) = lines.next() else {
-        return false;
-    };
-    if lines.next().is_some() {
-        return false;
-    }
-
-    // `getcap` emits `<path> <capability-assignment>`. Paths with whitespace
-    // are escaped by getcap; unescaped whitespace or extra fields are
-    // ambiguous, so fail closed without treating the path as capability input.
-    let mut fields = line.split_whitespace();
-    let Some(_path) = fields.next() else {
-        return false;
-    };
-    let Some(assignment) = fields.next() else {
-        return false;
-    };
-    if fields.next().is_some() {
-        return false;
-    }
-
-    // A libcap text assignment has one `=` followed by a nonempty subset of
-    // `eip`. Keep accepting additional valid capabilities, but reject unknown,
-    // empty, repeated, or otherwise malformed tokens.
-    if assignment.matches('=').count() != 1 {
-        return false;
-    }
-    let Some((capabilities, flags)) = assignment.split_once('=') else {
-        return false;
-    };
-    if capabilities.is_empty()
-        || flags.is_empty()
-        || !flags.contains('e')
-        || !flags.chars().all(|flag| matches!(flag, 'e' | 'i' | 'p'))
-        || !flags.chars().all(|flag| flags.matches(flag).count() == 1)
-    {
-        return false;
-    }
-
-    let mut has_net_admin = false;
-    let mut has_net_raw = false;
-    for capability in capabilities.split(',') {
-        if !is_linux_capability_name(capability) {
-            return false;
-        }
-        match capability {
-            "cap_net_admin" => has_net_admin = true,
-            "cap_net_raw" => has_net_raw = true,
-            _ => {}
-        }
-    }
-    has_net_admin && has_net_raw
-}
-
-#[cfg(target_os = "linux")]
-fn is_linux_capability_name(capability: &str) -> bool {
-    matches!(
-        capability,
-        "cap_chown"
-            | "cap_dac_override"
-            | "cap_dac_read_search"
-            | "cap_fowner"
-            | "cap_fsetid"
-            | "cap_kill"
-            | "cap_setgid"
-            | "cap_setuid"
-            | "cap_setpcap"
-            | "cap_linux_immutable"
-            | "cap_net_bind_service"
-            | "cap_net_broadcast"
-            | "cap_net_admin"
-            | "cap_net_raw"
-            | "cap_ipc_lock"
-            | "cap_ipc_owner"
-            | "cap_sys_module"
-            | "cap_sys_rawio"
-            | "cap_sys_chroot"
-            | "cap_sys_ptrace"
-            | "cap_sys_pacct"
-            | "cap_sys_admin"
-            | "cap_sys_boot"
-            | "cap_sys_nice"
-            | "cap_sys_resource"
-            | "cap_sys_time"
-            | "cap_sys_tty_config"
-            | "cap_mknod"
-            | "cap_lease"
-            | "cap_audit_write"
-            | "cap_audit_control"
-            | "cap_setfcap"
-            | "cap_mac_override"
-            | "cap_mac_admin"
-            | "cap_syslog"
-            | "cap_wake_alarm"
-            | "cap_block_suspend"
-            | "cap_audit_read"
-            | "cap_perfmon"
-            | "cap_bpf"
-            | "cap_checkpoint_restore"
-    )
+async fn check_tun_capabilities(_binary: &Path, _config_path: &Path) -> Result<(), String> {
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1989,15 +1661,11 @@ mod engine_runtime_tests {
         pm.stop().await.unwrap();
 
         let singbox_spec = test_singbox_spec();
-        #[cfg(target_os = "linux")]
-        let singbox_test_config = singbox_spec.config_path.clone();
         pm.start_spec(singbox_spec).await.unwrap();
         pm.test_emit_xray_sample(old_run_id).await;
 
         assert_eq!(pm.test_xray_telemetry_emit_count().await, 0);
         pm.stop().await.unwrap();
-        #[cfg(target_os = "linux")]
-        let _ = std::fs::remove_file(singbox_test_config);
     }
 
     #[tokio::test]
@@ -2025,16 +1693,6 @@ mod engine_runtime_tests {
         let mut spec = test_xray_spec();
         spec.engine = EngineKind::Singbox;
         spec.xray_stats = None;
-        #[cfg(target_os = "linux")]
-        {
-            let config_path = std::env::temp_dir().join(format!(
-                "cloakwire-test-singbox-{}.json",
-                std::process::id()
-            ));
-            std::fs::write(&config_path, r#"{"inbounds":[]}"#)
-                .expect("non-TUN sing-box test config is written");
-            spec.config_path = config_path;
-        }
         spec
     }
 
@@ -2046,56 +1704,4 @@ mod engine_runtime_tests {
         assert_eq!(status.profile_key, None);
         assert_eq!(status.profile_name, None);
     }
-}
-
-#[cfg(all(test, target_os = "linux"))]
-mod tun_capability_tests {
-    use super::has_required_tun_capabilities;
-
-    #[test]
-    fn accepts_a_well_formed_effective_tun_capability_assignment() {
-        assert!(has_required_tun_capabilities(
-            "/usr/bin/sing-box cap_net_admin,cap_net_raw=ep"
-        ));
-        assert!(has_required_tun_capabilities(
-            "/usr/bin/sing-box cap_chown,cap_net_admin,cap_net_raw=eip"
-        ));
-    }
-
-    #[test]
-    fn rejects_incomplete_or_path_derived_capabilities() {
-        assert!(!has_required_tun_capabilities(
-            "/usr/bin/sing-box cap_net_admin=ep"
-        ));
-        assert!(!has_required_tun_capabilities(
-            "/usr/bin/sing-box cap_net_raw=ep"
-        ));
-        assert!(!has_required_tun_capabilities(
-            "/tmp/cap_net_admin,cap_net_raw=ep =ep"
-        ));
-        assert!(!has_required_tun_capabilities(
-            "/tmp/cap_net_admin-cap_net_raw/sing-box =ep"
-        ));
-    }
-
-    #[test]
-    fn rejects_ambiguous_or_malformed_getcap_output() {
-        assert!(!has_required_tun_capabilities(
-            "/usr/bin/sing-box cap_net_admin,cap_net_raw=ep\n/usr/bin/other malformed"
-        ));
-        assert!(!has_required_tun_capabilities(
-            "/usr/bin/sing-box cap_net_admin,cap_net_raw=e=garbage"
-        ));
-        assert!(!has_required_tun_capabilities(
-            "/usr/bin/sing-box cap_net_admin,cap_net_raw=ez"
-        ));
-        assert!(!has_required_tun_capabilities(
-            "/usr/bin/sing-box cap_net_admin,,cap_net_raw=ep"
-        ));
-    }
-}
-
-#[cfg(not(target_os = "linux"))]
-async fn check_tun_capabilities(_binary: &Path, _config_path: &Path) -> Result<(), String> {
-    Ok(())
 }
