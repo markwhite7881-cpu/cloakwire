@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-08-30
+
+### 🪟 Windows Networking & Process Cleanup
+- **⚡ Dynamic WinINet Proxy Change Broadcast (`src-tauri/src/process.rs`)**:
+  - Implemented dynamic loading and invocation of Windows WinINet API `InternetSetOptionW` with `INTERNET_OPTION_SETTINGS_CHANGED` (39) and `INTERNET_OPTION_REFRESH` (37) on proxy enable and clear.
+  - Automatically notifies running applications (Steam, Chromium, game engines, browsers) immediately upon VPN disconnect, preventing connection drops and cached proxy stall.
+- **🧹 Registry `ProxyServer` Residue Cleanup**:
+  - Explicitly resets and clears the `ProxyServer` string value in `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings` on VPN termination, preventing games from attempting connections to closed loopback ports.
+
+---
+
 ## [1.4.1] - 2026-08-29
 
 ### 🛡️ Security Vulnerabilities Remediated & Hardening
