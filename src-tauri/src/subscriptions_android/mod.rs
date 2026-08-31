@@ -9,7 +9,7 @@ pub mod model;
 pub mod service;
 pub mod store;
 
-pub use classify::{classify_payload, ClassifiedPayload};
+pub use classify::{classify_payload, ClassifiedChild, ClassifiedPayload};
 pub use http::{FetchedPayload, SubscriptionHttpClient};
 pub use hwid::{HwidDescription, HwidStore};
 pub use metadata::parse_metadata;

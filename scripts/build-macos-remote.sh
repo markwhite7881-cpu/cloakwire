@@ -1,8 +1,9 @@
 #!/bin/bash
 set -ex
 
-VERSION="1.4.0"
+VERSION="1.4.2"
 BUILD_DIR="$HOME/cloakwire-builds/cloakwire-v$VERSION"
+rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
@@ -14,16 +15,16 @@ if [ -d "$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/node_modules" ]; then
   cp -R $HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/node_modules ./
 fi
 
-export PATH="/opt/homebrew/bin:$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 export CARGO_TARGET_DIR="$BUILD_DIR/src-tauri/target"
 
 npm run build
 
 echo "== Building ARM64 =="
-npm run tauri:build -- --target aarch64-apple-darwin --bundles app
+NO_STRIP=true npm run tauri:build -- --target aarch64-apple-darwin --bundles app
 
 echo "== Building x86_64 =="
-npm run tauri:build -- --target x86_64-apple-darwin --bundles app
+NO_STRIP=true npm run tauri:build -- --target x86_64-apple-darwin --bundles app
 
 mkdir -p dist-release
 

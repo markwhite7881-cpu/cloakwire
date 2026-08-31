@@ -38,7 +38,7 @@ use super::model::{
     SubscriptionSnapshot, SubscriptionSummary,
 };
 use super::store::SubscriptionStore;
-use super::{classify_payload, ClassifiedPayload};
+use super::{classify_payload, ClassifiedChild, ClassifiedPayload};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AddSubscriptionInput {
@@ -735,6 +735,7 @@ fn snapshot(records: Vec<SubscriptionRecord>) -> SubscriptionSnapshot {
     }
 }
 
+#[allow(dead_code)]
 fn resolve_link_refs_from_records(
     records: &[SubscriptionRecord],
     refs: &[super::SubscriptionLinkRef],
@@ -836,22 +837,4 @@ fn record_mut<'a>(
         .iter_mut()
         .find(|record| record.id == id)
         .ok_or_else(not_found)
-}
-
-/// Pick the active child key for a freshly-classified bundle. If the
-/// user already had a selection (`previous`) and that key is still in
-/// the new `children` list, keep it. Otherwise fall back to the first
-/// child. Used by both the sing-box and xray bundle branches in
-/// `prepare_candidate` so a refresh of an unchanged provider does
-/// not silently switch the user's active profile. 2026-08-21.
-fn preserve_active_child(
-    previous: Option<&str>,
-    children: &[ChildProfileRecord],
-) -> Option<String> {
-    if let Some(key) = previous {
-        if children.iter().any(|child| child.key == key) {
-            return Some(key.to_string());
-        }
-    }
-    children.first().map(|child| child.key.clone())
 }
