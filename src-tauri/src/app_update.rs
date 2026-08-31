@@ -67,10 +67,15 @@ fn current_platform() -> Option<&'static str> {
     {
         Some("darwin-x86_64")
     }
+    #[cfg(target_os = "android")]
+    {
+        Some("android-arm64-v8a")
+    }
     #[cfg(not(any(
         all(target_os = "windows", target_arch = "x86_64"),
         all(target_os = "macos", target_arch = "aarch64"),
-        all(target_os = "macos", target_arch = "x86_64")
+        all(target_os = "macos", target_arch = "x86_64"),
+        target_os = "android"
     )))]
     {
         None
@@ -355,6 +360,7 @@ enum InstallerKind {
     Exe,
     Msi,
     Dmg,
+    Apk,
 }
 
 impl InstallerKind {
@@ -363,6 +369,7 @@ impl InstallerKind {
             Self::Exe => "exe",
             Self::Msi => "msi",
             Self::Dmg => "dmg",
+            Self::Apk => "apk",
         }
     }
 
@@ -370,6 +377,7 @@ impl InstallerKind {
         match self {
             Self::Exe | Self::Msi => cfg!(windows),
             Self::Dmg => cfg!(target_os = "macos"),
+            Self::Apk => cfg!(target_os = "android"),
         }
     }
 }
@@ -394,6 +402,7 @@ fn installer_kind_from_asset_name(asset_name: &str) -> AppResult<InstallerKind> 
         Some("exe") => Ok(InstallerKind::Exe),
         Some("msi") => Ok(InstallerKind::Msi),
         Some("dmg") => Ok(InstallerKind::Dmg),
+        Some("apk") => Ok(InstallerKind::Apk),
         _ => Err(app_error("artifact name has an unsupported installer kind")),
     }
 }
@@ -574,6 +583,18 @@ trap - EXIT
             })?;
     }
 
+    #[cfg(target_os = "android")]
+    {
+        if kind != InstallerKind::Apk {
+            return Err(app_error(
+                "verified installer kind is incompatible with Android",
+            ));
+        }
+        use tauri_plugin_opener::OpenerExt;
+        let file_url = format!("file://{}", path.display());
+        let _ = app.opener().open_url(&file_url, None::<&str>);
+    }
+
     app.exit(0);
     Ok(())
 }
@@ -629,6 +650,10 @@ mod tests {
         assert_eq!(
             installer_kind_from_asset_name("Cloakwire_1.2.1_aarch64.dmg").unwrap(),
             InstallerKind::Dmg
+        );
+        assert_eq!(
+            installer_kind_from_asset_name("Cloakwire_1.4.3_arm64-v8a.apk").unwrap(),
+            InstallerKind::Apk
         );
     }
 

@@ -18,6 +18,7 @@ import { ServersTab } from "@/components/ServersTab";
 import { LogsTab } from "@/components/LogsTab";
 import { ConfigTab } from "@/components/ConfigTab";
 import { RoutingTab } from "@/components/routing/RoutingTab";
+import { UpdateModal } from "@/components/UpdateModal";
 import { TauriCommandError, api } from "@/lib/api";
 import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { loadManualProfiles, saveManualProfiles } from "@/lib/manualProfiles";
@@ -358,6 +359,72 @@ export default function App() {
   const [selectionRestoreSettled, setSelectionRestoreSettled] = useState(false);
   const selectionRestoreAttempted = useRef(false);
   const pollTimerRef = useRef<number | null>(null);
+
+  // App-shell update check state & modal
+  const [appUpdateInfo, setAppUpdateInfo] = useState<{
+    version: string;
+    current_version: string;
+    notes: string;
+  } | null>(null);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkUpdateOnStartup() {
+      try {
+        const info = await api.checkAppUpdate();
+        if (cancelled) return;
+        if (info.available) {
+          const dismissed = window.sessionStorage.getItem(`cloakwire:dismissed_update:${info.version}`);
+          if (!dismissed) {
+            setAppUpdateInfo(info);
+            setUpdateModalOpen(true);
+          }
+        }
+      } catch {
+        // network error or no update — ignore
+      }
+    }
+    const timer = window.setTimeout(() => {
+      void checkUpdateOnStartup();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  const handleUpdateApp = async () => {
+    if (!appUpdateInfo) return;
+    setUpdateBusy(true);
+    setUpdateError(null);
+    try {
+      await api.installAppUpdate(appUpdateInfo.version);
+    } catch (e) {
+      const msg =
+        e instanceof TauriCommandError
+          ? `${e.kind}: ${e.message}`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+      setUpdateError(msg);
+    } finally {
+      setUpdateBusy(false);
+    }
+  };
+
+  const handleDismissUpdate = () => {
+    if (appUpdateInfo) {
+      try {
+        window.sessionStorage.setItem(`cloakwire:dismissed_update:${appUpdateInfo.version}`, "1");
+      } catch {
+        // ignore
+      }
+    }
+    setUpdateModalOpen(false);
+  };
 
   // Persist the settings every time they change.
   useEffect(() => {
@@ -1154,6 +1221,17 @@ export default function App() {
       <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
         {tabs.find((t) => t.id === activeTab)?.content}
       </main>
+
+      <UpdateModal
+        open={updateModalOpen}
+        version={appUpdateInfo?.version ?? ""}
+        currentVersion={appUpdateInfo?.current_version ?? ""}
+        notes={appUpdateInfo?.notes}
+        onUpdate={handleUpdateApp}
+        onDismiss={handleDismissUpdate}
+        busy={updateBusy}
+        error={updateError}
+      />
     </div>
   );
 }

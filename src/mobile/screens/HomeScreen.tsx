@@ -18,6 +18,7 @@ import { flagForProfile } from "@/lib/flags";
 import { isSupported, profileEndpoint, profileLabel } from "@/lib/outbound";
 import { cn } from "@/lib/utils";
 import type { ChildProfileSummary, GeneratorSettings, Outbound, Subscription, TrafficSample } from "@/lib/types";
+import { loadExpandedSubscriptions, saveExpandedSubscriptions } from "@/lib/expandedSubscriptions";
 import type { ServerGroup } from "../lib/serverGrouping";
 import { buildHomeServerCatalog } from "../lib/homeServerCatalog";
 import type { VpnConnection } from "../useVpnConnection";
@@ -215,27 +216,16 @@ export function HomeScreen({
     return result;
   }, [serverCatalog, subs]);
 
-  const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(
-    () =>
-      new Set(
-        blocks
-          .filter((b) => b.type !== "manual" && !blockHoldsSelection(b))
-          .map((b) => b.id),
-      ),
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(() =>
+    loadExpandedSubscriptions(true),
   );
 
-  function blockHoldsSelection(block: ServerBlock): boolean {
-    if (block.type === "bundle") {
-      return !!activeBundle && activeBundle.subscriptionId === block.id;
-    }
-    return block.entries.some((entry) => entry.selected);
-  }
-
   const toggleBlock = (id: string) => {
-    setCollapsedBlocks((prev) => {
+    setExpandedBlocks((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      saveExpandedSubscriptions(next, true);
       return next;
     });
   };
@@ -460,7 +450,7 @@ export function HomeScreen({
 
         <div className="divide-y divide-white/5">
           {blocks.map((block) => {
-            const collapsed = collapsedBlocks.has(block.id);
+            const isExpanded = block.type === "manual" || expandedBlocks.has(block.id);
             return (
               <div key={block.id} className="py-1">
                 {block.type === "manual" ? (
@@ -473,7 +463,7 @@ export function HomeScreen({
                   <button
                     type="button"
                     onClick={() => toggleBlock(block.id)}
-                    aria-expanded={!collapsed}
+                    aria-expanded={isExpanded}
                     className="flex w-full items-center justify-between px-1 py-2.5 text-left transition active:opacity-80"
                   >
                     <span className="flex min-w-0 items-center gap-2">
@@ -487,13 +477,13 @@ export function HomeScreen({
                     <ChevronDown
                       className={cn(
                         "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                        collapsed && "-rotate-90",
+                        !isExpanded && "-rotate-90",
                       )}
                     />
                   </button>
                 )}
 
-                {!collapsed && (
+                {isExpanded && (
                   block.type === "bundle" ? (
                     block.children.length === 0 ? (
                       <p className="px-1 py-2 text-xs text-muted-foreground">

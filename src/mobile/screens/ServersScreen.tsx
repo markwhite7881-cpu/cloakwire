@@ -8,6 +8,7 @@ import { useServerLatency } from "@/hooks/useServerLatency";
 import { vpnTestLatency } from "@/lib/vpn";
 import { cn } from "@/lib/utils";
 import type { Outbound, Subscription } from "@/lib/types";
+import { loadExpandedSubscriptions, saveExpandedSubscriptions } from "@/lib/expandedSubscriptions";
 import type { FetchResult } from "@/hooks/useSubscriptions";
 import type { ServerGroup } from "../lib/serverGrouping";
 import { AddSubscriptionSheet } from "../components/AddSubscriptionSheet";
@@ -131,20 +132,17 @@ export function ServersScreen({
     };
   }, [childEndpoints]);
 
-  // Collapsible subscription blocks (same UX as Home). Subscription
-  // blocks with zero servers are not rendered at all, and they start
-  // COLLAPSED until the user expands one (the touched set remembers
-  // which blocks the user has interacted with).
-  const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
-  const touchedBlocks = useRef<Set<string>>(new Set());
-  const isBlockCollapsed = (id: string) =>
-    touchedBlocks.current.has(id) ? collapsedBlocks.has(id) : true;
+  // Collapsible subscription blocks with persistent state across tab switches and restarts.
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(() =>
+    loadExpandedSubscriptions(true),
+  );
+  const isBlockExpanded = (id: string) => expandedBlocks.has(id);
   const toggleBlock = (id: string) => {
-    touchedBlocks.current.add(id);
-    setCollapsedBlocks((prev) => {
+    setExpandedBlocks((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      saveExpandedSubscriptions(next, true);
       return next;
     });
   };
@@ -268,13 +266,13 @@ export function ServersScreen({
             )
             .map((s) => {
               const blockId = `bundle-${s.id}`;
-              const collapsed = isBlockCollapsed(blockId);
+              const isExpanded = isBlockExpanded(blockId);
               return (
               <SectionCard key={blockId}>
                 <button
                   type="button"
                   onClick={() => toggleBlock(blockId)}
-                  aria-expanded={!collapsed}
+                  aria-expanded={isExpanded}
                   className="flex w-full items-center justify-between gap-2 px-3.5 py-3 text-left active:bg-accent/40"
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -288,11 +286,11 @@ export function ServersScreen({
                   <ChevronDown
                     className={cn(
                       "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                      collapsed && "-rotate-90",
+                      !isExpanded && "-rotate-90",
                     )}
                   />
                 </button>
-                {!collapsed && (
+                {isExpanded && (
                   <ul className="divide-y divide-border">
                     {s.children.map((child) => {
                       const isSel =
@@ -360,14 +358,14 @@ export function ServersScreen({
             .filter((group) => group.entries.length > 0)
             .map((group) => {
               const collapsible = group.kind === "subscription";
-              const collapsed = collapsible && isBlockCollapsed(group.id);
+              const isExpanded = !collapsible || isBlockExpanded(group.id);
               return (
             <SectionCard key={group.id}>
               {collapsible ? (
                 <button
                   type="button"
                   onClick={() => toggleBlock(group.id)}
-                  aria-expanded={!collapsed}
+                  aria-expanded={isExpanded}
                   className="flex w-full items-center justify-between gap-2 px-3.5 py-3 text-left active:bg-accent/40"
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -381,14 +379,14 @@ export function ServersScreen({
                   <ChevronDown
                     className={cn(
                       "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                      collapsed && "-rotate-90",
+                      !isExpanded && "-rotate-90",
                     )}
                   />
                 </button>
               ) : (
                 <SectionHeader title={group.label} />
               )}
-              {(!collapsible || !collapsed) && (
+              {isExpanded && (
                 <ul className="divide-y divide-border">
                   {group.entries.map(({ profile: o, profileIndex: i }) => {
                     const supported = isSupported(o);

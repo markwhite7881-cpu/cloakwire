@@ -201,7 +201,8 @@ mod tests {
 
         assert_eq!(result.proxy_host, "127.0.0.1");
         assert_eq!(result.proxy_port, 20809);
-        assert_eq!(result.value["inbounds"][0]["tag"], "cloakwire-managed-http");
+        assert!(result.value["inbounds"].as_array().unwrap().iter().any(|i| i["tag"] == "cloakwire-managed-http"));
+        assert!(result.value["inbounds"].as_array().unwrap().iter().any(|i| i["tag"] == "cloakwire-managed-socks"));
     }
 
     #[test]

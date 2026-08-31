@@ -28,6 +28,7 @@ import { ServersScreen } from "./screens/ServersScreen";
 import { RoutingScreen } from "./screens/RoutingScreen";
 import { LogsScreen } from "./screens/LogsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { UpdateModal } from "@/components/UpdateModal";
 import { adjacentTabIndex, swipeDirection } from "./lib/mobileUi";
 import {
   nextReconnectRequired,
@@ -127,6 +128,67 @@ export default function MobileApp() {
       /* ignore */
     }
   }, [activeTab]);
+
+  // App-shell update check state & modal
+  const [appUpdateInfo, setAppUpdateInfo] = useState<{
+    version: string;
+    current_version: string;
+    notes: string;
+  } | null>(null);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkUpdateOnStartup() {
+      try {
+        const info = await api.checkAppUpdate();
+        if (cancelled) return;
+        if (info.available) {
+          const dismissed = window.sessionStorage.getItem(`cloakwire:dismissed_update:${info.version}`);
+          if (!dismissed) {
+            setAppUpdateInfo(info);
+            setUpdateModalOpen(true);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    const timer = window.setTimeout(() => {
+      void checkUpdateOnStartup();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  const handleUpdateApp = async () => {
+    if (!appUpdateInfo) return;
+    setUpdateBusy(true);
+    setUpdateError(null);
+    try {
+      await api.installAppUpdate(appUpdateInfo.version);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setUpdateError(msg);
+    } finally {
+      setUpdateBusy(false);
+    }
+  };
+
+  const handleDismissUpdate = () => {
+    if (appUpdateInfo) {
+      try {
+        window.sessionStorage.setItem(`cloakwire:dismissed_update:${appUpdateInfo.version}`, "1");
+      } catch {
+        // ignore
+      }
+    }
+    setUpdateModalOpen(false);
+  };
 
   // Link-list outbounds persisted in Rust — fetched once per
   // subscription on mount so the server list is complete right after
@@ -755,6 +817,17 @@ export default function MobileApp() {
           })}
         </div>
       </nav>
+
+      <UpdateModal
+        open={updateModalOpen}
+        version={appUpdateInfo?.version ?? ""}
+        currentVersion={appUpdateInfo?.current_version ?? ""}
+        notes={appUpdateInfo?.notes}
+        onUpdate={handleUpdateApp}
+        onDismiss={handleDismissUpdate}
+        busy={updateBusy}
+        error={updateError}
+      />
     </div>
   );
 }

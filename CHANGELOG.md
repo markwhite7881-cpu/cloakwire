@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-08-31
+
+### 🚀 Subscription List Collapse Persistence & Auto-Updater Prompt
+- **📂 Persistent Subscription Collapse State (Desktop & Mobile)**:
+  - Defaulted subscription server lists to collapsed across Desktop (`HomeTab`) and Mobile (`HomeScreen` & `ServersScreen`).
+  - Saved expanded/collapsed subscription states to `localStorage` (`cloakwire:desktop_expanded_subscriptions` / `cloakwire:mobile_expanded_blocks`) so group states are preserved across tab switching and app restarts.
+- **✨ In-App Startup Update Notification (`UpdateModal`)**:
+  - Integrated automated background update check on application startup.
+  - Added Linear Bento update dialog with version diff, release notes, **«Обновить»** (one-click install), and **«Позже»** (session dismiss).
+  - Multi-platform update manifest and Minisign signature support across Windows, macOS, and Android.
+
+---
+
 ## [1.4.2] - 2026-08-30
 
 ### 🪟 Windows Networking & Process Cleanup

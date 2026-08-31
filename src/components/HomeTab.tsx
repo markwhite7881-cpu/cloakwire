@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { flagForProfile } from "@/lib/flags";
 import { profileLabel, profileEndpoint, isSupported } from "@/lib/outbound";
 import { isValidProfileSelection } from "@/lib/profileSelection";
+import { loadExpandedSubscriptions, saveExpandedSubscriptions } from "@/lib/expandedSubscriptions";
 import type { HomeProfileMetadata, Outbound, RoutingOptions, Status, StatusReport, TrafficSample } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
@@ -865,22 +866,20 @@ function GroupedHomeProfileRows({
   mode: "picker" | "grid";
 }) {
   const grouped = groupHomeProfiles(profiles);
-  // In picker mode, expand all subscription groups by default so all servers are immediately selectable
+  // Default to collapsed unless explicitly expanded by the user; persisted across tab switches
   const [expanded, setExpanded] = useState<Set<string>>(() =>
-    new Set(grouped.subscriptions.map((g) => g.id)),
+    loadExpandedSubscriptions(false),
   );
-  const selected = profiles[selectedIndex];
-  const selectedSubscriptionId = selected?.kind === "subscription"
-    ? selected.reference.subscription_id
-    : selected?.kind === "ready_config"
-      ? selected.subscriptionId
-      : null;
 
-  useEffect(() => {
-    if (selectedSubscriptionId) {
-      setExpanded((current) => current.has(selectedSubscriptionId) ? current : new Set([selectedSubscriptionId, ...current]));
-    }
-  }, [selectedSubscriptionId]);
+  const toggleGroup = (id: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      saveExpandedSubscriptions(next, false);
+      return next;
+    });
+  };
 
   const renderRows = (rows: IndexedHomeProfile[]) => rows.map((row) => (
     <li className="list-none" key={`${row.index}-${connectionProfileDisplay(row.profile, readyProfileMetadata, geoipByIp, latencyByTag).key}`}>
@@ -920,11 +919,7 @@ function GroupedHomeProfileRows({
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                setExpanded((current) => {
-                  const next = new Set(current);
-                  if (next.has(group.id)) next.delete(group.id); else next.add(group.id);
-                  return next;
-                });
+                toggleGroup(group.id);
               }}
               onMouseDown={(e) => e.stopPropagation()}
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[10px] uppercase tracking-wider text-muted-foreground hover:bg-secondary/80 hover:text-foreground transition"

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-VERSION="1.4.2"
+VERSION="1.4.3"
 BUILD_DIR="$HOME/cloakwire-builds/cloakwire-v$VERSION"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
