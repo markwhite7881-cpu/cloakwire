@@ -1,15 +1,16 @@
 {
   "dns": {
     "final": "remote",
-    "independent_cache": true,
     "servers": [
       {
-        "server": "223.5.5.5",
+        "server": "1.1.1.1",
         "tag": "local",
         "type": "udp"
       },
       {
+        "detour": "proxy",
         "domain_resolver": "local",
+        "path": "/dns-query",
         "server": "dns.google",
         "tag": "remote",
         "type": "https"
@@ -18,16 +19,16 @@
     "strategy": "prefer_ipv4"
   },
   "experimental": {
-    "cache_file": {
-      "enabled": true,
-      "path": "cache.db",
-      "store_fakeip": false
-    },
     "clash_api": {
       "default_mode": "proxy",
       "external_controller": "127.0.0.1:9090"
     }
   },
+  "http_clients": [
+    {
+      "tag": "rule-set-fetcher"
+    }
+  ],
   "inbounds": [
     {
       "listen": "127.0.0.1",
@@ -42,7 +43,8 @@
   },
   "outbounds": [
     {
-      "interval": "3m",
+      "interrupt_exist_connections": false,
+      "interval": "30s",
       "outbounds": [
         "🇩🇪 DE-1",
         "🇳🇱 NL-Edge",
@@ -141,23 +143,21 @@
     "auto_detect_interface": true,
     "default_domain_resolver": "local",
     "final": "proxy",
+    "find_process": true,
     "rules": [
       {
-        "action": "sniff"
-      },
-      {
-        "action": "reject",
-        "ip_version": 6
-      },
-      {
-        "action": "direct",
-        "ip_cidr": [
-          "10.0.0.0/8",
-          "172.16.0.0/12",
-          "192.168.0.0/16",
-          "127.0.0.0/8",
-          "169.254.0.0/16"
+        "action": "hijack-dns",
+        "port": [
+          53
         ]
+      },
+      {
+        "action": "route",
+        "ip_is_private": true,
+        "outbound": "direct"
+      },
+      {
+        "action": "sniff"
       }
     ]
   }

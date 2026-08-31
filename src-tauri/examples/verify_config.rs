@@ -19,8 +19,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-use singbox_client_lib::config::{Config, GeneratorSettings};
-use singbox_client_lib::parser::parse_link;
+use cloakwire_lib::config::{Config, GeneratorSettings};
+use cloakwire_lib::parser::parse_link;
 
 fn main() {
     // -- 1. Parse a representative set of links ---------------------------

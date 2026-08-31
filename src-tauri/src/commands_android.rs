@@ -42,6 +42,8 @@ fn scratch_dir(app: &AppHandle) -> PathBuf {
     }
 }
 
+pub fn cleanup_runtime_configs(_app: &AppHandle, _keep: Option<&std::path::Path>) {}
+
 // --- sing-box sidecar lifecycle (desktop only) ---------------------------
 //
 // On Android the engine is the Xray sidecar owned by the Kotlin

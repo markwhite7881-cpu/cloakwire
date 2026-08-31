@@ -3,8 +3,8 @@
 //! few seconds, capture stdout, and report what we saw. Prints
 //! the inbound + outbound blocks so we can eyeball the diff vs
 //! what Tauri generates.
-use singbox_client_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
-use singbox_client_lib::parser::parse_link;
+use cloakwire_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
+use cloakwire_lib::parser::parse_link;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -21,7 +21,7 @@ fn main() {
         &GeneratorSettings {
             tunnel_mode: TunnelMode::SystemProxy,
             routing: RoutingOptions::default(),
-            clash_api: singbox_client_lib::config::ClashApiOptions::default(),
+            clash_api: cloakwire_lib::config::ClashApiOptions::default(),
             tun_interface_name: None,
             mixed_port: Some(2080),
             local_dns: Some("1.1.1.1".to_string()),

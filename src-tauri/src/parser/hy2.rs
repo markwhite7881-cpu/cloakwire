@@ -75,8 +75,16 @@ pub fn parse(raw: &str) -> Result<Outbound, ParseError> {
         None => None,
     };
 
-    let up_mbps = params.get("upmbps").and_then(|s| s.parse().ok());
-    let down_mbps = params.get("downmbps").and_then(|s| s.parse().ok());
+    let up_mbps = params
+        .get("upmbps")
+        .or_else(|| params.get("up_mbps"))
+        .or_else(|| params.get("up"))
+        .and_then(|s| s.parse().ok());
+    let down_mbps = params
+        .get("downmbps")
+        .or_else(|| params.get("down_mbps"))
+        .or_else(|| params.get("down"))
+        .and_then(|s| s.parse().ok());
 
     let tag = url
         .fragment()
@@ -110,13 +118,15 @@ mod tests {
 
     #[test]
     fn parses_basic() {
-        let s = "hy2://mysecret@hy.example.com:443?sni=hy.example.com&obfs=salamander&obfs-password=p#Hy-Node";
+        let s = "hy2://mysecret@hy.example.com:443?sni=hy.example.com&obfs=salamander&obfs-password=p&up_mbps=100&down_mbps=200#Hy-Node";
         let out = parse(s).expect("parse");
         match out {
             Outbound::Hysteria2(h) => {
                 assert_eq!(h.password, "mysecret");
                 assert_eq!(h.port, 443);
                 assert_eq!(h.tag, "Hy-Node");
+                assert_eq!(h.up_mbps, Some(100));
+                assert_eq!(h.down_mbps, Some(200));
                 assert!(h.obfs.is_some());
                 assert_eq!(h.obfs.as_ref().unwrap().password, "p");
             }

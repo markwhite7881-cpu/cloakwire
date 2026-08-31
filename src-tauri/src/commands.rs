@@ -397,12 +397,30 @@ fn write_secure_runtime_file(path: &Path, data: &[u8]) -> std::io::Result<()> {
     }
 }
 
+pub fn cleanup_runtime_configs(app: &AppHandle, keep: Option<&Path>) {
+    let dir = runtime_config_dir(app);
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+                if let Some(keep_path) = keep {
+                    if path == keep_path {
+                        continue;
+                    }
+                }
+                let _ = std::fs::remove_file(path);
+            }
+        }
+    }
+}
+
 fn write_runtime_config(app: &AppHandle, value: &serde_json::Value) -> AppResult<PathBuf> {
     let dir = runtime_config_dir(app);
     create_secure_runtime_dir(&dir).map_err(AppError::Io)?;
     let path = dir.join(format!("{}.json", Uuid::new_v4()));
     let body = serde_json::to_vec_pretty(value).map_err(AppError::Serde)?;
     write_secure_runtime_file(&path, &body).map_err(AppError::Io)?;
+    cleanup_runtime_configs(app, Some(&path));
     Ok(path)
 }
 

@@ -1,8 +1,8 @@
 //! Quick sanity check: generate a TUN config from the current
 //! settings and run `sing-box check` on it.
 use serde_json::json;
-use singbox_client_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
-use singbox_client_lib::parser::parse_link;
+use cloakwire_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
+use cloakwire_lib::parser::parse_link;
 
 fn main() {
     let link = "vless://be0589e6-eac2-48cd-94f4-e41ceb8aa3c8@138.124.33.206:443\
@@ -34,8 +34,9 @@ fn main() {
                 final_outbound: "proxy".to_string(),
                 auto_detect_interface: true,
                 default_domain_resolver: "local".to_string(),
+                ..RoutingOptions::default()
             },
-            clash_api: singbox_client_lib::config::ClashApiOptions::default(),
+            clash_api: cloakwire_lib::config::ClashApiOptions::default(),
             tun_interface_name: None,
             mixed_port: Some(2080),
             local_dns: Some("1.1.1.1".to_string()),

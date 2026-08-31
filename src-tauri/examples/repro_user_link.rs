@@ -1,5 +1,5 @@
 //! Quick repro for the user's exact vless link.
-use singbox_client_lib::parser::parse_link;
+use cloakwire_lib::parser::parse_link;
 
 fn main() {
     let raw = "vless://be0589e6-eac2-48cd-94f4-e41ceb8aa3c8@138.124.33.206:443\

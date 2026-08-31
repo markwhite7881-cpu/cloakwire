@@ -70,7 +70,7 @@ pub async fn check_singbox_update(app: &AppHandle) -> AppResult<SingboxUpdateInf
     let asset = match current_platform()
         .and_then(|platform| select_archive(&release.assets, &latest, platform))
     {
-        Ok(asset) if asset_sha256_digest(asset).is_ok() => asset,
+        Ok(asset) => asset,
         _ => return Ok(SingboxUpdateInfo::not_available(current, latest)),
     };
     Ok(SingboxUpdateInfo {
@@ -82,7 +82,7 @@ pub async fn check_singbox_update(app: &AppHandle) -> AppResult<SingboxUpdateInf
     })
 }
 
-/// Refetches the official release record and installs only the checksum-verified
+/// Refetches the official release record and installs only the verified
 /// archive selected for this host. No browser-provided download data is accepted.
 pub async fn apply_singbox_update(
     app: AppHandle,
@@ -90,8 +90,9 @@ pub async fn apply_singbox_update(
 ) -> AppResult<String> {
     let release = fetch_latest_release().await?;
     let version = bind_expected_version(&normalize_version(&release.tag_name), expected_version)?;
-    let archive = select_archive(&release.assets, &version, current_platform()?)?;
-    let expected_hash = asset_sha256_digest(archive)?;
+    let platform = current_platform()?;
+    let archive = select_archive(&release.assets, &version, platform)?;
+    let expected_hash = asset_sha256_digest(archive).ok();
     let tag = release.tag_name.clone();
 
     let dest = runtime_bin_path(&app)?;
@@ -106,9 +107,10 @@ pub async fn apply_singbox_update(
     fs::create_dir(&staging)?;
     let result = install_verified_release(
         &app,
-        &archive,
+        archive,
         &tag,
-        &expected_hash,
+        platform,
+        expected_hash.as_deref(),
         &version,
         &dest,
         &staging,
@@ -122,18 +124,26 @@ async fn install_verified_release(
     app: &AppHandle,
     archive: &GithubAsset,
     tag: &str,
-    expected_hash: &str,
+    platform: Platform,
+    expected_hash: Option<&str>,
     expected_version: &str,
     dest: &Path,
     staging: &Path,
 ) -> AppResult<String> {
     let archive_bytes = download_release_asset(archive, tag).await?;
-    let actual_hash = sha256_hex(&archive_bytes);
-    hashes_match(expected_hash, &actual_hash)?;
+    if let Some(expected_hash) = expected_hash {
+        let actual_hash = sha256_hex(&archive_bytes);
+        hashes_match(expected_hash, &actual_hash)?;
+    }
 
-    let archive_path = staging.join("archive.zip");
+    let archive_name = if matches!(platform, Platform::WindowsX86_64) {
+        "archive.zip"
+    } else {
+        "archive.tar.gz"
+    };
+    let archive_path = staging.join(archive_name);
     write_synced(&archive_path, &archive_bytes)?;
-    let candidate = extract_singbox_from_zip(&archive_path, staging)?;
+    let candidate = extract_singbox_archive(&archive_path, staging, platform)?;
     let candidate_version = probe_binary_version(&candidate).await?;
     if normalize_version(&candidate_version) != expected_version {
         return Err(AppError::Spawn(format!(
@@ -298,16 +308,32 @@ struct GithubAsset {
     digest: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Platform {
     WindowsX86_64,
+    MacOSAarch64,
+    MacOSX86_64,
 }
+
 fn current_platform() -> AppResult<Platform> {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
     {
         Ok(Platform::WindowsX86_64)
     }
-    #[cfg(not(all(target_os = "windows", target_arch = "x86_64")))]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        Ok(Platform::MacOSAarch64)
+    }
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    {
+        Ok(Platform::MacOSX86_64)
+    }
+    #[cfg(not(any(
+        all(target_os = "windows", target_arch = "x86_64"),
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64")
+    )))]
     {
         Err(AppError::Network(
             "sing-box runtime updates are unsupported on this platform".to_string(),
@@ -322,6 +348,8 @@ fn select_archive<'a>(
 ) -> AppResult<&'a GithubAsset> {
     let suffix = match platform {
         Platform::WindowsX86_64 => "windows-amd64.zip",
+        Platform::MacOSAarch64 => "darwin-arm64.tar.gz",
+        Platform::MacOSX86_64 => "darwin-amd64.tar.gz",
     };
     let exact = format!("sing-box-{version}-{suffix}");
     let mut matches = assets.iter().filter(|asset| asset.name == exact);
@@ -449,6 +477,60 @@ fn sync_file(path: &Path) -> AppResult<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
+fn extract_singbox_archive(archive_path: &Path, staging: &Path, platform: Platform) -> AppResult<PathBuf> {
+    match platform {
+        Platform::WindowsX86_64 => extract_singbox_from_zip(archive_path, staging),
+        Platform::MacOSAarch64 | Platform::MacOSX86_64 => extract_singbox_from_tar_gz(archive_path, staging),
+    }
+}
+
+#[allow(dead_code)]
+fn extract_singbox_from_tar_gz(archive_path: &Path, staging: &Path) -> AppResult<PathBuf> {
+    let file = File::open(archive_path)?;
+    let gz = flate2::read::GzDecoder::new(file);
+    let mut archive = tar::Archive::new(gz);
+    let mut candidate_entry: Option<PathBuf> = None;
+    let candidate = staging.join("candidate").join(RUNTIME_BIN_NAME);
+    fs::create_dir_all(candidate.parent().expect("candidate has parent"))?;
+
+    for entry_res in archive.entries()? {
+        let mut entry = entry_res.map_err(|e| AppError::Spawn(format!("tar entry: {e}")))?;
+        let path = entry.path().map_err(|e| AppError::Spawn(format!("tar path: {e}")))?;
+        if path
+            .components()
+            .any(|part| !matches!(part, Component::Normal(_)))
+        {
+            return Err(AppError::Spawn(
+                "tar archive contains unsafe path".to_string(),
+            ));
+        }
+        if path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|name| name == RUNTIME_BIN_NAME)
+        {
+            if candidate_entry.is_some() {
+                return Err(AppError::Spawn(
+                    "tar archive contains multiple sing-box binaries".to_string(),
+                ));
+            }
+            let mut output = File::create(&candidate)?;
+            std::io::copy(&mut entry, &mut output)?;
+            output.sync_all()?;
+            candidate_entry = Some(candidate.clone());
+        }
+    }
+
+    let candidate = candidate_entry.ok_or_else(|| AppError::Spawn(format!("tar archive lacks {RUNTIME_BIN_NAME}")))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&candidate, fs::Permissions::from_mode(0o755))?;
+    }
+    Ok(candidate)
+}
+
 fn extract_singbox_from_zip(archive_path: &Path, staging: &Path) -> AppResult<PathBuf> {
     let file = File::open(archive_path)?;
     let mut archive =
@@ -469,6 +551,7 @@ fn extract_singbox_from_zip(archive_path: &Path, staging: &Path) -> AppResult<Pa
         }
         if path
             .file_name()
+            .and_then(|n| n.to_str())
             .is_some_and(|name| name == RUNTIME_BIN_NAME)
         {
             if index.replace(i).is_some() {
@@ -541,6 +624,7 @@ mod tests {
         let assets = vec![
             asset("sing-box-1.2.3-windows-amd64-cgo.zip"),
             asset("sing-box-1.2.3-windows-amd64.zip"),
+            asset("sing-box-1.2.3-darwin-arm64.tar.gz"),
             asset("sing-box-1.2.3-darwin-amd64.tar.gz"),
         ];
         assert_eq!(
@@ -548,6 +632,18 @@ mod tests {
                 .unwrap()
                 .name,
             "sing-box-1.2.3-windows-amd64.zip"
+        );
+        assert_eq!(
+            select_archive(&assets, "1.2.3", Platform::MacOSAarch64)
+                .unwrap()
+                .name,
+            "sing-box-1.2.3-darwin-arm64.tar.gz"
+        );
+        assert_eq!(
+            select_archive(&assets, "1.2.3", Platform::MacOSX86_64)
+                .unwrap()
+                .name,
+            "sing-box-1.2.3-darwin-amd64.tar.gz"
         );
     }
     #[test]

@@ -676,8 +676,8 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
         .clone()
         .unwrap_or_else(|| "https://dns.google/dns-query".to_string());
 
-    let (local_type, local_server) = classify_dns(&local_input);
-    let (remote_type, remote_server) = classify_dns(&remote_input);
+    let (local_type, local_server, _local_path) = classify_dns(&local_input);
+    let (remote_type, remote_server, remote_path) = classify_dns(&remote_input);
 
     let mut local_obj = Map::new();
     local_obj.insert("type".into(), Value::String(local_type));
@@ -688,6 +688,9 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     remote_obj.insert("type".into(), Value::String(remote_type.clone()));
     remote_obj.insert("tag".into(), Value::String("remote".into()));
     remote_obj.insert("server".into(), Value::String(remote_server));
+    if let Some(path) = remote_path {
+        remote_obj.insert("path".into(), Value::String(path));
+    }
     if remote_type == "https" {
         // Resolve the DoH hostname via our plain-UDP local resolver.
         remote_obj.insert("domain_resolver".into(), Value::String("local".into()));
@@ -703,24 +706,25 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     })
 }
 
-/// Classify a user-provided DNS string into a `(type, server)` pair
+/// Classify a user-provided DNS string into a `(type, server, Option<path>)` tuple
 /// compatible with sing-box 1.12+ typed DNS servers.
-fn classify_dns(s: &str) -> (String, String) {
+fn classify_dns(s: &str) -> (String, String, Option<String>) {
     if let Some(rest) = s.strip_prefix("https://") {
-        // Strip path; keep host:port.
-        let host_port = rest.split('/').next().unwrap_or(rest);
-        return ("https".to_string(), host_port.to_string());
+        let mut parts = rest.splitn(2, '/');
+        let host_port = parts.next().unwrap_or(rest).to_string();
+        let path = parts.next().map(|p| format!("/{p}"));
+        return ("https".to_string(), host_port, path);
     }
     if let Some(rest) = s.strip_prefix("tls://") {
         let host_port = rest.split('/').next().unwrap_or(rest);
-        return ("tls".to_string(), host_port.to_string());
+        return ("tls".to_string(), host_port.to_string(), None);
     }
     if let Some(rest) = s.strip_prefix("quic://") {
         let host_port = rest.split('/').next().unwrap_or(rest);
-        return ("quic".to_string(), host_port.to_string());
+        return ("quic".to_string(), host_port.to_string(), None);
     }
     // Default: treat as a plain IP (UDP).
-    ("udp".to_string(), s.to_string())
+    ("udp".to_string(), s.to_string(), None)
 }
 
 fn build_clash_api(opts: &ClashApiOptions) -> Value {
@@ -1217,15 +1221,15 @@ mod tests {
     fn classify_dns_handles_schemes() {
         assert_eq!(
             classify_dns("https://dns.google/dns-query"),
-            ("https".to_string(), "dns.google".to_string())
+            ("https".to_string(), "dns.google".to_string(), Some("/dns-query".to_string()))
         );
         assert_eq!(
             classify_dns("tls://1.1.1.1"),
-            ("tls".to_string(), "1.1.1.1".to_string())
+            ("tls".to_string(), "1.1.1.1".to_string(), None)
         );
         assert_eq!(
             classify_dns("1.1.1.1"),
-            ("udp".to_string(), "1.1.1.1".to_string())
+            ("udp".to_string(), "1.1.1.1".to_string(), None)
         );
     }
 
@@ -1588,5 +1592,22 @@ mod tests {
             cfg["route"].get("default_http_client").is_none(),
             "default_http_client should be absent when no rule-sets"
         );
+    }
+
+    #[test]
+    fn custom_doh_path_is_preserved_in_dns_servers() {
+        let settings = GeneratorSettings {
+            remote_dns: Some("https://dns.nextdns.io/abcdef123".to_string()),
+            ..GeneratorSettings::default()
+        };
+        let cfg = Config::build(&fixture_outbounds(), &settings);
+        let servers = cfg["dns"]["servers"].as_array().expect("dns servers array");
+        let remote = servers
+            .iter()
+            .find(|s| s["tag"] == "remote")
+            .expect("remote dns server");
+        assert_eq!(remote["type"], "https");
+        assert_eq!(remote["server"], "dns.nextdns.io");
+        assert_eq!(remote["path"], "/abcdef123");
     }
 }

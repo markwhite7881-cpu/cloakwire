@@ -21,7 +21,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde_json::json;
-use singbox_client_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
+use cloakwire_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
 
 fn main() {
     let here = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -120,6 +120,7 @@ fn main() {
             final_outbound: "proxy".to_string(),
             auto_detect_interface: true,
             default_domain_resolver: "local".to_string(),
+            ..RoutingOptions::default()
         },
         ..GeneratorSettings::default()
     };
@@ -131,15 +132,15 @@ fn main() {
     for (i, r) in rules.iter().enumerate() {
         println!("  [{}] {}", i, r);
     }
-    // System rules come first: dns-bypass + sniff. Then 5 user
+    // System rules come first: dns-bypass + private-ip + sniff. Then 5 user
     // rules (rule-006 disabled, rule-007 empty matchers, both
-    // dropped). Total: 2 + 5 = 7.
+    // dropped). Total: 3 + 5 = 8.
     assert_eq!(
         rules.len(),
-        7,
-        "expected 2 system + 5 user (disabled + empty-matcher rules must be dropped)"
+        8,
+        "expected 3 system + 5 user (disabled + empty-matcher rules must be dropped)"
     );
-    let user_rules = &rules[2..];
+    let user_rules = &rules[3..];
     for (i, r) in user_rules.iter().enumerate() {
         // action must be a string
         let action = &r["action"];

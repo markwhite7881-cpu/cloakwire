@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use serde_json::json;
-use singbox_client_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
+use cloakwire_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
 
 fn main() {
     let here = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -59,6 +59,7 @@ fn main() {
             final_outbound: "proxy".to_string(),
             auto_detect_interface: true,
             default_domain_resolver: "local".to_string(),
+            ..RoutingOptions::default()
         },
         ..GeneratorSettings::default()
     };

@@ -579,63 +579,23 @@ impl SubscriptionService {
                 candidate.bundle_digest = None;
             }
             ClassifiedPayload::SingboxBundle(children) => {
-                // The mobile Kotlin VpnService currently consumes a
-                // single sing-box outbound. The bundle path is fully
-                // recognised and persisted here so the user sees
-                // every profile the provider ships; the engine that
-                // actually starts one of these children is a separate
-                // workstream (Android-side xray/sing-box template).
-                let child_records: Vec<ChildProfileRecord> = children
-                    .into_iter()
-                    .map(|child| ChildProfileRecord {
-                        key: child.key,
-                        name: child.name,
-                        engine: EngineKind::Singbox,
-                        config: child.config,
-                        digest: String::new(),
-                    })
-                    .collect();
-                if child_records.is_empty() {
-                    return Err(AppError::EngineUnavailable(
-                        "provider returned a sing-box bundle with no usable configs".into(),
-                    ));
-                }
-                candidate.kind = SubscriptionKind::SingboxBundle;
-                candidate.engine = Some(EngineKind::Singbox);
-                // Preserve the active child on refresh if the same key
-                // is still in the new bundle; otherwise fall back to
-                // the first child. 2026-08-21.
-                candidate.active_child_key =
-                    preserve_active_child(candidate.active_child_key.as_deref(), &child_records);
-                candidate.children = child_records;
-                candidate.link_outbounds.clear();
-                candidate.bundle_digest = None;
+                apply_bundle(
+                    &mut candidate,
+                    SubscriptionKind::SingboxBundle,
+                    EngineKind::Singbox,
+                    children,
+                )?;
             }
             ClassifiedPayload::XrayBundle(children) => {
-                let child_records: Vec<ChildProfileRecord> = children
-                    .into_iter()
-                    .map(|child| ChildProfileRecord {
-                        key: child.key,
-                        name: child.name,
-                        engine: EngineKind::Xray,
-                        config: child.config,
-                        digest: String::new(),
-                    })
-                    .collect();
-                if child_records.is_empty() {
-                    return Err(AppError::EngineUnavailable(
-                        "provider returned an xray bundle with no usable configs".into(),
-                    ));
-                }
-                candidate.kind = SubscriptionKind::XrayBundle;
-                candidate.engine = Some(EngineKind::Xray);
-                candidate.active_child_key =
-                    preserve_active_child(candidate.active_child_key.as_deref(), &child_records);
-                candidate.children = child_records;
-                candidate.link_outbounds.clear();
-                candidate.bundle_digest = None;
+                apply_bundle(
+                    &mut candidate,
+                    SubscriptionKind::XrayBundle,
+                    EngineKind::Xray,
+                    children,
+                )?;
             }
         }
+        validate_candidate(&candidate)?;
         Ok(candidate)
     }
 }
@@ -690,6 +650,57 @@ fn decode_provider_title(title: &str) -> Option<String> {
         .filter(|value| !value.trim().is_empty())
 }
 
+fn apply_bundle(
+    record: &mut SubscriptionRecord,
+    kind: SubscriptionKind,
+    engine: EngineKind,
+    children: Vec<ClassifiedChild>,
+) -> AppResult<()> {
+    let children = children
+        .into_iter()
+        .map(|child| {
+            Ok(ChildProfileRecord {
+                key: child.key,
+                name: child.name,
+                digest: value_digest(&child.config)?,
+                engine,
+                config: child.config,
+            })
+        })
+        .collect::<AppResult<Vec<_>>>()?;
+    record.kind = kind;
+    record.engine = Some(engine);
+    record.bundle_digest = Some(bundle_digest(&children));
+    record.link_outbounds.clear();
+    record.active_child_key = stable_selection(record.active_child_key.as_deref(), &children);
+    record.children = children;
+    Ok(())
+}
+
+fn validate_candidate(record: &SubscriptionRecord) -> AppResult<()> {
+    if matches!(
+        record.kind,
+        SubscriptionKind::SingboxBundle | SubscriptionKind::XrayBundle
+    ) && (record.children.is_empty()
+        || record
+            .children
+            .iter()
+            .any(|child| !child.config.is_object() || child.digest.is_empty()))
+    {
+        return Err(AppError::Validation(
+            "subscription bundle has an invalid child".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn stable_selection(previous: Option<&str>, children: &[ChildProfileRecord]) -> Option<String> {
+    previous
+        .filter(|key| children.iter().any(|child| child.key == *key))
+        .map(str::to_owned)
+        .or_else(|| children.first().map(|child| child.key.clone()))
+}
+
 fn snapshot(records: Vec<SubscriptionRecord>) -> SubscriptionSnapshot {
     let link_outbounds = records
         .iter()
@@ -722,6 +733,62 @@ fn snapshot(records: Vec<SubscriptionRecord>) -> SubscriptionSnapshot {
         subscriptions,
         link_outbounds,
     }
+}
+
+fn resolve_link_refs_from_records(
+    records: &[SubscriptionRecord],
+    refs: &[super::SubscriptionLinkRef],
+) -> AppResult<Vec<crate::parser::Outbound>> {
+    use std::collections::HashSet;
+
+    let mut seen = HashSet::new();
+    let mut outbounds = Vec::with_capacity(refs.len());
+    for reference in refs {
+        if !seen.insert((
+            reference.subscription_id.as_str(),
+            reference.link_key.as_str(),
+        )) {
+            return Err(AppError::Validation(
+                "duplicate subscription link selection".into(),
+            ));
+        }
+        let record = records
+            .iter()
+            .find(|record| record.id == reference.subscription_id)
+            .ok_or_else(|| AppError::Subscription("subscription was not found".into()))?;
+        if record.kind != SubscriptionKind::LinkList {
+            return Err(AppError::Validation(
+                "subscription does not contain links".into(),
+            ));
+        }
+        let index = reference
+            .link_key
+            .strip_prefix("index-")
+            .and_then(|value| value.parse::<usize>().ok())
+            .filter(|index| reference.link_key == format!("index-{index}"))
+            .ok_or_else(|| AppError::Validation("subscription link selection is invalid".into()))?;
+        let outbound = record
+            .link_outbounds
+            .get(index)
+            .ok_or_else(|| AppError::Validation("subscription link selection is stale".into()))?;
+        outbounds.push(outbound.clone());
+    }
+    Ok(outbounds)
+}
+
+fn value_digest(value: &serde_json::Value) -> AppResult<String> {
+    let bytes = serde_json::to_vec(value)?;
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn bundle_digest(children: &[ChildProfileRecord]) -> String {
+    let mut hasher = Sha256::new();
+    for child in children {
+        hasher.update(child.digest.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())
 }
 
 fn validate_input(name: &str, url: &str, interval_minutes: u32) -> AppResult<()> {

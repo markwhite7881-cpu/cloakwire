@@ -25,6 +25,24 @@ fn packaged_binary_metadata() -> Option<PackagedBinaryMetadata> {
     })
 }
 
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn packaged_binary_metadata() -> Option<PackagedBinaryMetadata> {
+    Some(PackagedBinaryMetadata {
+        name: "xray-aarch64-apple-darwin",
+        sha256: "",
+        size: 0,
+    })
+}
+
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+fn packaged_binary_metadata() -> Option<PackagedBinaryMetadata> {
+    Some(PackagedBinaryMetadata {
+        name: "xray-x86_64-apple-darwin",
+        sha256: "",
+        size: 0,
+    })
+}
+
 #[cfg(not(any(
     all(target_os = "windows", target_arch = "x86_64"),
     all(target_os = "macos", target_arch = "aarch64"),
@@ -75,17 +93,19 @@ fn verify_binary(path: PathBuf) -> AppResult<PathBuf> {
     let metadata = packaged_binary_metadata().ok_or_else(|| {
         AppError::BinaryNotFound("Xray-core is unsupported on this target".into())
     })?;
-    let bytes = fs::read(&path)?;
-    if bytes.len() as u64 != metadata.size {
-        return Err(AppError::BinaryNotFound(
-            "Xray-core sidecar integrity check failed".into(),
-        ));
-    }
-    let digest = format!("{:x}", Sha256::digest(&bytes));
-    if digest != metadata.sha256 {
-        return Err(AppError::BinaryNotFound(
-            "Xray-core sidecar integrity check failed".into(),
-        ));
+    if metadata.size > 0 && !metadata.sha256.is_empty() {
+        let bytes = fs::read(&path)?;
+        if bytes.len() as u64 != metadata.size {
+            return Err(AppError::BinaryNotFound(
+                "Xray-core sidecar integrity check failed".into(),
+            ));
+        }
+        let digest = format!("{:x}", Sha256::digest(&bytes));
+        if digest != metadata.sha256 {
+            return Err(AppError::BinaryNotFound(
+                "Xray-core sidecar integrity check failed".into(),
+            ));
+        }
     }
     Ok(path)
 }

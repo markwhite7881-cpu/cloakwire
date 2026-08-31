@@ -22,8 +22,8 @@ use std::process::Command;
 
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
-use singbox_client_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
-use singbox_client_lib::parser::parse_link;
+use cloakwire_lib::config::{Config, GeneratorSettings, RoutingOptions, TunnelMode};
+use cloakwire_lib::parser::parse_link;
 
 const USER_LINK: &str = "vless://be0589e6-eac2-48cd-94f4-e41ceb8aa3c8@138.124.33.206:443\
 ?authority=&encryption=none&fp=firefox\
@@ -137,6 +137,7 @@ fn main() {
             final_outbound: "proxy".to_string(),
             auto_detect_interface: true,
             default_domain_resolver: "local".to_string(),
+            ..RoutingOptions::default()
         },
         ..GeneratorSettings::default()
     };
@@ -188,7 +189,7 @@ fn main() {
 /// the transport-level failure.
 fn fetch_subscription_blocking(
     url: &str,
-) -> Result<Vec<singbox_client_lib::parser::Outbound>, String> {
+) -> Result<Vec<cloakwire_lib::parser::Outbound>, String> {
     let body = reqwest::blocking::Client::builder()
         .user_agent("singbox-client/0.1")
         .timeout(std::time::Duration::from_secs(15))
@@ -215,7 +216,7 @@ fn fetch_subscription_blocking(
     println!("  split into {} non-empty lines", lines.len());
     let mut out = Vec::new();
     for (i, line) in lines.into_iter().enumerate() {
-        match singbox_client_lib::parser::parse_link(&line) {
+        match cloakwire_lib::parser::parse_link(&line) {
             Ok(o) => {
                 println!(
                     "  [{}] ok   {} {}  {}:{}",

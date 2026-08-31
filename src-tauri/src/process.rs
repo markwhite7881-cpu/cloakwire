@@ -1028,6 +1028,7 @@ pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16
     settings
         .set_value("ProxyServer", &proxy)
         .map_err(|e| AppError::Spawn(format!("set ProxyServer: {e}")))?;
+    let _ = settings.set_value("ProxyOverride", &"<local>;localhost;127.*");
     notify_wininet_proxy_change();
     Ok(())
 }

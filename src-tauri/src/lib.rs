@@ -175,6 +175,7 @@ pub fn run() {
                 log::info!("startup: cleared any stale system proxy from a previous run");
             }
         }
+        commands::cleanup_runtime_configs(app.handle(), None);
 
         // Initialise the subscription service. On every platform the
         // store lives under `<data_dir>/subscriptions.v1.json`; the

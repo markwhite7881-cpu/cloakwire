@@ -1,14 +1,16 @@
 {
   "dns": {
-    "final": "local",
+    "final": "remote",
     "servers": [
       {
-        "server": "223.5.5.5",
+        "server": "1.1.1.1",
         "tag": "local",
         "type": "udp"
       },
       {
+        "detour": "proxy",
         "domain_resolver": "local",
+        "path": "/dns-query",
         "server": "dns.google",
         "tag": "remote",
         "type": "https"
@@ -61,10 +63,18 @@
     "auto_detect_interface": true,
     "default_domain_resolver": "local",
     "final": "proxy",
+    "find_process": true,
     "rules": [
       {
-        "action": "direct",
-        "network": "dns"
+        "action": "hijack-dns",
+        "port": [
+          53
+        ]
+      },
+      {
+        "action": "route",
+        "ip_is_private": true,
+        "outbound": "direct"
       },
       {
         "action": "route",
