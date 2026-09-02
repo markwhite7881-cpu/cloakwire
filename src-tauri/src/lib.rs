@@ -32,6 +32,8 @@ pub mod config;
 #[cfg(not(target_os = "android"))]
 pub mod engine;
 pub mod error;
+#[cfg(not(target_os = "android"))]
+pub mod killswitch;
 pub mod parser;
 #[cfg(not(target_os = "android"))]
 pub mod process;

@@ -81,6 +81,9 @@ pub enum AppError {
     #[error("unsafe config: {0}")]
     UnsafeConfig(String),
 
+    #[error("kill switch error: {0}")]
+    KillSwitch(String),
+
     #[error("tauri error: {0}")]
     Tauri(#[from] tauri::Error),
 }
@@ -137,6 +140,7 @@ impl Serialize for AppError {
                 "unsafe_config",
                 "Subscription configuration was blocked".into(),
             ),
+            AppError::KillSwitch(_) => ("kill_switch", self.to_string()),
             AppError::Tauri(_) => ("tauri", self.to_string()),
         };
         let mut st = s.serialize_struct("AppError", 2)?;
