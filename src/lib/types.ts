@@ -565,3 +565,12 @@ export interface Subscription {
   /** Bundle children. Empty for link_list subscriptions. */
   children: ChildProfileSummary[];
 }
+
+export interface LeakStatusReport {
+  ip: string;
+  country: string;
+  isp: string;
+  ipv6_detected: boolean;
+  dns_server: string | null;
+}
+

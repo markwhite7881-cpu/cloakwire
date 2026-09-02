@@ -12,6 +12,8 @@ import type {
   DeviceHwidInfo,
   GeneratorSettings,
   HomeProfileMetadata,
+  KillSwitchMode,
+  LeakStatusReport,
   LegacySubscriptionInput,
   LogLine,
   ManagedLaunchResult,
@@ -232,6 +234,11 @@ export const api = {
   setCustomHwid: (value: string | null) =>
     call<DeviceHwidInfo>("set_custom_hwid", { value }),
   resetDeviceHwid: () => call<DeviceHwidInfo>("reset_device_hwid"),
+  setKillSwitchMode: (mode: KillSwitchMode) =>
+    call<void>("set_kill_switch_mode", { mode }),
+  getKillSwitchMode: () => call<KillSwitchMode>("get_kill_switch_mode"),
+  cleanupKillSwitch: () => call<void>("cleanup_kill_switch"),
+  checkLeakStatus: () => call<LeakStatusReport>("check_leak_status"),
 };
 
 export { TauriCommandError };
