@@ -8,6 +8,7 @@ import {
   Terminal,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getVersion } from "@tauri-apps/api/app";
 import cloakwireLogo from "@/assets/cloakwire-logo.png";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
@@ -306,6 +307,7 @@ function loadSettings(): GeneratorSettings {
 }
 
 export default function App() {
+  const [appVersion, setAppVersion] = useState("1.4.4");
   const [binary, setBinary] = useState<BinaryInfo | null>(null);
   const [version, setVersion] = useState<SingboxVersion | null>(null);
   const [xrayVersion, setXrayVersion] = useState<string | null>(null);
@@ -623,15 +625,17 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        const [bin, ver, xray] = await Promise.all([
+        const [bin, ver, xray, appVer] = await Promise.all([
           api.getBinaryInfo(),
           api.getSingboxVersion().catch(() => null),
           api.getXrayVersion().catch(() => null),
+          getVersion().catch(() => null),
         ]);
         if (cancelled) return;
         setBinary(bin);
         if (ver) setVersion(ver);
         if (xray) setXrayVersion(xray);
+        if (appVer) setAppVersion(appVer);
       } catch (e) {
         if (!cancelled) setError(humanError(e));
       }
@@ -1153,7 +1157,7 @@ export default function App() {
                 Cloakwire
               </h1>
               <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-mono border-border/70">
-                v1.4.2
+                v{appVersion}
               </Badge>
             </div>
             <p className="text-[11px] font-mono text-muted-foreground">
