@@ -104,10 +104,24 @@ impl Default for ClashApiOptions {
     }
 }
 
+/// How the Kill Switch should isolate network traffic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum KillSwitchMode {
+    Off,
+    #[default]
+    OnDrop,
+    AlwaysOn,
+}
+
 /// Full input the user can tweak from the UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneratorSettings {
     pub tunnel_mode: TunnelMode,
+    #[serde(default)]
+    pub kill_switch: KillSwitchMode,
+    #[serde(default = "default_true")]
+    pub block_ipv6: bool,
     pub routing: RoutingOptions,
     pub clash_api: ClashApiOptions,
     /// TUN interface name. Default works on most platforms.
@@ -155,6 +169,8 @@ impl Default for GeneratorSettings {
     fn default() -> Self {
         Self {
             tunnel_mode: TunnelMode::SystemProxy,
+            kill_switch: KillSwitchMode::default(),
+            block_ipv6: true,
             routing: RoutingOptions::default(),
             clash_api: ClashApiOptions::default(),
             tun_interface_name: None,
@@ -377,6 +393,10 @@ fn build_route(settings: &GeneratorSettings) -> Value {
     let mut rules: Vec<Value> = Vec::new();
     // 0. DNS hijacking — capture DNS queries into sing-box's internal resolver.
     rules.push(json!({ "action": "hijack-dns", "port": [53] }));
+    // 0.1 IPv6 reject if block_ipv6 is enabled (prevents dual-stack leaks)
+    if settings.block_ipv6 {
+        rules.push(json!({ "action": "reject", "ip_version": 6 }));
+    }
     // 1. Private IP / LAN bypass — always route local traffic directly.
     rules.push(json!({ "action": "route", "ip_is_private": true, "outbound": "direct" }));
     // 2. Optional sniff action.
@@ -1610,4 +1630,30 @@ mod tests {
         assert_eq!(remote["server"], "dns.nextdns.io");
         assert_eq!(remote["path"], "/abcdef123");
     }
+
+    #[test]
+    fn deserializes_settings_with_default_kill_switch_and_block_ipv6() {
+        let json = serde_json::json!({
+            "tunnel_mode": "tun",
+            "routing": {
+                "rules": [],
+                "rule_sets": [],
+                "vpn_processes": [],
+                "direct_processes": [],
+                "sniff": true,
+                "final_outbound": "proxy",
+                "auto_detect_interface": true,
+                "default_domain_resolver": "local"
+            },
+            "clash_api": {
+                "external_controller": "127.0.0.1:9090",
+                "default_controller": "proxy",
+                "secret": null
+            }
+        });
+        let settings: GeneratorSettings = serde_json::from_value(json).expect("parses legacy settings");
+        assert_eq!(settings.kill_switch, KillSwitchMode::OnDrop);
+        assert_eq!(settings.block_ipv6, true);
+    }
 }
+

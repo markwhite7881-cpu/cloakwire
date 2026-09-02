@@ -330,8 +330,8 @@ export interface ParsedInput {
   failures: ParseFailure[];
 }
 
-// --- 
 export type TunnelMode = "tun" | "system_proxy" | "both" | "none";
+export type KillSwitchMode = "off" | "on_drop" | "always_on";
 
 /**
  * Routing 2.0 — flat per-rule + rule-set list.
@@ -489,6 +489,8 @@ export interface ClashApiOptions {
 
 export interface GeneratorSettings {
   tunnel_mode: TunnelMode;
+  kill_switch: KillSwitchMode;
+  block_ipv6: boolean;
   routing: RoutingOptions;
   clash_api: ClashApiOptions;
   tun_interface_name: string | null;

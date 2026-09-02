@@ -240,6 +240,8 @@ function loadSettings(): GeneratorSettings {
       const merged: GeneratorSettings = {
         ...DEFAULT_SETTINGS,
         ...parsed,
+        kill_switch: parsed.kill_switch ?? DEFAULT_SETTINGS.kill_switch,
+        block_ipv6: parsed.block_ipv6 ?? DEFAULT_SETTINGS.block_ipv6,
         routing: { ...DEFAULT_SETTINGS.routing, ...(parsed.routing ?? {}) },
         clash_api: { ...DEFAULT_SETTINGS.clash_api, ...(parsed.clash_api ?? {}) },
       };
