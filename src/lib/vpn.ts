@@ -55,6 +55,8 @@ export const vpnStart = (
      * than the internal xray outbound tag ("proxy", "out-0", ...).
      */
     name?: string;
+    killSwitch?: string;
+    blockIpv6?: boolean;
   } = {},
 ) =>
   invoke<void>("plugin:vpn|start", {
@@ -63,6 +65,8 @@ export const vpnStart = (
     apps: JSON.stringify(options.apps ?? []),
     appsMode: options.appsMode ?? "exclude",
     name: options.name ?? "",
+    killSwitch: options.killSwitch ?? "on_drop",
+    blockIpv6: options.blockIpv6 ?? true,
   });
 
 export const vpnStop = () => invoke<void>("plugin:vpn|stop");

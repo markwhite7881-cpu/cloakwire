@@ -1,4 +1,4 @@
-﻿package app.cloakwire.client.vpn
+package app.cloakwire.client.vpn
 
 import android.app.Activity
 import android.content.Intent
@@ -47,6 +47,12 @@ class StartArgs {
    * is running. Empty string → tile falls back to "Cloakwire".
    */
   var name: String = ""
+
+  /** Kill switch mode: "off", "on_drop", or "always_on". */
+  var killSwitch: String = "on_drop"
+
+  /** IPv6 blocking toggle. */
+  var blockIpv6: Boolean = true
 }
 
 @InvokeArg
@@ -157,6 +163,8 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
           .putExtra(CloakwireVpnService.EXTRA_APPS, args.apps)
           .putExtra(CloakwireVpnService.EXTRA_APPS_MODE, appsMode)
           .putExtra(CloakwireVpnService.EXTRA_SERVER_NAME, args.name)
+          .putExtra(CloakwireVpnService.EXTRA_KILL_SWITCH, args.killSwitch)
+          .putExtra(CloakwireVpnService.EXTRA_BLOCK_IPV6, args.blockIpv6)
         activity.startForegroundService(intent)
         invoke.resolve()
       } catch (e: Exception) {

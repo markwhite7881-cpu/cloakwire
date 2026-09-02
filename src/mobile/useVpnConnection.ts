@@ -200,7 +200,14 @@ export function useVpnConnection(
           return supported ? profileLabel(supported) : "";
         })();
       // 5. Hand off to the VpnService.
-      await vpnStart(config, { engine, apps, appsMode, name: resolvedName });
+      await vpnStart(config, {
+        engine,
+        apps,
+        appsMode,
+        name: resolvedName,
+        killSwitch: settingsRef.current.kill_switch,
+        blockIpv6: settingsRef.current.block_ipv6,
+      });
       // No shared Clash API traffic stream on Android; byte counters
       // come from the VpnService notification instead.
     } catch (e) {

@@ -1,4 +1,4 @@
-﻿package app.cloakwire.client.vpn
+package app.cloakwire.client.vpn
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -45,6 +45,8 @@ class CloakwireVpnService : VpnService() {
      *  tile uses this as its label. */
     const val EXTRA_SERVER_NAME = "serverName"
     const val EXTRA_ENGINE = "engine"
+    const val EXTRA_KILL_SWITCH = "kill_switch"
+    const val EXTRA_BLOCK_IPV6 = "block_ipv6"
     const val ENGINE_SINGBOX = "sing-box"
     const val ENGINE_XRAY = "xray"
 
@@ -114,6 +116,10 @@ class CloakwireVpnService : VpnService() {
   @Volatile private var sessionActive = false
   @Volatile private var engineRestarts = 0
   @Volatile private var starting = false
+  @Volatile private var killSwitchMode = "on_drop"
+  @Volatile private var blockIpv6 = true
+  @Volatile private var isBlackholeActive = false
+  @Volatile private var blackholeThread: Thread? = null
 
   /** Called by CloakwirePlatform after libbox establishes its TUN. */
   fun onTunEstablished(pfd: ParcelFileDescriptor) {
@@ -161,7 +167,9 @@ class CloakwireVpnService : VpnService() {
         val engine = intent.getStringExtra(EXTRA_ENGINE)
           ?: prefs.getString(KEY_LAST_ENGINE, ENGINE_SINGBOX)
           ?: ENGINE_SINGBOX
-        acceptStart(configPath, apps, appsMode, serverName, engine)
+        val killSwitch = intent.getStringExtra(EXTRA_KILL_SWITCH) ?: "on_drop"
+        val blockIpv6Val = intent.getBooleanExtra(EXTRA_BLOCK_IPV6, true)
+        acceptStart(configPath, apps, appsMode, serverName, engine, killSwitch, blockIpv6Val)
         return START_STICKY
       }
       else -> {
@@ -192,7 +200,14 @@ class CloakwireVpnService : VpnService() {
     appsMode: String,
     serverName: String = "",
     engine: String = ENGINE_XRAY,
+    killSwitch: String = "on_drop",
+    blockIpv6Option: Boolean = true,
   ) {
+    killSwitchMode = killSwitch
+    blockIpv6 = blockIpv6Option
+    isBlackholeActive = false
+    blackholeThread?.interrupt()
+    blackholeThread = null
     val selectedEngine = if (engine == ENGINE_SINGBOX) ENGINE_SINGBOX else ENGINE_XRAY
     val selectedApps = apps.ifBlank { "[]" }
     val selectedAppsMode = if (appsMode == "include") "include" else "exclude"
@@ -461,7 +476,14 @@ class CloakwireVpnService : VpnService() {
       .addDnsServer("8.8.8.8")
       .addRoute("0.0.0.0", 0)
       .addRoute("::", 0)
+      .setBlocking(true)
       .setConfigureIntent(mainActivityPendingIntent())
+
+    try {
+      builder.addAddress("fd00::1", 128)
+    } catch (e: Exception) {
+      Log.w(TAG, "IPv6 address setup: ${e.message}")
+    }
 
     // Android exposes mutually exclusive allow and deny lists. In include
     // mode our own package is already outside the allow-list; adding it to
@@ -603,18 +625,50 @@ class CloakwireVpnService : VpnService() {
   }
 
   private fun failSession(message: String) {
-    VpnEvents.update(VpnEvents.STATE_ERROR, message)
-    getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
-      .edit()
-      .putBoolean(KEY_IS_CONNECTED, false)
-      .apply()
-    runCatching { teardownComponents() }
-    stopForeground(true)
-    stopSelf()
+    Log.e(TAG, "Session failed: $message (killSwitch=$killSwitchMode)")
+    if (killSwitchMode != "off" && tunPfd != null) {
+      isBlackholeActive = true
+      VpnEvents.update(VpnEvents.STATE_ERROR, "Kill Switch: $message")
+      updateNotification("Kill Switch: traffic blocked")
+      runCatching { tun2socks.stop() }
+      xrayEngine?.let { runCatching { it.closeBestEffort() } }
+      xrayEngine = null
+      singBoxEngine?.let { runCatching { it.closeBestEffort() } }
+      singBoxEngine = null
+      runCatching { protectedProxy.stop() }
+      startBlackholeDrain()
+    } else {
+      VpnEvents.update(VpnEvents.STATE_ERROR, message)
+      getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(KEY_IS_CONNECTED, false)
+        .apply()
+      runCatching { teardownComponents() }
+      stopForeground(true)
+      stopSelf()
+    }
+  }
+
+  private fun startBlackholeDrain() {
+    val pfd = tunPfd ?: return
+    blackholeThread?.interrupt()
+    blackholeThread = thread(name = "vpn-blackhole-drain", isDaemon = true) {
+      try {
+        val input = java.io.FileInputStream(pfd.fileDescriptor)
+        val buf = ByteArray(32768)
+        while (isBlackholeActive) {
+          val n = input.read(buf)
+          if (n < 0) break
+        }
+      } catch (_: Exception) {}
+    }
   }
 
   @Synchronized
   fun stopVpn() {
+    isBlackholeActive = false
+    blackholeThread?.interrupt()
+    blackholeThread = null
     sessionActive = false
     activeServerName = ""
     VpnEvents.setEngine("")
@@ -634,6 +688,9 @@ class CloakwireVpnService : VpnService() {
    */
   @Synchronized
   private fun teardownComponents() {
+    isBlackholeActive = false
+    blackholeThread?.interrupt()
+    blackholeThread = null
     sessionActive = false
     stopTrafficPoller()
     runCatching { tun2socks.stop() }
@@ -694,6 +751,12 @@ class CloakwireVpnService : VpnService() {
     }
   }
 
+  private fun updateNotification(text: String) {
+    val notification = buildNotification(text)
+    val manager = getSystemService(NotificationManager::class.java)
+    manager?.notify(NOTIFICATION_ID, notification)
+  }
+
   private fun buildNotification(text: String): Notification {
     val stopIntent = PendingIntent.getService(
       this, 0,
@@ -707,17 +770,22 @@ class CloakwireVpnService : VpnService() {
       @Suppress("DEPRECATION")
       Notification.Builder(this)
     }
-    val title = if (text == "Connected") {
+    val title = if (isBlackholeActive) {
+      "Cloakwire • Kill Switch"
+    } else if (text == "Connected") {
       if (activeServerName.isNotBlank()) "Cloakwire • $activeServerName" else "Cloakwire • Connected"
     } else {
       "Cloakwire"
     }
-    val contentText = if (text == "Connected") {
+    val contentText = if (isBlackholeActive) {
+      "Connection dropped. Kill Switch is blocking traffic."
+    } else if (text == "Connected") {
       val engineLabel = if (VpnEvents.activeEngine == ENGINE_XRAY || VpnEvents.activeEngine == "xray") "Xray Core" else "sing-box"
       "Protected via $engineLabel"
     } else {
       text
     }
+    val actionLabel = if (isBlackholeActive) "Unblock" else "Disconnect"
     return builder
       .setContentTitle(title)
       .setContentText(contentText)
@@ -725,7 +793,7 @@ class CloakwireVpnService : VpnService() {
       .setContentIntent(mainActivityPendingIntent())
       .setOngoing(true)
       .addAction(
-        Notification.Action.Builder(null, "Disconnect", stopIntent).build()
+        Notification.Action.Builder(null, actionLabel, stopIntent).build()
       )
       .build()
   }
