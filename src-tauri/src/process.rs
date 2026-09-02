@@ -447,13 +447,7 @@ impl ProcessManager {
         drop(status);
         #[cfg(not(target_os = "android"))]
         {
-            let is_tun = match std::fs::read_to_string(&spec.config_path) {
-                Ok(content) => {
-                    content.contains("\"type\": \"tun\"") || content.contains("\"type\":\"tun\"")
-                }
-                Err(_) => false,
-            };
-            if is_tun && self.get_kill_switch_mode().await != crate::config::KillSwitchMode::Off {
+            if self.get_kill_switch_mode().await != crate::config::KillSwitchMode::Off {
                 let singbox_bin = app
                     .and_then(|a| crate::engine::singbox::locate_binary(a).ok())
                     .or_else(|| {
@@ -575,7 +569,7 @@ impl ProcessManager {
         loop {
             match child.try_wait() {
                 Ok(Some(status)) => {
-                    self.finalize_exit(run_id, Some(status.code().unwrap_or(-1)), None)
+                    self.finalize_exit(run_id, Some(status.code().unwrap_or(-1)), None, true)
                         .await;
                     return Ok(self.status.lock().await.clone());
                 }
@@ -586,13 +580,14 @@ impl ProcessManager {
                         run_id,
                         Some(-1),
                         Some("graceful shutdown timed out, force-killed".to_string()),
+                        true,
                     )
                     .await;
                     return Ok(self.status.lock().await.clone());
                 }
                 Ok(None) => {}
                 Err(e) => {
-                    self.finalize_exit(run_id, None, Some(format!("try_wait failed: {e}")))
+                    self.finalize_exit(run_id, None, Some(format!("try_wait failed: {e}")), true)
                         .await;
                     return Ok(self.status.lock().await.clone());
                 }
@@ -817,7 +812,13 @@ impl ProcessManager {
     /// appears to be down. Idempotent: no-op when there's nothing to
     /// clear (e.g. on platforms without a system proxy or when the
     /// current session was a TUN-only run).
-    async fn finalize_exit(&self, run_id: u64, code: Option<i32>, err: Option<String>) {
+    async fn finalize_exit(
+        &self,
+        run_id: u64,
+        code: Option<i32>,
+        err: Option<String>,
+        is_intentional_stop: bool,
+    ) {
         if self.active_run_id.load(Ordering::Acquire) != run_id {
             return;
         }
@@ -837,7 +838,7 @@ impl ProcessManager {
         *self.current_config.lock().await = None;
         *self.controller_url.lock().await = None;
 
-        let line = {
+        let (line, engine_label) = {
             let mut status = self.status.lock().await;
             if self.active_run_id.load(Ordering::Acquire) != run_id {
                 return;
@@ -855,7 +856,7 @@ impl ProcessManager {
             // Status is the launch gate. Invalidate this ID before dropping it
             // so older async tasks cannot touch a later run.
             self.active_run_id.store(0, Ordering::Release);
-            if is_xray {
+            let msg = if is_xray {
                 if code == Some(0) {
                     "Xray stopped".to_string()
                 } else {
@@ -869,7 +870,8 @@ impl ProcessManager {
                     }
                     (None, _) => format!("{engine_label} stopped"),
                 }
-            }
+            };
+            (msg, engine_label)
         };
         #[cfg(test)]
         self.xray_test_state.lock().await.events.push("state_clear");
@@ -881,16 +883,24 @@ impl ProcessManager {
             )
             .await;
         }
-        let is_clean_exit = code == Some(0) && err.is_none();
         #[cfg(not(target_os = "android"))]
         {
             let ks_mode = self.get_kill_switch_mode().await;
             if ks_mode == crate::config::KillSwitchMode::Off
-                || (is_clean_exit && ks_mode != crate::config::KillSwitchMode::AlwaysOn)
+                || (is_intentional_stop && ks_mode != crate::config::KillSwitchMode::AlwaysOn)
             {
                 let _ = crate::killswitch::disarm_kill_switch();
             } else {
-                log::info!("killswitch: holding firewall block on exit (mode: {ks_mode:?})");
+                log::info!(
+                    "killswitch: holding firewall block on exit (mode: {ks_mode:?}, intentional: {is_intentional_stop})"
+                );
+                if !is_intentional_stop {
+                    self.push_log(
+                        LogStream::System,
+                        format!("KILL SWITCH ENGAGED: traffic blocked after unexpected {engine_label} drop"),
+                    )
+                    .await;
+                }
             }
         }
     }
@@ -966,7 +976,7 @@ impl ProcessManager {
                         let owns_slot = self.take_child_if_run(run_id).await;
                         if owns_slot {
                             let _clash_transition = self.acquire_transition().await;
-                            self.finalize_exit(run_id, code, None).await;
+                            self.finalize_exit(run_id, code, None, false).await;
                         }
                     }
                     Some((run_id, Some(Err(error)))) => {
@@ -977,6 +987,7 @@ impl ProcessManager {
                                 run_id,
                                 None,
                                 Some(format!("try_wait failed: {error}")),
+                                false,
                             )
                             .await;
                         }
@@ -1609,7 +1620,7 @@ mod engine_runtime_tests {
             status.profile_key = Some("newer".into());
         }
 
-        pm.finalize_exit(1, Some(-1), Some("old stop".into())).await;
+        pm.finalize_exit(1, Some(-1), Some("old stop".into()), true).await;
 
         let status = pm.snapshot_status().await;
         assert_eq!(status.status, Status::Running);
@@ -1644,7 +1655,7 @@ mod engine_runtime_tests {
             status.profile_key = Some("newer".into());
         }
 
-        pm.finalize_exit(1, Some(0), None).await;
+        pm.finalize_exit(1, Some(0), None, true).await;
 
         let status = pm.snapshot_status().await;
         assert_eq!(status.status, Status::Running);
@@ -1682,7 +1693,7 @@ mod engine_runtime_tests {
         }
 
         pm.active_run_id.store(1, Ordering::Release);
-        pm.finalize_exit(1, Some(0), None).await;
+        pm.finalize_exit(1, Some(0), None, true).await;
 
         let logs = pm.snapshot_logs(1).await;
         assert_eq!(logs[0].line, "Xray stopped");
@@ -1760,6 +1771,24 @@ mod engine_runtime_tests {
         spec.engine = EngineKind::Singbox;
         spec.xray_stats = None;
         spec
+    }
+
+    #[tokio::test]
+    async fn kill_switch_disarms_on_intentional_stop_and_holds_on_crash() {
+        let pm = ProcessManager::new();
+        pm.set_kill_switch_mode(crate::config::KillSwitchMode::OnDrop).await;
+
+        // 1. Intentional stop: disarms
+        pm.active_run_id.store(1, Ordering::Release);
+        pm.finalize_exit(1, Some(1), None, true).await;
+        assert!(!crate::killswitch::is_kill_switch_armed());
+
+        // 2. Unexpected exit (crash): holds firewall & logs alert
+        pm.active_run_id.store(2, Ordering::Release);
+        pm.finalize_exit(2, Some(-1), Some("unexpected crash".into()), false).await;
+        let logs = pm.snapshot_logs(10).await;
+        let alert_found = logs.iter().any(|l| l.line.contains("KILL SWITCH ENGAGED"));
+        assert!(alert_found, "expected alert log on unexpected drop");
     }
 
     #[test]

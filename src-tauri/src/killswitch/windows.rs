@@ -21,6 +21,7 @@ pub const RULE_PREFIX: &str = "Cloakwire-KS-";
 pub const RULE_LOOPBACK: &str = "Cloakwire-KS-Allow-Loopback";
 pub const RULE_LAN: &str = "Cloakwire-KS-Allow-LAN";
 pub const RULE_DHCP: &str = "Cloakwire-KS-Allow-DHCP";
+pub const RULE_TUN: &str = "Cloakwire-KS-Allow-TUN";
 pub const RULE_SINGBOX: &str = "Cloakwire-KS-Allow-Core-Singbox";
 pub const RULE_XRAY: &str = "Cloakwire-KS-Allow-Core-Xray";
 
@@ -52,6 +53,7 @@ pub fn cleanup_stale_rules() -> AppResult<()> {
         RULE_LOOPBACK,
         RULE_LAN,
         RULE_DHCP,
+        RULE_TUN,
         RULE_SINGBOX,
         RULE_XRAY,
     ] {
@@ -111,6 +113,18 @@ pub fn arm_kill_switch(singbox_bin: Option<&Path>, xray_bin: Option<&Path>) -> A
         "protocol=UDP",
         "localport=68",
         "remoteport=67",
+    ]);
+
+    // 4b. Add TUN virtual adapter rule allowing outbound traffic originating from the TUN subnet (172.16.0.0/12 and fd00::/8)
+    let _ = run_netsh(&[
+        "advfirewall",
+        "firewall",
+        "add",
+        "rule",
+        &format!("name={RULE_TUN}"),
+        "dir=out",
+        "action=allow",
+        "localip=172.16.0.0/12,fd00::/8",
     ]);
 
     // 5. Whitelist sing-box binary if specified and exists
@@ -189,6 +203,7 @@ mod tests {
         assert!(RULE_LOOPBACK.starts_with(RULE_PREFIX));
         assert!(RULE_LAN.starts_with(RULE_PREFIX));
         assert!(RULE_DHCP.starts_with(RULE_PREFIX));
+        assert!(RULE_TUN.starts_with(RULE_PREFIX));
         assert!(RULE_SINGBOX.starts_with(RULE_PREFIX));
         assert!(RULE_XRAY.starts_with(RULE_PREFIX));
     }

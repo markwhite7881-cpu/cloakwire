@@ -312,7 +312,7 @@ export function HomeTab({
                 <button
                   type="button"
                   onClick={() => handleModeChange("tun")}
-                  disabled={busy}
+                  disabled={busy || isTransition}
                   title="TUN Режим: Полный перехват всего системного трафика (Wintun)"
                   className={cn(
                     "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all",
@@ -327,7 +327,7 @@ export function HomeTab({
                 <button
                   type="button"
                   onClick={() => handleModeChange("system_proxy")}
-                  disabled={busy}
+                  disabled={busy || isTransition}
                   title="Системный прокси: Настройка системного HTTP/SOCKS5 прокси"
                   className={cn(
                     "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all",
@@ -342,7 +342,7 @@ export function HomeTab({
                 <button
                   type="button"
                   onClick={() => handleModeChange("both")}
-                  disabled={busy}
+                  disabled={busy || isTransition}
                   title="Оба режима: TUN адаптер + локальный порт прокси"
                   className={cn(
                     "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all",
