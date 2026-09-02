@@ -1013,6 +1013,9 @@ export default function App() {
             routingOptions={settings.routing}
             onNavigateTab={(t) => setActiveTab(t as TabId)}
             onAddLinks={onImportText}
+            settings={settings}
+            onSettingsChange={handleSettingsChange}
+            onReconnect={reconnectCurrentProfile}
           />
         ),
       },

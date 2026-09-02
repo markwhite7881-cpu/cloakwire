@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ChevronDown,
+  Globe,
+  Layers,
   Link2,
   Loader2,
   Plus,
   Power,
   Server,
+  ShieldCheck,
   Sparkles,
   TrendingDown,
   TrendingUp,
@@ -23,7 +26,7 @@ import { flagForProfile } from "@/lib/flags";
 import { profileLabel, profileEndpoint, isSupported } from "@/lib/outbound";
 import { isValidProfileSelection } from "@/lib/profileSelection";
 import { loadExpandedSubscriptions, saveExpandedSubscriptions } from "@/lib/expandedSubscriptions";
-import type { HomeProfileMetadata, Outbound, RoutingOptions, Status, StatusReport, TrafficSample } from "@/lib/types";
+import type { GeneratorSettings, HomeProfileMetadata, Outbound, RoutingOptions, Status, StatusReport, TrafficSample, TunnelMode } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
 const inTauri =
@@ -58,6 +61,9 @@ export interface HomeTabProps {
   routingOptions?: RoutingOptions;
   onNavigateTab?: (tab: string) => void;
   onAddLinks?: (text: string) => void;
+  settings?: GeneratorSettings;
+  onSettingsChange?: (settings: GeneratorSettings) => void;
+  onReconnect?: () => Promise<boolean>;
 }
 
 export function HomeTab({
@@ -80,9 +86,22 @@ export function HomeTab({
   routingOptions,
   onNavigateTab,
   onAddLinks,
+  settings,
+  onSettingsChange,
+  onReconnect,
 }: HomeTabProps) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddText, setQuickAddText] = useState("");
+
+  const currentMode: TunnelMode = settings?.tunnel_mode ?? "tun";
+  const handleModeChange = async (newMode: TunnelMode) => {
+    if (newMode === currentMode || !settings) return;
+    const next = { ...settings, tunnel_mode: newMode };
+    onSettingsChange?.(next);
+    if (statusLabel === "running" && onReconnect) {
+      await onReconnect();
+    }
+  };
 
   const isRunning = statusLabel === "running";
   const isTransition = statusLabel === "starting" || statusLabel === "stopping";
@@ -286,9 +305,66 @@ export function HomeTab({
           </div>
 
           {/* Bottom of Hero */}
-          <div className="relative z-10 border-t border-border/60 pt-3 flex items-center justify-between text-[11px] font-mono text-muted-foreground/70">
-            <span>TUN Mode • Protected</span>
-            <span>{isXrayRunning ? "Xray Core" : "sing-box Core"}</span>
+          <div className="relative z-10 border-t border-border/60 pt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-muted-foreground/70">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Режим:</span>
+              <div className="flex items-center gap-0.5 rounded-lg border border-border/70 bg-background/60 p-0.5 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("tun")}
+                  disabled={busy}
+                  title="TUN Режим: Полный перехват всего системного трафика (Wintun)"
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all",
+                    currentMode === "tun"
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                  )}
+                >
+                  <ShieldCheck className="h-3 w-3" />
+                  <span>TUN</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("system_proxy")}
+                  disabled={busy}
+                  title="Системный прокси: Настройка системного HTTP/SOCKS5 прокси"
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all",
+                    currentMode === "system_proxy"
+                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                  )}
+                >
+                  <Globe className="h-3 w-3" />
+                  <span>Прокси</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("both")}
+                  disabled={busy}
+                  title="Оба режима: TUN адаптер + локальный порт прокси"
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all",
+                    currentMode === "both"
+                      ? "bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                  )}
+                >
+                  <Layers className="h-3 w-3" />
+                  <span>Оба</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <span className="flex items-center gap-1 text-emerald-400/90 font-sans font-medium text-[11px]">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {settings?.kill_switch === "off" ? "Kill Switch выкл" : "Kill Switch"}
+              </span>
+              <span>•</span>
+              <span>{isXrayRunning ? "Xray Core" : "sing-box Core"}</span>
+            </div>
           </div>
         </div>
 
