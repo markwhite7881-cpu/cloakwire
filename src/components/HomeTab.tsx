@@ -243,7 +243,7 @@ export function HomeTab({
               )}
               <button
                 type="button"
-                onClick={isRunning ? onDisconnect : onConnect}
+                onClick={isRunning ? () => onDisconnect() : () => onConnect()}
                 disabled={busy || isTransition || (!isRunning && !canStart)}
                 aria-label={isRunning ? "Disconnect" : "Connect"}
                 className={cn(

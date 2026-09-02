@@ -702,7 +702,12 @@ export default function App() {
       setError("Selected subscription configuration is not executable yet.");
       return false;
     }
-    const effectiveSettings = overrideSettings ?? settings;
+    const effectiveSettings =
+      overrideSettings &&
+      typeof overrideSettings === "object" &&
+      "tunnel_mode" in overrideSettings
+        ? overrideSettings
+        : settings;
     setBusy(true);
     setError(null);
     try {
@@ -1011,8 +1016,8 @@ export default function App() {
             geoipByIp={geoip.byIp}
             subscriptionOutbounds={subs.lastResult}
             onSelect={onSelectProfile}
-            onConnect={onStart}
-            onDisconnect={onStop}
+            onConnect={() => { void onStart(); }}
+            onDisconnect={() => { void onStop(); }}
             routingOptions={settings.routing}
             onNavigateTab={(t) => setActiveTab(t as TabId)}
             onAddLinks={onImportText}
