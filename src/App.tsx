@@ -246,6 +246,12 @@ function loadSettings(): GeneratorSettings {
         routing: { ...DEFAULT_SETTINGS.routing, ...(parsed.routing ?? {}) },
         clash_api: { ...DEFAULT_SETTINGS.clash_api, ...(parsed.clash_api ?? {}) },
       };
+      if (
+        merged.remote_dns === "https://8.8.8.8/dns-query" ||
+        merged.remote_dns === "https://dns.google/dns-query"
+      ) {
+        merged.remote_dns = "1.1.1.1";
+      }
       // Migration: the simple-UX commit (123e450) flipped the default
       // `final_outbound` from "proxy" to "direct", which inverted the
       // model from "VPN for everything, except apps in Apps direct"
@@ -682,7 +688,7 @@ export default function App() {
     };
   }, [status.status, refresh]);
 
-  const onStart = useCallback(async (): Promise<boolean> => {
+  const onStart = useCallback(async (overrideSettings?: GeneratorSettings): Promise<boolean> => {
     if (!inTauri) {
       setError("Preview mode — start the Tauri shell to actually run sing-box.");
       return false;
@@ -696,6 +702,7 @@ export default function App() {
       setError("Selected subscription configuration is not executable yet.");
       return false;
     }
+    const effectiveSettings = overrideSettings ?? settings;
     setBusy(true);
     setError(null);
     try {
@@ -703,29 +710,18 @@ export default function App() {
       //    + current settings. The config we start with MUST include
       //    the VPN servers, otherwise the proxy accepts connections
       //    but routes them all to `direct`.
-      //
-      //    `settings.default_outbound` is baked into the proxy
-      //    selector's `default`, so the very first request after
-      //    sing-box boots goes straight through the picked server.
-      //    No more `auto` urltest flash for the first packet.
       const managed = await api.startManaged({
         ...selection,
-        settings,
+        settings: effectiveSettings,
       });
       const path = managed.config_path;
       setConfigPath(path);
       const next = managed.status;
       setStatus(next);
 
-      // 3. Only now that sing-box is alive do we tell Windows to
-      //    route traffic through it. If `applySystemProxy` fails,
-      //    sing-box is still running and the user can configure
-      //    the system proxy manually.
-      // Xray owns its dynamically allocated loopback HTTP endpoint in Rust.
-      // Replacing it here with the sing-box default port would black-hole all
-      // system-proxied traffic. Keep this frontend path only for sing-box.
-      if (shouldFrontendApplySystemProxy(next.engine, settings.tunnel_mode)) {
-        const port = settings.mixed_port ?? 2080;
+      // 3. Update system proxy state based on mode
+      if (shouldFrontendApplySystemProxy(next.engine, effectiveSettings.tunnel_mode)) {
+        const port = effectiveSettings.mixed_port ?? 2080;
         try {
           await api.applySystemProxy("127.0.0.1", port);
         } catch (e) {
@@ -734,6 +730,12 @@ export default function App() {
               `enabled automatically (${humanError(e)}). Set it ` +
               "manually in Settings → Network → Proxy.",
           );
+        }
+      } else {
+        try {
+          await api.clearSystemProxy();
+        } catch {
+          // best-effort
         }
       }
 
@@ -758,7 +760,7 @@ export default function App() {
     onStartRef.current = onStart;
   }, [onStart]);
 
-  const reconnectCurrentProfile = useCallback(async (): Promise<boolean> => {
+  const reconnectCurrentProfile = useCallback(async (overrideSettings?: GeneratorSettings): Promise<boolean> => {
     if (!inTauri) return false;
     setReconnectInProgress(true);
     setBusy(true);
@@ -771,10 +773,7 @@ export default function App() {
       }
       const next = await api.stop();
       setStatus(next);
-      // Yield so React commits the latest selected profile/settings before
-      // the ref-backed start flow reads them.
-      await Promise.resolve();
-      const started = await onStartRef.current();
+      const started = await onStartRef.current(overrideSettings);
       if (started) {
         setReconnectRequired(false);
         setReconnectFailed(false);

@@ -176,7 +176,7 @@ impl Default for GeneratorSettings {
             tun_interface_name: None,
             mixed_port: Some(2080),
             local_dns: Some("1.1.1.1".to_string()),
-            remote_dns: Some("https://dns.google/dns-query".to_string()),
+            remote_dns: Some("1.1.1.1".to_string()),
             // `None` here means "let `auto` (urltest) decide". The
             // frontend switches to a real tag the moment the user
             // picks a server in the picker.
@@ -310,19 +310,19 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
     let want_mixed = matches!(mode, TunnelMode::SystemProxy | TunnelMode::Both);
 
     if want_tun {
+        let mut addresses = vec![Value::String("172.19.0.1/30".into())];
+        if !settings.block_ipv6 {
+            addresses.push(Value::String("fdfe:dcba:9876::1/126".into()));
+        }
+
         let mut tun_inbound = json!({
             "type": "tun",
             "tag": "tun-in",
-            // sing-box 1.12+ removed the legacy `inet4_address` /
-            // `inet6_address` pair; both must be passed via `address`.
-            "address": [
-                "172.19.0.1/30",
-                "fdfe:dcba:9876::1/126"
-            ],
+            "address": addresses,
             "auto_route": true,
-            "strict_route": true,
-            "stack": "system",
-            "mtu": 9000,
+            "strict_route": false,
+            "stack": "mixed",
+            "mtu": 1500,
             "endpoint_independent_nat": false,
             "udp_timeout": "5m",
         });
@@ -694,10 +694,18 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     let remote_input = settings
         .remote_dns
         .clone()
-        .unwrap_or_else(|| "https://dns.google/dns-query".to_string());
+        .unwrap_or_else(|| "1.1.1.1".to_string());
 
     let (local_type, local_server, _local_path) = classify_dns(&local_input);
-    let (remote_type, remote_server, remote_path) = classify_dns(&remote_input);
+    let (mut remote_type, mut remote_server, mut remote_path) = classify_dns(&remote_input);
+
+    // If configuration has legacy slow DoH default (8.8.8.8 or dns.google),
+    // automatically migrate to fast UDP 1.1.1.1 over proxy to prevent 9s handshake timeouts.
+    if remote_type == "https" && (remote_server == "8.8.8.8" || remote_server == "dns.google") {
+        remote_type = "udp".into();
+        remote_server = "1.1.1.1".into();
+        remote_path = None;
+    }
 
     let mut local_obj = Map::new();
     local_obj.insert("type".into(), Value::String(local_type));

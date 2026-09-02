@@ -57,11 +57,8 @@ export const DEFAULT_SETTINGS: GeneratorSettings = {
   // 1.1.1.1 (Cloudflare Privacy DNS) — neutral privacy-first local resolver
   // used for initial outbound domain resolution on direct.
   local_dns: "1.1.1.1",
-  // 8.8.8.8 (Google DNS-over-HTTPS) as the upstream we resolve via
-  // the proxy. IP form (not `dns.google`) breaks the circular
-  // DNS-for-DNS lookup if the local resolver can't reach the
-  // hostname.
-  remote_dns: "https://8.8.8.8/dns-query",
+  // Fast UDP DNS resolver over the proxy tunnel.
+  remote_dns: "1.1.1.1",
   // `null` means "let the `auto` urltest pick the fastest server".
   // The server picker in HomeTab sets this to a real tag on click,
   // which regenerates the config and restarts sing-box so the very

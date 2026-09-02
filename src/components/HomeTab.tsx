@@ -63,7 +63,7 @@ export interface HomeTabProps {
   onAddLinks?: (text: string) => void;
   settings?: GeneratorSettings;
   onSettingsChange?: (settings: GeneratorSettings) => void;
-  onReconnect?: () => Promise<boolean>;
+  onReconnect?: (overrideSettings?: GeneratorSettings) => Promise<boolean>;
 }
 
 export function HomeTab({
@@ -99,7 +99,7 @@ export function HomeTab({
     const next = { ...settings, tunnel_mode: newMode };
     onSettingsChange?.(next);
     if (statusLabel === "running" && onReconnect) {
-      await onReconnect();
+      await onReconnect(next);
     }
   };
 

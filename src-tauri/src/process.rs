@@ -447,7 +447,7 @@ impl ProcessManager {
         drop(status);
         #[cfg(not(target_os = "android"))]
         {
-            if self.get_kill_switch_mode().await != crate::config::KillSwitchMode::Off {
+            if self.get_kill_switch_mode().await == crate::config::KillSwitchMode::AlwaysOn {
                 let singbox_bin = app
                     .and_then(|a| crate::engine::singbox::locate_binary(a).ok())
                     .or_else(|| {
