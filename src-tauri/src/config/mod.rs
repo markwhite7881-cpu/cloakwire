@@ -1425,7 +1425,10 @@ mod tests {
         // `enabled: false` on a rule means the generator must not
         // emit it. Same for disabled rule-sets.
         let s = routing(
-            GeneratorSettings::default(),
+            GeneratorSettings {
+                block_ipv6: false,
+                ..GeneratorSettings::default()
+            },
             RoutingOptions {
                 rules: vec![
                     json!({

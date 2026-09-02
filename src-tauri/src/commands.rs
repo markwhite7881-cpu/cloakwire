@@ -1460,3 +1460,94 @@ pub async fn reset_device_hwid(
 ) -> AppResult<HwidDescription> {
     reset_subscription_hwid(subscriptions).await
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeakStatusReport {
+    pub ip: String,
+    pub country: String,
+    pub isp: String,
+    pub ipv6_detected: bool,
+    pub dns_server: Option<String>,
+}
+
+#[tauri::command]
+pub async fn set_kill_switch_mode(
+    pm: State<'_, Arc<ProcessManager>>,
+    mode: crate::config::KillSwitchMode,
+) -> AppResult<()> {
+    pm.set_kill_switch_mode(mode).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_kill_switch_mode(
+    pm: State<'_, Arc<ProcessManager>>,
+) -> AppResult<crate::config::KillSwitchMode> {
+    Ok(pm.get_kill_switch_mode().await)
+}
+
+#[tauri::command]
+pub async fn cleanup_kill_switch() -> AppResult<()> {
+    crate::killswitch::cleanup_stale_rules()
+}
+
+#[tauri::command]
+pub async fn check_leak_status() -> AppResult<LeakStatusReport> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(4))
+        .user_agent("cloakwire/1.4.3")
+        .build()
+        .map_err(|e| AppError::Network(e.to_string()))?;
+
+    let ip_resp = client.get("http://ip-api.com/json/").send().await;
+    let (ip, country, isp) = match ip_resp {
+        Ok(res) => {
+            if let Ok(json) = res.json::<serde_json::Value>().await {
+                (
+                    json.get("query").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
+                    json.get("country").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
+                    json.get("isp").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
+                )
+            } else {
+                ("—".to_string(), "—".to_string(), "—".to_string())
+            }
+        }
+        Err(_) => ("—".to_string(), "—".to_string(), "—".to_string()),
+    };
+
+    let ipv6_detected = match client
+        .get("https://api6.ipify.org?format=json")
+        .timeout(std::time::Duration::from_millis(2500))
+        .send()
+        .await
+    {
+        Ok(res) => res.status().is_success(),
+        Err(_) => false,
+    };
+
+    let dns_server = match client
+        .get("https://1.1.1.1/cdn-cgi/trace")
+        .timeout(std::time::Duration::from_millis(2500))
+        .send()
+        .await
+    {
+        Ok(res) => {
+            if let Ok(text) = res.text().await {
+                text.lines()
+                    .find(|l| l.starts_with("loc="))
+                    .map(|l| format!("Cloudflare ({})", &l[4..]))
+            } else {
+                None
+            }
+        }
+        Err(_) => None,
+    };
+
+    Ok(LeakStatusReport {
+        ip,
+        country,
+        isp,
+        ipv6_detected,
+        dns_server,
+    })
+}

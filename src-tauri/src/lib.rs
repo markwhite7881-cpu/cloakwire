@@ -177,6 +177,14 @@ pub fn run() {
                 log::info!("startup: cleared any stale system proxy from a previous run");
             }
         }
+        #[cfg(not(target_os = "android"))]
+        {
+            if let Err(e) = crate::killswitch::cleanup_stale_rules() {
+                log::warn!("startup: failed to clear stale kill switch rules: {e}");
+            } else {
+                log::info!("startup: cleared any stale kill switch rules from a previous run");
+            }
+        }
         commands::cleanup_runtime_configs(app.handle(), None);
 
         // Initialise the subscription service. On every platform the
@@ -287,6 +295,10 @@ pub fn run() {
             commands::set_custom_hwid,
             commands::reset_device_hwid,
             commands::set_active_child,
+            commands::set_kill_switch_mode,
+            commands::get_kill_switch_mode,
+            commands::cleanup_kill_switch,
+            commands::check_leak_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running singbox-client");

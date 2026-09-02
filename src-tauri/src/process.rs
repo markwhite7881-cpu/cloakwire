@@ -140,6 +140,8 @@ pub struct ProcessManager {
     /// EOF without relying on lifecycle watcher timing.
     #[cfg(test)]
     stdio_readers: Mutex<Vec<JoinHandle<()>>>,
+    /// Configured Kill Switch behavior.
+    kill_switch_mode: Mutex<crate::config::KillSwitchMode>,
 }
 
 impl Default for ProcessManager {
@@ -162,6 +164,7 @@ impl Default for ProcessManager {
             xray_test_state: Mutex::new(XrayTestState::default()),
             #[cfg(test)]
             stdio_readers: Mutex::new(Vec::new()),
+            kill_switch_mode: Mutex::new(crate::config::KillSwitchMode::OnDrop),
         }
     }
 }
@@ -169,6 +172,17 @@ impl Default for ProcessManager {
 impl ProcessManager {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub async fn set_kill_switch_mode(&self, mode: crate::config::KillSwitchMode) {
+        *self.kill_switch_mode.lock().await = mode;
+        if mode == crate::config::KillSwitchMode::Off {
+            let _ = crate::killswitch::disarm_kill_switch();
+        }
+    }
+
+    pub async fn get_kill_switch_mode(&self) -> crate::config::KillSwitchMode {
+        *self.kill_switch_mode.lock().await
     }
 
     pub async fn push_log(&self, stream: LogStream, line: impl Into<String>) {
@@ -418,7 +432,7 @@ impl ProcessManager {
         }
         *self.child.lock().await = Some(ChildSlot { run_id, child });
         *self.started_at.lock().await = Some(std::time::Instant::now());
-        *self.current_config.lock().await = Some(spec.config_path);
+        *self.current_config.lock().await = Some(spec.config_path.clone());
         if spec.engine == EngineKind::Singbox {
             *self.controller_url.lock().await = spec.controller_url.clone();
         }
@@ -431,6 +445,41 @@ impl ProcessManager {
         status.profile_name = spec.profile_name;
         let report = status.clone();
         drop(status);
+        #[cfg(not(target_os = "android"))]
+        {
+            let is_tun = match std::fs::read_to_string(&spec.config_path) {
+                Ok(content) => {
+                    content.contains("\"type\": \"tun\"") || content.contains("\"type\":\"tun\"")
+                }
+                Err(_) => false,
+            };
+            if is_tun && self.get_kill_switch_mode().await != crate::config::KillSwitchMode::Off {
+                let singbox_bin = app
+                    .and_then(|a| crate::engine::singbox::locate_binary(a).ok())
+                    .or_else(|| {
+                        if spec.engine == EngineKind::Singbox {
+                            Some(spec.binary.clone())
+                        } else {
+                            None
+                        }
+                    });
+                let xray_bin = app
+                    .and_then(|a| crate::engine::xray::locate_binary(a).ok())
+                    .or_else(|| {
+                        if spec.engine == EngineKind::Xray {
+                            Some(spec.binary.clone())
+                        } else {
+                            None
+                        }
+                    });
+                if let Err(e) = crate::killswitch::arm_kill_switch(
+                    singbox_bin.as_deref(),
+                    xray_bin.as_deref(),
+                ) {
+                    log::warn!("killswitch: failed to arm: {e}");
+                }
+            }
+        }
         if spec.engine == EngineKind::Xray {
             if let Some(stats_spec) = spec.xray_stats {
                 self.start_xray_telemetry(run_id, app.cloned(), stats_spec)
@@ -730,6 +779,10 @@ impl ProcessManager {
             )
             .await;
         }
+        #[cfg(not(target_os = "android"))]
+        {
+            let _ = crate::killswitch::disarm_kill_switch();
+        }
         self.stop_xray_telemetry().await;
         self.active_run_id.store(0, Ordering::Release);
         if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
@@ -827,6 +880,18 @@ impl ProcessManager {
                 format!("proxy: failed to clear on exit ({error})"),
             )
             .await;
+        }
+        let is_clean_exit = code == Some(0) && err.is_none();
+        #[cfg(not(target_os = "android"))]
+        {
+            let ks_mode = self.get_kill_switch_mode().await;
+            if ks_mode == crate::config::KillSwitchMode::Off
+                || (is_clean_exit && ks_mode != crate::config::KillSwitchMode::AlwaysOn)
+            {
+                let _ = crate::killswitch::disarm_kill_switch();
+            } else {
+                log::info!("killswitch: holding firewall block on exit (mode: {ks_mode:?})");
+            }
         }
     }
 
