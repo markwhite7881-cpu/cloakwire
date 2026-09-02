@@ -8,6 +8,9 @@ import {
   RotateCcw,
   Save,
   Settings2,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 // `Play` removed in v0.3.1 — the Start button in this tab was
 // confusing (cached config, separate path from the real Connect in
@@ -26,7 +29,8 @@ import {
 import { cn } from "@/lib/utils";
 import { previewToSingboxJson } from "./previewConfig";
 import { DEFAULT_SETTINGS } from "@/lib/defaults";
-import type { GeneratorSettings, Outbound, TunnelMode } from "@/lib/types";
+import { runLeakDiagnostics, type LeakTestResult } from "@/lib/leakTest";
+import type { GeneratorSettings, KillSwitchMode, Outbound, TunnelMode } from "@/lib/types";
 
 const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -45,7 +49,7 @@ const TUNNEL_MODES: { value: TunnelMode; label: string; hint: string }[] = [
   {
     value: "system_proxy",
     label: "System Proxy",
-    hint: "Local SOCKS/HTTP on 127.0.0.1:2080",
+    hint: "HTTP/SOCKS system proxy",
   },
   {
     value: "both",
@@ -56,6 +60,24 @@ const TUNNEL_MODES: { value: TunnelMode; label: string; hint: string }[] = [
     value: "none",
     label: "None",
     hint: "Outbounds only (testing)",
+  },
+];
+
+const KILL_SWITCH_MODES: { value: KillSwitchMode; label: string; hint: string }[] = [
+  {
+    value: "off",
+    label: "Выключен",
+    hint: "Без блокировки сети",
+  },
+  {
+    value: "on_drop",
+    label: "При обрыве",
+    hint: "Блокирует интернет при падении туннеля",
+  },
+  {
+    value: "always_on",
+    label: "Всегда активен",
+    hint: "Блокирует весь трафик вне VPN",
   },
 ];
 
@@ -109,6 +131,37 @@ export function ConfigBuilder({
       setAutostart(!next);
     } finally {
       setAutostartBusy(false);
+    }
+  };
+
+  const [testingLeaks, setTestingLeaks] = useState(false);
+  const [leakResult, setLeakResult] = useState<LeakTestResult | null>(null);
+  const [resettingFirewall, setResettingFirewall] = useState(false);
+  const [firewallResetMsg, setFirewallResetMsg] = useState<string | null>(null);
+
+  const handleTestLeaks = async () => {
+    setTestingLeaks(true);
+    setLeakResult(null);
+    try {
+      const res = await runLeakDiagnostics();
+      setLeakResult(res);
+    } catch (e) {
+      setError(`Ошибка проверки утечек: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setTestingLeaks(false);
+    }
+  };
+
+  const handleResetFirewall = async () => {
+    setResettingFirewall(true);
+    try {
+      await api.cleanupKillSwitch();
+      setFirewallResetMsg("Правила брандмауэра успешно сброшены.");
+    } catch (e) {
+      setFirewallResetMsg(`Ошибка сброса: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setResettingFirewall(false);
+      setTimeout(() => setFirewallResetMsg(null), 4000);
     }
   };
 
@@ -309,6 +362,167 @@ export function ConfigBuilder({
               title="DoH / DoT / DoQ endpoint. Resolved through the proxy. IP form is safer than a hostname."
             />
           </label>
+        </div>
+
+        {/* Security & Privacy */}
+        <div className="space-y-3 rounded-lg border border-border/80 bg-card/20 p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
+              <ShieldCheck className="h-4 w-4" />
+              <span>Безопасность и защита от утечек</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetFirewall}
+              disabled={resettingFirewall}
+              className="text-[10px] text-muted-foreground hover:text-foreground hover:underline"
+              title="Экстренный сброс правил брандмауэра Windows"
+            >
+              {resettingFirewall ? "Сброс..." : "Сбросить файрвол"}
+            </button>
+          </div>
+
+          {firewallResetMsg && (
+            <div className="rounded border border-emerald-500/30 bg-emerald-950/40 p-2 text-xs text-emerald-300">
+              {firewallResetMsg}
+            </div>
+          )}
+
+          {/* Kill Switch mode picker */}
+          <div className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Kill Switch
+            </p>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+              {KILL_SWITCH_MODES.map((m) => {
+                const active = (settings.kill_switch ?? "on_drop") === m.value;
+                return (
+                  <button
+                    key={m.value}
+                    onClick={() => update("kill_switch", m.value)}
+                    className={cn(
+                      "rounded-md border px-2.5 py-1.5 text-left transition-colors",
+                      active
+                        ? "border-emerald-500/50 bg-emerald-950/40 text-emerald-300 font-medium"
+                        : "border-border bg-card/30 hover:bg-accent text-foreground",
+                    )}
+                    title={m.hint}
+                  >
+                    <div className="text-xs font-medium">{m.label}</div>
+                    <div className="text-[9px] text-muted-foreground">
+                      {m.hint}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Block IPv6 Toggle */}
+          <div className="flex items-center justify-between rounded-md border border-border bg-card/30 px-2.5 py-2 text-xs">
+            <div className="space-y-0.5">
+              <div className="font-medium text-foreground">Блокировать IPv6</div>
+              <div className="text-[10px] text-muted-foreground">
+                Предотвращает утечки через локальный IPv6 стек провайдера (Dual-Stack)
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => update("block_ipv6", !settings.block_ipv6)}
+              className={cn(
+                "relative h-5 w-10 rounded-full border transition-colors",
+                settings.block_ipv6
+                  ? "border-emerald-500/40 bg-emerald-950 text-emerald-400"
+                  : "border-border bg-foreground/5",
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 h-4 w-4 rounded-full bg-foreground transition-all duration-200",
+                  settings.block_ipv6 ? "left-[22px] bg-emerald-400" : "left-0.5",
+                )}
+              />
+            </button>
+          </div>
+
+          {/* Leak Diagnostics */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                Диагностика утечек (IP, DNS, WebRTC):
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleTestLeaks}
+                disabled={testingLeaks}
+                className="h-7 text-xs"
+              >
+                {testingLeaks ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                    Тестирование...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="mr-1.5 h-3 w-3" />
+                    Проверить утечки
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {leakResult && (
+              <div
+                className={cn(
+                  "mt-2 rounded-lg border p-2.5 text-xs space-y-1.5",
+                  leakResult.verdict === "protected"
+                    ? "border-emerald-500/40 bg-emerald-950/30 text-emerald-300"
+                    : leakResult.verdict === "leaking"
+                      ? "border-destructive/50 bg-destructive/15 text-destructive"
+                      : "border-border bg-card/40 text-foreground",
+                )}
+              >
+                <div className="flex items-center justify-between font-semibold">
+                  <span>
+                    {leakResult.verdict === "protected"
+                      ? "✓ Защищен: утечек не обнаружено"
+                      : leakResult.verdict === "leaking"
+                        ? "⚠ Внимание: Обнаружена утечка данных!"
+                        : "Результат проверки"}
+                  </span>
+                  <span className="text-[10px] font-mono opacity-70">
+                    {new Date(leakResult.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+                <div className="text-[11px] space-y-0.5 text-foreground/90">
+                  <div>
+                    <span className="text-muted-foreground">Внешний IP:</span>{" "}
+                    <span className="font-mono font-medium">{leakResult.publicIp}</span> ({leakResult.country}, {leakResult.isp})
+                  </div>
+                  {leakResult.dnsServer && (
+                    <div>
+                      <span className="text-muted-foreground">DNS:</span>{" "}
+                      <span className="font-mono">{leakResult.dnsServer}</span>
+                    </div>
+                  )}
+                  {leakResult.webrtcIps.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground">WebRTC IP:</span>{" "}
+                      <span className="font-mono">{leakResult.webrtcIps.join(", ")}</span>
+                    </div>
+                  )}
+                </div>
+                {leakResult.details.length > 0 && (
+                  <ul className="text-[10px] space-y-0.5 opacity-85 list-disc pl-3 pt-0.5">
+                    {leakResult.details.map((d, i) => (
+                      <li key={i}>{d}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/*         <div className="rounded-md border border-border bg-card/30 px-2 py-1.5 text-xs">

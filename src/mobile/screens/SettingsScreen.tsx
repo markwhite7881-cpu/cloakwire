@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, Terminal } from "lucide-react";
+import { Loader2, RefreshCw, Shield, ShieldCheck, Terminal } from "lucide-react";
 import { api } from "@/lib/api";
 import { vpnCoreVersion } from "@/lib/vpn";
 import { cn } from "@/lib/utils";
-import type { CustomRule, GeneratorSettings, RoutingOptions } from "@/lib/types";
+import type { CustomRule, GeneratorSettings, KillSwitchMode, RoutingOptions } from "@/lib/types";
+import { runLeakDiagnostics, type LeakTestResult } from "@/lib/leakTest";
 import { newRuleId } from "@/lib/presets";
 import { SectionCard, SectionHeader, SettingRow } from "../components/SectionCard";
 import { Switch } from "../components/Switch";
@@ -97,6 +98,7 @@ export function SettingsScreen({
     (r) => isIpv6RejectRule(r) && r.enabled,
   );
   const setIpv6Blocked = (blocked: boolean) => {
+    update({ block_ipv6: blocked });
     const rules = settings.routing.rules;
     if (blocked) {
       if (ipv6Blocked) return;
@@ -114,6 +116,22 @@ export function SettingsScreen({
       });
     } else {
       updateRouting({ rules: rules.filter((r) => !isIpv6RejectRule(r)) });
+    }
+  };
+
+  const [testingLeaks, setTestingLeaks] = useState(false);
+  const [leakResult, setLeakResult] = useState<LeakTestResult | null>(null);
+
+  const handleTestLeaks = async () => {
+    setTestingLeaks(true);
+    setLeakResult(null);
+    try {
+      const res = await runLeakDiagnostics();
+      setLeakResult(res);
+    } catch {
+      // ignore
+    } finally {
+      setTestingLeaks(false);
     }
   };
 
@@ -154,17 +172,6 @@ export function SettingsScreen({
             }
           />
           <SettingRow
-            label="Block IPv6"
-            hint="Reject IPv6 traffic to prevent leaks."
-            control={
-              <Switch
-                checked={ipv6Blocked}
-                onChange={setIpv6Blocked}
-                label="Block IPv6"
-              />
-            }
-          />
-          <SettingRow
             label="Remote rule-sets"
             hint={
               remoteSets.length === 0
@@ -180,6 +187,99 @@ export function SettingsScreen({
               />
             }
           />
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <SectionHeader title="Security & Privacy" />
+        <div className="divide-y divide-white/5">
+          <SettingRow
+            label="Kill Switch"
+            hint={
+              (settings.kill_switch ?? "on_drop") === "off"
+                ? "Disabled: traffic allowed if tunnel disconnects."
+                : (settings.kill_switch ?? "on_drop") === "always_on"
+                  ? "Always On: blocks all internet traffic outside VPN."
+                  : "On Drop: blocks traffic if tunnel drops unexpectedly."
+            }
+            control={
+              <select
+                value={settings.kill_switch ?? "on_drop"}
+                onChange={(e) => update({ kill_switch: e.target.value as KillSwitchMode })}
+                className={cn(inputCls, "max-w-[130px]")}
+              >
+                <option value="off">Off</option>
+                <option value="on_drop">On Drop</option>
+                <option value="always_on">Always On</option>
+              </select>
+            }
+          />
+          <SettingRow
+            label="Block IPv6"
+            hint="Reject IPv6 traffic to prevent dual-stack leaks."
+            control={
+              <Switch
+                checked={settings.block_ipv6 ?? ipv6Blocked}
+                onChange={setIpv6Blocked}
+                label="Block IPv6"
+              />
+            }
+          />
+          <div className="p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                Leak Diagnostics (IP, DNS, WebRTC):
+              </span>
+              <button
+                type="button"
+                onClick={handleTestLeaks}
+                disabled={testingLeaks}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/60 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900/60 transition disabled:opacity-50"
+              >
+                {testingLeaks ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-3 w-3" />
+                    Run Leak Test
+                  </>
+                )}
+              </button>
+            </div>
+
+            {leakResult && (
+              <div
+                className={cn(
+                  "rounded-lg border p-2.5 text-xs space-y-1",
+                  leakResult.verdict === "protected"
+                    ? "border-emerald-500/40 bg-emerald-950/30 text-emerald-300"
+                    : leakResult.verdict === "leaking"
+                      ? "border-destructive/50 bg-destructive/15 text-destructive"
+                      : "border-white/10 bg-black/40 text-foreground",
+                )}
+              >
+                <div className="flex items-center justify-between font-semibold">
+                  <span>
+                    {leakResult.verdict === "protected"
+                      ? "✓ Protected (No leaks detected)"
+                      : leakResult.verdict === "leaking"
+                        ? "⚠ Warning: Leak detected!"
+                        : "Test completed"}
+                  </span>
+                </div>
+                <div className="text-[11px] space-y-0.5 text-foreground/90">
+                  <div>IP: <span className="font-mono">{leakResult.publicIp}</span> ({leakResult.country})</div>
+                  {leakResult.dnsServer && <div>DNS: <span className="font-mono">{leakResult.dnsServer}</span></div>}
+                  {leakResult.webrtcIps.length > 0 && (
+                    <div>WebRTC IP: <span className="font-mono">{leakResult.webrtcIps.join(", ")}</span></div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </SectionCard>
 
