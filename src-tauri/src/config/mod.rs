@@ -700,17 +700,27 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     let (mut remote_type, mut remote_server, mut remote_path) = classify_dns(&remote_input);
 
     // If configuration has legacy slow DoH default (8.8.8.8 or dns.google),
-    // automatically migrate to fast UDP 1.1.1.1 over proxy to prevent 9s handshake timeouts.
+    // automatically migrate to fast TCP 1.1.1.1 over proxy to prevent 9s handshake timeouts.
     if remote_type == "https" && (remote_server == "8.8.8.8" || remote_server == "dns.google") {
-        remote_type = "udp".into();
+        remote_type = "tcp".into();
         remote_server = "1.1.1.1".into();
         remote_path = None;
+    }
+
+    // When remote DNS is routed through the proxy detour ("detour: proxy"),
+    // plain UDP DNS frequently times out or fails completely if the upstream
+    // proxy transport (e.g. VLESS Reality over gRPC) drops or does not support UDP relay.
+    // Therefore, default unadorned IPs (type "udp" without explicit "udp://") to "tcp".
+    // TCP DNS works over any proxy transport without requiring UDP relay support.
+    if remote_type == "udp" && !remote_input.starts_with("udp://") {
+        remote_type = "tcp".into();
     }
 
     let mut local_obj = Map::new();
     local_obj.insert("type".into(), Value::String(local_type));
     local_obj.insert("tag".into(), Value::String("local".into()));
     local_obj.insert("server".into(), Value::String(local_server));
+    local_obj.insert("detour".into(), Value::String("direct".into()));
 
     let mut remote_obj = Map::new();
     remote_obj.insert("type".into(), Value::String(remote_type.clone()));
@@ -737,6 +747,14 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
 /// Classify a user-provided DNS string into a `(type, server, Option<path>)` tuple
 /// compatible with sing-box 1.12+ typed DNS servers.
 fn classify_dns(s: &str) -> (String, String, Option<String>) {
+    if let Some(rest) = s.strip_prefix("tcp://") {
+        let host_port = rest.split('/').next().unwrap_or(rest);
+        return ("tcp".to_string(), host_port.to_string(), None);
+    }
+    if let Some(rest) = s.strip_prefix("udp://") {
+        let host_port = rest.split('/').next().unwrap_or(rest);
+        return ("udp".to_string(), host_port.to_string(), None);
+    }
     if let Some(rest) = s.strip_prefix("https://") {
         let mut parts = rest.splitn(2, '/');
         let host_port = parts.next().unwrap_or(rest).to_string();
@@ -1053,6 +1071,7 @@ mod tests {
         // SystemProxy, which has no TUN inbound at all.
         let s = GeneratorSettings {
             tunnel_mode: TunnelMode::Tun,
+            block_ipv6: false,
             ..GeneratorSettings::default()
         };
         let cfg = Config::build(&fixture_outbounds(), &s);
@@ -1229,24 +1248,31 @@ mod tests {
         let cfg = Config::build(&fixture_outbounds(), &GeneratorSettings::default());
         let servers = cfg["dns"]["servers"].as_array().unwrap();
         assert_eq!(servers.len(), 2);
-        // Local default is 1.1.1.1 (Cloudflare DNS) — type=udp, no detour.
+        // Local default is 1.1.1.1 (Cloudflare DNS) — type=udp, direct detour.
         let local = &servers[0];
         assert_eq!(local["tag"], "local");
         assert_eq!(local["type"], "udp");
         assert_eq!(local["server"], "1.1.1.1");
-        // Remote default is https://dns.google/dns-query — type=https, host stripped.
+        assert_eq!(local["detour"], "direct");
+        // Remote default is 1.1.1.1 — type=tcp over proxy detour.
         let remote = &servers[1];
         assert_eq!(remote["tag"], "remote");
-        assert_eq!(remote["type"], "https");
-        assert_eq!(remote["server"], "dns.google");
-        // DoH should reference local domain_resolver and proxy detour.
-        assert_eq!(remote["domain_resolver"], "local");
+        assert_eq!(remote["type"], "tcp");
+        assert_eq!(remote["server"], "1.1.1.1");
         assert_eq!(remote["detour"], "proxy");
         assert_eq!(cfg["dns"]["final"], "remote");
     }
 
     #[test]
     fn classify_dns_handles_schemes() {
+        assert_eq!(
+            classify_dns("tcp://1.1.1.1"),
+            ("tcp".to_string(), "1.1.1.1".to_string(), None)
+        );
+        assert_eq!(
+            classify_dns("udp://1.1.1.1"),
+            ("udp".to_string(), "1.1.1.1".to_string(), None)
+        );
         assert_eq!(
             classify_dns("https://dns.google/dns-query"),
             ("https".to_string(), "dns.google".to_string(), Some("/dns-query".to_string()))
@@ -1666,5 +1692,22 @@ mod tests {
         assert_eq!(settings.kill_switch, KillSwitchMode::OnDrop);
         assert_eq!(settings.block_ipv6, true);
     }
+
+    #[test]
+    fn route_contains_auto_detect_interface() {
+        let settings = GeneratorSettings::default();
+        let route = build_route(&settings);
+        assert_eq!(route.get("auto_detect_interface"), Some(&serde_json::Value::Bool(true)));
+    }
+
+    #[test]
+    fn dns_local_server_has_direct_detour() {
+        let settings = GeneratorSettings::default();
+        let dns = build_dns(&settings);
+        let servers = dns["servers"].as_array().expect("servers array");
+        let local = servers.iter().find(|s| s["tag"] == "local").expect("local server");
+        assert_eq!(local["detour"], "direct");
+    }
 }
+
 
