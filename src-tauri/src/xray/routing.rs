@@ -10,6 +10,7 @@ use crate::{
 
 const BLOCK_TAG: &str = "cloakwire-block";
 const DIRECT_TAG: &str = "cloakwire-direct";
+pub const MANAGED_DNS_TAG: &str = "cloakwire-managed-dns";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -41,13 +42,23 @@ pub struct RoutingPreparation {
 }
 
 pub fn merge_routing(
+    provider: Value,
+    routing: &RoutingOptions,
+) -> AppResult<RoutingPreparation> {
+    merge_routing_with_tun(provider, routing, false, None)
+}
+
+pub fn merge_routing_with_tun(
     mut provider: Value,
     routing: &RoutingOptions,
+    tun_active: bool,
+    tun_tag: Option<&str>,
 ) -> AppResult<RoutingPreparation> {
     let root = provider
         .as_object_mut()
         .ok_or_else(|| AppError::UnsafeConfig("Xray provider config must be an object".into()))?;
-    let outbound_tags = provider_tags(root, "outbounds")?;
+    let outbound_tags = provider_tag_list(root, "outbounds")?;
+    let outbound_tag_set: HashSet<String> = outbound_tags.iter().cloned().collect();
     let blackhole_tag = blackhole_tag(root)?;
     let inbound_tags = provider_tags(root, "inbounds")?;
     let balancer_tags = root
@@ -61,7 +72,7 @@ pub fn merge_routing(
     let mut translated = Vec::new();
     let mut applicability = RoutingApplicability::default();
     let simple =
-        translate_simple_process_rules(&mut applicability, routing, &outbound_tags, &balancer_tags);
+        translate_simple_process_rules(&mut applicability, routing, &outbound_tag_set, &balancer_tags);
     let needs_direct = simple.needs_direct;
     translated.extend(simple.rules);
     let mut needs_block = false;
@@ -70,7 +81,7 @@ pub fn merge_routing(
         let label = rule_label(rule);
         match translate_rule(
             rule,
-            &outbound_tags,
+            &outbound_tag_set,
             &balancer_tags,
             &inbound_tags,
             blackhole_tag.as_deref(),
@@ -101,7 +112,7 @@ pub fn merge_routing(
         }
     }
     if needs_direct {
-        if outbound_tags.contains(DIRECT_TAG) {
+        if outbound_tag_set.contains(DIRECT_TAG) {
             return Err(AppError::UnsafeConfig(
                 "provider uses reserved Xray outbound tag".into(),
             ));
@@ -112,7 +123,7 @@ pub fn merge_routing(
             .push(serde_json::json!({"tag": DIRECT_TAG, "protocol": "freedom"}));
     }
     if needs_block {
-        if outbound_tags.contains(BLOCK_TAG) {
+        if outbound_tag_set.contains(BLOCK_TAG) {
             return Err(AppError::UnsafeConfig(
                 "provider uses reserved Xray outbound tag".into(),
             ));
@@ -123,36 +134,202 @@ pub fn merge_routing(
             .push(serde_json::json!({"tag": BLOCK_TAG, "protocol": "blackhole"}));
     }
 
-    let mut translated = translated
+    let dns_outbound_tag = if tun_active {
+        let outbounds = root
+            .entry("outbounds")
+            .or_insert_with(|| Value::Array(Vec::new()))
+            .as_array_mut()
+            .ok_or_else(|| AppError::UnsafeConfig("Xray outbounds must be an array".into()))?;
+
+        let existing_dns = outbounds.iter().find_map(|o| {
+            if o.get("protocol").and_then(Value::as_str) == Some("dns") {
+                o.get("tag").and_then(Value::as_str).map(str::to_string)
+            } else {
+                None
+            }
+        });
+
+        let tag = match existing_dns {
+            Some(t) => t,
+            None => {
+                outbounds.push(serde_json::json!({
+                    "tag": MANAGED_DNS_TAG,
+                    "protocol": "dns"
+                }));
+                MANAGED_DNS_TAG.to_string()
+            }
+        };
+
+        ensure_tun_dns(root)?;
+        Some(tag)
+    } else {
+        None
+    };
+
+    if let Some(dns_tag) = &dns_outbound_tag {
+        let tun_inbound_tag = tun_tag.unwrap_or(crate::xray::inbound::MANAGED_TUN_TAG);
+        translated.insert(
+            0,
+            TranslatedRule::Rule(serde_json::json!({
+                "type": "field",
+                "inboundTag": [tun_inbound_tag],
+                "port": "53",
+                "outboundTag": dns_tag,
+            })),
+        );
+    }
+
+    let has_ru_bypass = user_has_ru_bypass(routing);
+    let mut filtered_provider_rules = Vec::new();
+    let mut had_routing = false;
+
+    if let Some(routing_obj) = root.get_mut("routing").and_then(Value::as_object_mut) {
+        had_routing = true;
+        if let Some(rules) = routing_obj.get_mut("rules").and_then(Value::as_array_mut) {
+            if !has_ru_bypass {
+                rules.retain(|rule| !is_provider_ru_bypass_rule(rule));
+            }
+            filtered_provider_rules = std::mem::take(rules);
+        }
+    }
+
+    let mut final_rules = translated
         .into_iter()
         .map(|translated| match translated {
             TranslatedRule::Rule(rule) | TranslatedRule::Reject(rule) => rule,
         })
         .collect::<Vec<_>>();
 
-    if translated.is_empty() {
-        return Ok(RoutingPreparation {
-            value: provider,
-            applicability,
-        });
+    final_rules.extend(filtered_provider_rules);
+
+    if tun_active {
+        let tun_inbound_tag = tun_tag.unwrap_or(crate::xray::inbound::MANAGED_TUN_TAG);
+        let target_balancer = balancer_tags.iter().next().cloned();
+        let target_outbound = outbound_tags.first().cloned().unwrap_or_else(|| "proxy".to_string());
+
+        let catch_all_rule = if let Some(balancer) = target_balancer {
+            serde_json::json!({
+                "type": "field",
+                "inboundTag": [tun_inbound_tag],
+                "network": "tcp,udp",
+                "balancerTag": balancer
+            })
+        } else {
+            serde_json::json!({
+                "type": "field",
+                "inboundTag": [tun_inbound_tag],
+                "network": "tcp,udp",
+                "outboundTag": target_outbound
+            })
+        };
+        final_rules.push(catch_all_rule);
     }
-    let routing_value = root
-        .entry("routing")
-        .or_insert_with(|| Value::Object(Map::new()));
-    let routing_object = routing_value
-        .as_object_mut()
-        .ok_or_else(|| AppError::UnsafeConfig("Xray routing must be an object".into()))?;
-    let provider_rules = routing_object
-        .entry("rules")
-        .or_insert_with(|| Value::Array(Vec::new()))
-        .as_array_mut()
-        .ok_or_else(|| AppError::UnsafeConfig("Xray routing rules must be an array".into()))?;
-    translated.append(provider_rules);
-    *provider_rules = translated;
+
+    if !final_rules.is_empty() || had_routing {
+        let routing_value = root
+            .entry("routing")
+            .or_insert_with(|| Value::Object(Map::new()));
+        let routing_object = routing_value
+            .as_object_mut()
+            .ok_or_else(|| AppError::UnsafeConfig("Xray routing must be an object".into()))?;
+        if tun_active && !routing_object.contains_key("domainStrategy") {
+            routing_object.insert("domainStrategy".into(), Value::String("IPIfNonMatch".into()));
+        }
+        routing_object.insert("rules".into(), Value::Array(final_rules));
+    }
 
     Ok(RoutingPreparation {
         value: provider,
         applicability,
+    })
+}
+
+fn ensure_tun_dns(root: &mut Map<String, Value>) -> AppResult<()> {
+    let dns_val = root.entry("dns").or_insert_with(|| Value::Object(Map::new()));
+    let dns_obj = dns_val.as_object_mut().ok_or_else(|| {
+        AppError::UnsafeConfig("Xray dns section must be an object".into())
+    })?;
+
+    if !dns_obj.contains_key("queryStrategy") {
+        dns_obj.insert("queryStrategy".into(), Value::String("UseIPv4".into()));
+    }
+
+    let servers_val = dns_obj.entry("servers").or_insert_with(|| Value::Array(Vec::new()));
+    let servers = servers_val.as_array_mut().ok_or_else(|| {
+        AppError::UnsafeConfig("Xray dns.servers must be an array".into())
+    })?;
+
+    if servers.is_empty() {
+        servers.push(Value::String("tcp://1.1.1.1".into()));
+        servers.push(Value::String("tcp://8.8.8.8".into()));
+    } else {
+        for server in servers.iter_mut() {
+            if let Some(s) = server.as_str() {
+                if let Ok(ip) = s.parse::<std::net::IpAddr>() {
+                    *server = Value::String(format!("tcp://{ip}"));
+                }
+            } else if let Some(obj) = server.as_object_mut() {
+                if let Some(addr_val) = obj.get("address").and_then(Value::as_str) {
+                    if let Ok(ip) = addr_val.parse::<std::net::IpAddr>() {
+                        obj.insert("address".into(), Value::String(format!("tcp://{ip}")));
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn is_provider_ru_bypass_rule(rule: &Value) -> bool {
+    let Some(obj) = rule.as_object() else {
+        return false;
+    };
+    let outbound = obj.get("outboundTag").and_then(Value::as_str).unwrap_or_default();
+    if outbound != "direct" && outbound != DIRECT_TAG {
+        return false;
+    }
+    if let Some(domains) = obj.get("domain").and_then(Value::as_array) {
+        if domains.iter().any(|d| {
+            d.as_str().is_some_and(|s| {
+                s == "geosite:category-ru" || s == "geosite:ru"
+            })
+        }) {
+            return true;
+        }
+    }
+    false
+}
+
+fn user_has_ru_bypass(routing: &RoutingOptions) -> bool {
+    routing.rules.iter().filter(|r| is_enabled(r)).any(|rule| {
+        let is_direct_action = rule
+            .get("action")
+            .and_then(Value::as_object)
+            .is_some_and(|action| {
+                action.get("kind").and_then(Value::as_str) == Some("route")
+                    && action.get("outbound").and_then(Value::as_str) == Some("direct")
+            });
+        if !is_direct_action {
+            return false;
+        }
+        let label = rule.get("label").and_then(Value::as_str).unwrap_or_default();
+        if label.to_ascii_lowercase().contains("bypass ru") {
+            return true;
+        }
+        if let Some(matchers) = rule.get("matchers").and_then(Value::as_object) {
+            for (_, list) in matchers {
+                if let Some(items) = list.as_array() {
+                    if items.iter().any(|item| {
+                        item.as_str().is_some_and(|s| {
+                            s.contains("category-ru") || s.contains("geoip-ru") || s == "ru"
+                        })
+                    }) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
     })
 }
 
@@ -357,13 +534,21 @@ fn simple_processes(processes: &[String]) -> Vec<String> {
         .collect()
 }
 fn provider_tags(root: &Map<String, Value>, key: &str) -> AppResult<HashSet<String>> {
+    provider_tag_list(root, key).map(|tags| tags.into_iter().collect())
+}
+
+fn provider_tag_list(root: &Map<String, Value>, key: &str) -> AppResult<Vec<String>> {
     root.get(key)
-        .map(tags_from_array)
+        .map(tags_list_from_array)
         .transpose()
         .map(|tags| tags.unwrap_or_default())
 }
 
 fn tags_from_array(value: &Value) -> AppResult<HashSet<String>> {
+    tags_list_from_array(value).map(|tags| tags.into_iter().collect())
+}
+
+fn tags_list_from_array(value: &Value) -> AppResult<Vec<String>> {
     value
         .as_array()
         .ok_or_else(|| AppError::UnsafeConfig("Xray tagged section must be an array".into()))?
@@ -620,7 +805,7 @@ fn rule_label(rule: &Value) -> String {
 mod tests {
     use serde_json::json;
 
-    use super::merge_routing;
+    use super::{merge_routing, merge_routing_with_tun};
     use crate::config::RoutingOptions;
 
     #[test]
@@ -820,5 +1005,50 @@ mod tests {
             json!({"tag":"cloakwire-block","protocol":"blackhole"})
         );
         assert_eq!(prepared.applicability.unavailable[0].rule_id, "unsupported");
+    }
+
+    #[test]
+    fn tun_inbound_has_catch_all_routing_rule() {
+        let provider = serde_json::json!({
+            "inbounds": [],
+            "outbounds": [{"tag": "proxy-germany", "protocol": "vless"}],
+            "routing": {"rules": []}
+        });
+        let routing = RoutingOptions::default();
+        let prep = merge_routing_with_tun(provider, &routing, true, Some("cloakwire-managed-tun")).unwrap();
+        let rules = prep.value["routing"]["rules"].as_array().unwrap();
+        let tun_catch_all = rules.iter().find(|r| {
+            r.get("inboundTag")
+                .and_then(|t| t.as_array())
+                .map(|arr| arr.iter().any(|v| v == "cloakwire-managed-tun"))
+                .unwrap_or(false)
+                && r.get("port").is_none()
+        });
+        assert!(tun_catch_all.is_some(), "catch-all TUN rule must be present");
+        assert_eq!(tun_catch_all.unwrap()["outboundTag"], "proxy-germany");
+    }
+
+    #[test]
+    fn tun_inbound_has_catch_all_routing_rule_with_balancer() {
+        let provider = serde_json::json!({
+            "inbounds": [],
+            "outbounds": [{"tag": "proxy-germany", "protocol": "vless"}],
+            "routing": {
+                "balancers": [{"tag": "all-proxies", "selector": ["proxy"]}],
+                "rules": []
+            }
+        });
+        let routing = RoutingOptions::default();
+        let prep = merge_routing_with_tun(provider, &routing, true, Some("cloakwire-managed-tun")).unwrap();
+        let rules = prep.value["routing"]["rules"].as_array().unwrap();
+        let tun_catch_all = rules.iter().find(|r| {
+            r.get("inboundTag")
+                .and_then(|t| t.as_array())
+                .map(|arr| arr.iter().any(|v| v == "cloakwire-managed-tun"))
+                .unwrap_or(false)
+                && r.get("port").is_none()
+        });
+        assert!(tun_catch_all.is_some(), "catch-all TUN rule must be present");
+        assert_eq!(tun_catch_all.unwrap()["balancerTag"], "all-proxies");
     }
 }
