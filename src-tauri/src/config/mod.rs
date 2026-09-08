@@ -720,7 +720,6 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     local_obj.insert("type".into(), Value::String(local_type));
     local_obj.insert("tag".into(), Value::String("local".into()));
     local_obj.insert("server".into(), Value::String(local_server));
-    local_obj.insert("detour".into(), Value::String("direct".into()));
 
     let mut remote_obj = Map::new();
     remote_obj.insert("type".into(), Value::String(remote_type.clone()));
@@ -1248,12 +1247,12 @@ mod tests {
         let cfg = Config::build(&fixture_outbounds(), &GeneratorSettings::default());
         let servers = cfg["dns"]["servers"].as_array().unwrap();
         assert_eq!(servers.len(), 2);
-        // Local default is 1.1.1.1 (Cloudflare DNS) — type=udp, direct detour.
+        // Local default is 1.1.1.1 (Cloudflare DNS) — type=udp, no detour (avoids empty direct outbound error).
         let local = &servers[0];
         assert_eq!(local["tag"], "local");
         assert_eq!(local["type"], "udp");
         assert_eq!(local["server"], "1.1.1.1");
-        assert_eq!(local["detour"], "direct");
+        assert!(local.get("detour").is_none());
         // Remote default is 1.1.1.1 — type=tcp over proxy detour.
         let remote = &servers[1];
         assert_eq!(remote["tag"], "remote");
@@ -1701,12 +1700,12 @@ mod tests {
     }
 
     #[test]
-    fn dns_local_server_has_direct_detour() {
+    fn dns_local_server_omits_detour() {
         let settings = GeneratorSettings::default();
         let dns = build_dns(&settings);
         let servers = dns["servers"].as_array().expect("servers array");
         let local = servers.iter().find(|s| s["tag"] == "local").expect("local server");
-        assert_eq!(local["detour"], "direct");
+        assert!(local.get("detour").is_none());
     }
 }
 
