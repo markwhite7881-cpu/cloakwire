@@ -736,7 +736,7 @@ export default function App() {
               "manually in Settings → Network → Proxy.",
           );
         }
-      } else {
+      } else if (next.engine !== "xray" || effectiveSettings.tunnel_mode === "tun") {
         try {
           await api.clearSystemProxy();
         } catch {

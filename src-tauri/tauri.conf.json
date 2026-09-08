@@ -42,6 +42,9 @@
       "icons/icon.ico",
       "icons/icon.icns"
     ],
+    "resources": [
+      "binaries/wintun.dll"
+    ],
     "externalBin": [
       "binaries/sing-box",
       "binaries/xray"

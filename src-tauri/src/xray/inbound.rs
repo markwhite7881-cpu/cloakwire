@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
 
+pub const MANAGED_TUN_TAG: &str = "cloakwire-managed-tun";
 pub const MANAGED_HTTP_TAG: &str = "cloakwire-managed-http";
 pub const MANAGED_SOCKS_TAG: &str = "cloakwire-managed-socks";
 
@@ -13,6 +14,7 @@ pub struct ManagedHttpInbound {
     pub socks_port: u16,
     pub traffic_tag: String,
     pub injected: bool,
+    pub tun_active: bool,
 }
 
 pub fn ensure_managed_http_inbound<F>(
@@ -116,6 +118,7 @@ where
                 socks_port,
                 traffic_tag: MANAGED_HTTP_TAG.into(),
                 injected: true,
+                tun_active: false,
             })
         }
         1 => {
@@ -134,12 +137,100 @@ where
                 socks_port,
                 traffic_tag,
                 injected: false,
+                tun_active: false,
             })
         }
         _ => Err(AppError::UnsafeConfig(
             "Xray provider has ambiguous HTTP inbounds".into(),
         )),
     }
+}
+
+pub fn ensure_managed_inbounds<F>(
+    mut value: Value,
+    tunnel_mode: crate::config::TunnelMode,
+    port_allocator: F,
+) -> AppResult<ManagedHttpInbound>
+where
+    F: FnMut() -> AppResult<u16>,
+{
+    let mut tun_active = false;
+    let mut tun_tag = None;
+
+    if matches!(
+        tunnel_mode,
+        crate::config::TunnelMode::Tun | crate::config::TunnelMode::Both
+    ) {
+        let root = value
+            .as_object_mut()
+            .ok_or_else(|| AppError::UnsafeConfig("Xray provider config must be an object".into()))?;
+        let inbounds = root
+            .entry("inbounds")
+            .or_insert_with(|| Value::Array(Vec::new()))
+            .as_array_mut()
+            .ok_or_else(|| AppError::UnsafeConfig("Xray inbounds must be an array".into()))?;
+
+        let existing_tun_idx = inbounds.iter().position(|i| {
+            i.as_object()
+                .and_then(|obj| obj.get("protocol"))
+                .and_then(Value::as_str)
+                == Some("tun")
+        });
+
+        if let Some(idx) = existing_tun_idx {
+            let existing = &mut inbounds[idx];
+            let tag = existing
+                .get("tag")
+                .and_then(Value::as_str)
+                .unwrap_or(MANAGED_TUN_TAG)
+                .to_string();
+            let settings = existing
+                .as_object_mut()
+                .map(|obj| obj.entry("settings").or_insert_with(|| json!({})))
+                .and_then(Value::as_object_mut);
+            if let Some(s) = settings {
+                s.entry("name").or_insert_with(|| json!("wintun"));
+                s.entry("mtu").or_insert_with(|| json!(1500));
+                s.entry("gateway").or_insert_with(|| json!(["172.19.0.1/30"]));
+                s.entry("dns").or_insert_with(|| json!(["1.1.1.1", "8.8.8.8"]));
+                s.entry("autoSystemRoutingTable")
+                    .or_insert_with(|| json!(["0.0.0.0/1", "128.0.0.0/1"]));
+                s.entry("autoOutboundsInterface")
+                    .or_insert_with(|| json!("auto"));
+            }
+            tun_tag = Some(tag);
+            tun_active = true;
+        } else {
+            inbounds.insert(
+                0,
+                json!({
+                    "tag": MANAGED_TUN_TAG,
+                    "protocol": "tun",
+                    "settings": {
+                        "name": "wintun",
+                        "mtu": 1500,
+                        "gateway": ["172.19.0.1/30"],
+                        "dns": ["1.1.1.1", "8.8.8.8"],
+                        "autoSystemRoutingTable": ["0.0.0.0/1", "128.0.0.0/1"],
+                        "autoOutboundsInterface": "auto"
+                    },
+                    "sniffing": {
+                        "enabled": true,
+                        "destOverride": ["http", "tls", "quic"]
+                    }
+                }),
+            );
+            tun_tag = Some(MANAGED_TUN_TAG.to_string());
+            tun_active = true;
+        }
+    }
+
+    let mut inbound = ensure_managed_http_inbound(value, port_allocator)?;
+    inbound.tun_active = tun_active;
+    if let Some(tag) = tun_tag {
+        inbound.traffic_tag = tag;
+    }
+    Ok(inbound)
 }
 
 fn valid_port(value: Option<&Value>) -> AppResult<u16> {
@@ -215,5 +306,54 @@ mod tests {
         ] {
             assert!(ensure_managed_http_inbound(config, || Ok(20809)).is_err());
         }
+    }
+
+    #[test]
+    fn injects_tun_inbound_in_tun_mode() {
+        use super::{ensure_managed_inbounds, MANAGED_TUN_TAG};
+        let result = ensure_managed_inbounds(
+            json!({"inbounds":[]}),
+            crate::config::TunnelMode::Tun,
+            || Ok(20809),
+        )
+        .unwrap();
+
+        assert!(result.tun_active);
+        assert_eq!(result.traffic_tag, MANAGED_TUN_TAG);
+        let tun = result.value["inbounds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["protocol"] == "tun")
+            .expect("tun inbound present");
+        assert_eq!(tun["tag"], MANAGED_TUN_TAG);
+        assert_eq!(tun["settings"]["name"], "wintun");
+        assert_eq!(tun["settings"]["mtu"], 1500);
+        assert_eq!(tun["settings"]["gateway"], json!(["172.19.0.1/30"]));
+        assert_eq!(tun["settings"]["dns"], json!(["1.1.1.1", "8.8.8.8"]));
+        assert_eq!(
+            tun["settings"]["autoSystemRoutingTable"],
+            json!(["0.0.0.0/1", "128.0.0.0/1"])
+        );
+        assert_eq!(tun["settings"]["autoOutboundsInterface"], "auto");
+    }
+
+    #[test]
+    fn does_not_inject_tun_inbound_in_system_proxy_mode() {
+        use super::{ensure_managed_inbounds, MANAGED_HTTP_TAG};
+        let result = ensure_managed_inbounds(
+            json!({"inbounds":[]}),
+            crate::config::TunnelMode::SystemProxy,
+            || Ok(20809),
+        )
+        .unwrap();
+
+        assert!(!result.tun_active);
+        assert_eq!(result.traffic_tag, MANAGED_HTTP_TAG);
+        assert!(!result.value["inbounds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|i| i["protocol"] == "tun"));
     }
 }

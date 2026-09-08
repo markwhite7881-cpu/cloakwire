@@ -134,7 +134,7 @@ pub fn merge_routing_with_tun(
             .push(serde_json::json!({"tag": BLOCK_TAG, "protocol": "blackhole"}));
     }
 
-    let dns_outbound_tag = if tun_active {
+    let (dns_outbound_tag, direct_outbound_tag) = if tun_active {
         let outbounds = root
             .entry("outbounds")
             .or_insert_with(|| Value::Array(Vec::new()))
@@ -149,7 +149,7 @@ pub fn merge_routing_with_tun(
             }
         });
 
-        let tag = match existing_dns {
+        let dns_tag = match existing_dns {
             Some(t) => t,
             None => {
                 outbounds.push(serde_json::json!({
@@ -160,13 +160,37 @@ pub fn merge_routing_with_tun(
             }
         };
 
+        let existing_direct = outbounds.iter().find_map(|o| {
+            if o.get("protocol").and_then(Value::as_str) == Some("freedom") {
+                o.get("tag").and_then(Value::as_str).map(str::to_string)
+            } else {
+                None
+            }
+        });
+
+        let direct_tag = match existing_direct {
+            Some(t) => t,
+            None => {
+                if outbound_tag_set.contains(DIRECT_TAG) {
+                    return Err(AppError::UnsafeConfig(
+                        "provider uses reserved Xray outbound tag".into(),
+                    ));
+                }
+                outbounds.push(serde_json::json!({
+                    "tag": DIRECT_TAG,
+                    "protocol": "freedom"
+                }));
+                DIRECT_TAG.to_string()
+            }
+        };
+
         ensure_tun_dns(root)?;
-        Some(tag)
+        (Some(dns_tag), Some(direct_tag))
     } else {
-        None
+        (None, None)
     };
 
-    if let Some(dns_tag) = &dns_outbound_tag {
+    if let (Some(dns_tag), Some(direct_tag)) = (&dns_outbound_tag, &direct_outbound_tag) {
         let tun_inbound_tag = tun_tag.unwrap_or(crate::xray::inbound::MANAGED_TUN_TAG);
         translated.insert(
             0,
@@ -175,6 +199,15 @@ pub fn merge_routing_with_tun(
                 "inboundTag": [tun_inbound_tag],
                 "port": "53",
                 "outboundTag": dns_tag,
+            })),
+        );
+        translated.insert(
+            1,
+            TranslatedRule::Rule(serde_json::json!({
+                "type": "field",
+                "port": "53",
+                "network": "tcp,udp",
+                "outboundTag": direct_tag,
             })),
         );
     }
@@ -1050,5 +1083,29 @@ mod tests {
         });
         assert!(tun_catch_all.is_some(), "catch-all TUN rule must be present");
         assert_eq!(tun_catch_all.unwrap()["balancerTag"], "all-proxies");
+    }
+
+    #[test]
+    fn tun_mode_has_direct_dns_upstream_rule() {
+        let provider = serde_json::json!({
+            "inbounds": [],
+            "outbounds": [
+                {"tag": "proxy-germany", "protocol": "vless"},
+                {"tag": "direct", "protocol": "freedom"}
+            ],
+            "routing": {"rules": []}
+        });
+        let routing = RoutingOptions::default();
+        let prep =
+            merge_routing_with_tun(provider, &routing, true, Some("cloakwire-managed-tun"))
+                .unwrap();
+        let rules = prep.value["routing"]["rules"].as_array().unwrap();
+        assert_eq!(rules[0]["port"], "53");
+        assert_eq!(rules[0]["outboundTag"], "cloakwire-managed-dns");
+        assert_eq!(rules[0]["inboundTag"][0], "cloakwire-managed-tun");
+
+        assert_eq!(rules[1]["port"], "53");
+        assert_eq!(rules[1]["outboundTag"], "direct");
+        assert!(rules[1].get("inboundTag").is_none());
     }
 }

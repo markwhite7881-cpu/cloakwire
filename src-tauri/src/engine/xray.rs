@@ -110,13 +110,85 @@ fn verify_binary(path: PathBuf) -> AppResult<PathBuf> {
     Ok(path)
 }
 
+#[cfg(windows)]
+pub fn ensure_wintun_driver(app: &AppHandle, binary_path: &Path) -> AppResult<()> {
+    let Some(bin_dir) = binary_path.parent() else {
+        return Ok(());
+    };
+    let target_dll = bin_dir.join("wintun.dll");
+    if target_dll.exists() {
+        return Ok(());
+    }
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let candidate = resource_dir.join("binaries").join("wintun.dll");
+        if candidate.exists() {
+            if std::fs::copy(&candidate, &target_dll).is_ok() {
+                return Ok(());
+            }
+        }
+        let direct = resource_dir.join("wintun.dll");
+        if direct.exists() {
+            if std::fs::copy(&direct, &target_dll).is_ok() {
+                return Ok(());
+            }
+        }
+    }
+
+    const EMBEDDED_WINTUN: &[u8] = include_bytes!("../../binaries/wintun.dll");
+    let _ = std::fs::write(&target_dll, EMBEDDED_WINTUN);
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn ensure_wintun_driver(_app: &AppHandle, _binary_path: &Path) -> AppResult<()> {
+    Ok(())
+}
+
+pub fn prepare_validation_config(config_path: &Path) -> std::io::Result<Option<PathBuf>> {
+    let content = std::fs::read_to_string(config_path)?;
+    let mut value: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return Ok(None),
+    };
+
+    let has_tun = value
+        .get("inbounds")
+        .and_then(serde_json::Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .any(|i| i.get("protocol").and_then(serde_json::Value::as_str) == Some("tun"))
+        })
+        .unwrap_or(false);
+
+    if !has_tun {
+        return Ok(None);
+    }
+
+    if let Some(inbounds) = value.get_mut("inbounds").and_then(serde_json::Value::as_array_mut) {
+        inbounds.retain(|i| i.get("protocol").and_then(serde_json::Value::as_str) != Some("tun"));
+    }
+
+    let nonce = format!("val-{}.json", uuid::Uuid::new_v4());
+    let temp_path = config_path.with_file_name(nonce);
+    let bytes = serde_json::to_vec(&value)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    std::fs::write(&temp_path, bytes)?;
+    Ok(Some(temp_path))
+}
+
 pub async fn validate_config(
     binary: &Path,
     config_path: &Path,
     env: &[(std::ffi::OsString, std::ffi::OsString)],
 ) -> AppResult<()> {
+    let validation_path = match prepare_validation_config(config_path) {
+        Ok(Some(temp_path)) => temp_path,
+        _ => config_path.to_path_buf(),
+    };
+
     let mut command = Command::new(binary);
-    command.args(validation_args(config_path));
+    command.args(validation_args(&validation_path));
     command.envs(env.iter().map(|(key, value)| (key, value)));
     #[cfg(windows)]
     {
@@ -127,9 +199,17 @@ pub async fn validate_config(
         .output()
         .await
         .map_err(|_| AppError::Spawn("Xray config validation could not start".into()))?;
+
+    if validation_path != config_path {
+        let _ = std::fs::remove_file(&validation_path);
+    }
+
     if output.status.success() {
         Ok(())
     } else {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        log::warn!("Xray config validation failed: stdout={stdout}, stderr={stderr}");
         Err(AppError::Validation("Xray config validation failed".into()))
     }
 }
@@ -213,5 +293,42 @@ mod tests {
         assert!(metadata.name.starts_with("xray-"));
         assert_eq!(metadata.sha256.len(), 64);
         assert!(metadata.size > 1_000_000);
+    }
+
+    #[test]
+    fn prepare_validation_config_strips_tun_inbound() {
+        let temp = tempfile::tempdir().unwrap();
+        let config_path = temp.path().join("config.json");
+        let content = serde_json::json!({
+            "inbounds": [
+                {"protocol": "tun", "tag": "cloakwire-managed-tun"},
+                {"protocol": "http", "port": 10808}
+            ],
+            "outbounds": [{"protocol": "freedom", "tag": "direct"}]
+        });
+        std::fs::write(&config_path, serde_json::to_vec(&content).unwrap()).unwrap();
+
+        let val_path = prepare_validation_config(&config_path).unwrap().expect("creates val path");
+        assert!(val_path.exists());
+        let val_content: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&val_path).unwrap()).unwrap();
+        let inbounds = val_content["inbounds"].as_array().unwrap();
+        assert_eq!(inbounds.len(), 1);
+        assert_eq!(inbounds[0]["protocol"], "http");
+        let _ = std::fs::remove_file(val_path);
+    }
+
+    #[test]
+    fn prepare_validation_config_returns_none_when_no_tun() {
+        let temp = tempfile::tempdir().unwrap();
+        let config_path = temp.path().join("config.json");
+        let content = serde_json::json!({
+            "inbounds": [
+                {"protocol": "http", "port": 10808}
+            ]
+        });
+        std::fs::write(&config_path, serde_json::to_vec(&content).unwrap()).unwrap();
+
+        assert!(prepare_validation_config(&config_path).unwrap().is_none());
     }
 }

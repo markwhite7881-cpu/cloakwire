@@ -167,6 +167,8 @@ pub struct ReadyProfileInput {
     pub subscription_id: String,
     pub child_key: String,
     pub routing: config::RoutingOptions,
+    #[serde(default)]
+    pub tunnel_mode: Option<config::TunnelMode>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -225,23 +227,30 @@ async fn start_ready_profile_inner(
         .resolve_child_profile(&input.subscription_id, &input.child_key)
         .await?;
 
+    let tunnel_mode = input.tunnel_mode.unwrap_or(config::TunnelMode::Tun);
     let (value, proxy, binary, env, routing, xray_stats) = match profile.engine {
         EngineKind::Xray => {
             let prepared = crate::xray::prepare_xray_runtime_config(
                 profile.config,
                 &input.routing,
+                tunnel_mode,
                 allocate_loopback_port,
             )?;
             let binary = xray::locate_binary(&app)?;
+            let _ = crate::engine::xray::ensure_wintun_driver(&app, &binary);
             let geodata = xray::geodata::ensure(&app).await?;
-            let proxy = (
-                prepared.proxy_host.clone(),
-                prepared.proxy_port,
-                prepared.socks_port,
-            );
+            let proxy = if prepared.tun_active && tunnel_mode == config::TunnelMode::Tun {
+                None
+            } else {
+                Some((
+                    prepared.proxy_host.clone(),
+                    prepared.proxy_port,
+                    prepared.socks_port,
+                ))
+            };
             (
                 prepared.value,
-                Some(proxy),
+                proxy,
                 binary,
                 vec![geodata.env_pair()],
                 prepared.applicability,
@@ -462,6 +471,7 @@ pub async fn start_managed_singbox(
                     subscription_id: profile_ref.subscription_id,
                     child_key: profile_ref.child_key,
                     routing: input.settings.routing,
+                    tunnel_mode: Some(input.settings.tunnel_mode),
                 },
             )
             .await;

@@ -142,6 +142,8 @@ pub struct ProcessManager {
     stdio_readers: Mutex<Vec<JoinHandle<()>>>,
     /// Configured Kill Switch behavior.
     kill_switch_mode: Mutex<crate::config::KillSwitchMode>,
+    /// Managed Windows routes for active Xray TUN run.
+    xray_tun_routes: Mutex<Option<(u64, Vec<crate::xray::windows_tun::RouteRecord>)>>,
 }
 
 impl Default for ProcessManager {
@@ -165,6 +167,7 @@ impl Default for ProcessManager {
             #[cfg(test)]
             stdio_readers: Mutex::new(Vec::new()),
             kill_switch_mode: Mutex::new(crate::config::KillSwitchMode::OnDrop),
+            xray_tun_routes: Mutex::new(None),
         }
     }
 }
@@ -548,6 +551,11 @@ impl ProcessManager {
 
         if engine == Some(EngineKind::Xray) {
             self.stop_xray_telemetry().await;
+            if let Some((_, routes)) = self.xray_tun_routes.lock().await.take() {
+                crate::xray::windows_tun::teardown_xray_windows_tun(&routes);
+            } else {
+                crate::xray::windows_tun::teardown_xray_windows_tun_unconditional();
+            }
         }
 
         // The traffic stream belongs exclusively to sing-box's Clash controller.
@@ -779,6 +787,11 @@ impl ProcessManager {
             let _ = crate::killswitch::disarm_kill_switch();
         }
         self.stop_xray_telemetry().await;
+        if let Some((_, routes)) = self.xray_tun_routes.lock().await.take() {
+            crate::xray::windows_tun::teardown_xray_windows_tun(&routes);
+        } else {
+            crate::xray::windows_tun::teardown_xray_windows_tun_unconditional();
+        }
         self.active_run_id.store(0, Ordering::Release);
         if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
             let _ = child.start_kill();
@@ -830,6 +843,11 @@ impl ProcessManager {
         // Unexpected exits bypass `stop`; cancel the old run before another
         // launch can start a sing-box traffic task.
         self.stop_xray_telemetry().await;
+        if let Some((_, routes)) = self.xray_tun_routes.lock().await.take() {
+            crate::xray::windows_tun::teardown_xray_windows_tun(&routes);
+        } else {
+            crate::xray::windows_tun::teardown_xray_windows_tun_unconditional();
+        }
         self.traffic.stop().await;
         if self.active_run_id.load(Ordering::Acquire) != run_id {
             return;
@@ -933,6 +951,15 @@ impl ProcessManager {
         }
         let status = self.status.lock().await;
         status.status == Status::Running && status.engine == Some(EngineKind::Singbox)
+    }
+
+    pub async fn is_active_xray_run(&self, run_id: u64) -> bool {
+        if self.active_run_id.load(Ordering::Acquire) != run_id {
+            return false;
+        }
+        let status = self.status.lock().await;
+        (status.status == Status::Running || status.status == Status::Starting)
+            && status.engine == Some(EngineKind::Xray)
     }
 
     async fn abort_start(&self, run_id: u64) {
