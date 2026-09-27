@@ -191,10 +191,10 @@ where
             if let Some(s) = settings {
                 s.entry("name").or_insert_with(|| json!("wintun"));
                 s.entry("mtu").or_insert_with(|| json!(1500));
-                s.entry("gateway").or_insert_with(|| json!(["172.19.0.1/30", "fdfe:dcba:9876::1/126"]));
+                s.entry("gateway").or_insert_with(|| json!(["172.19.0.1/30"]));
                 s.entry("dns").or_insert_with(|| json!(["1.1.1.1", "8.8.8.8"]));
                 s.entry("autoSystemRoutingTable")
-                    .or_insert_with(|| json!(["0.0.0.0/1", "128.0.0.0/1", "::/1", "8000::/1"]));
+                    .or_insert_with(|| json!(["0.0.0.0/1", "128.0.0.0/1"]));
                 s.entry("autoOutboundsInterface")
                     .or_insert_with(|| json!("auto"));
             }
@@ -209,9 +209,9 @@ where
                     "settings": {
                         "name": "wintun",
                         "mtu": 1500,
-                        "gateway": ["172.19.0.1/30", "fdfe:dcba:9876::1/126"],
+                        "gateway": ["172.19.0.1/30"],
                         "dns": ["1.1.1.1", "8.8.8.8"],
-                        "autoSystemRoutingTable": ["0.0.0.0/1", "128.0.0.0/1", "::/1", "8000::/1"],
+                        "autoSystemRoutingTable": ["0.0.0.0/1", "128.0.0.0/1"],
                         "autoOutboundsInterface": "auto"
                     },
                     "sniffing": {
@@ -329,11 +329,11 @@ mod tests {
         assert_eq!(tun["tag"], MANAGED_TUN_TAG);
         assert_eq!(tun["settings"]["name"], "wintun");
         assert_eq!(tun["settings"]["mtu"], 1500);
-        assert_eq!(tun["settings"]["gateway"], json!(["172.19.0.1/30", "fdfe:dcba:9876::1/126"]));
+        assert_eq!(tun["settings"]["gateway"], json!(["172.19.0.1/30"]));
         assert_eq!(tun["settings"]["dns"], json!(["1.1.1.1", "8.8.8.8"]));
         assert_eq!(
             tun["settings"]["autoSystemRoutingTable"],
-            json!(["0.0.0.0/1", "128.0.0.0/1", "::/1", "8000::/1"])
+            json!(["0.0.0.0/1", "128.0.0.0/1"])
         );
         assert_eq!(tun["settings"]["autoOutboundsInterface"], "auto");
     }

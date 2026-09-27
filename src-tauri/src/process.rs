@@ -385,22 +385,6 @@ impl ProcessManager {
             }
         };
         let pid = child.id();
-        if spec.engine == EngineKind::Singbox {
-            let config_path = spec.config_path.clone();
-            let manager = Arc::clone(self);
-            tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_millis(500)).await;
-                if !manager.is_active_singbox_run(run_id).await {
-                    return;
-                }
-                if set_tun_dns_from_config(&manager, run_id, &config_path)
-                    .await
-                    .is_err()
-                {
-                    log::warn!("could not read runtime configuration for TUN DNS setup");
-                }
-            });
-        }
         if let Some(stdout) = child.stdout.take() {
             let manager = Arc::clone(self);
             let engine = spec.engine;
@@ -1261,6 +1245,7 @@ pub fn clear_system_proxy() -> AppResult<()> {
 ///
 /// Best-effort: returns `Err` on any failure (missing fields, netsh
 /// not available, etc.) — the caller logs the error and continues.
+#[allow(dead_code)]
 async fn set_tun_dns_from_config(
     manager: &ProcessManager,
     run_id: u64,

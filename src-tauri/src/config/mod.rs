@@ -314,11 +314,19 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
             "type": "tun",
             "tag": "tun-in",
             "address": [
-                "172.19.0.1/30",
-                "fdfe:dcba:9876::1/126"
+                "172.19.0.1/30"
             ],
             "auto_route": true,
             "strict_route": false,
+            "route_address": [
+                "0.0.0.0/1",
+                "128.0.0.0/1"
+            ],
+            "route_exclude_address": [
+                "192.168.0.0/16",
+                "10.0.0.0/8",
+                "172.16.0.0/12"
+            ],
             "stack": "gvisor",
             "mtu": 1500,
             "endpoint_independent_nat": false,
@@ -739,7 +747,7 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
         // Remote resolver queries over proxy tunnel (bypasses ISP DNS blocking/poisoning).
         // Outbound domain endpoints resolve via local domain_resolver.
         "final": "remote",
-        "strategy": "prefer_ipv4"
+        "strategy": "ipv4_only"
     })
 }
 
@@ -1084,9 +1092,9 @@ mod tests {
             .expect("tun inbound has address[]");
 
         let v4_str = tun_addr[0].as_str().expect("tun ipv4 cidr");
-        let v6_str = tun_addr[1].as_str().expect("tun ipv6 cidr");
         let (tun_v4, prefix_v4) = parse_cidr_v4(v4_str);
-        let (tun_v6, prefix_v6) = parse_cidr_v6(v6_str);
+        let v6_opt = tun_addr.get(1).and_then(|v| v.as_str());
+        let (tun_v6, prefix_v6) = v6_opt.map(parse_cidr_v6).unwrap_or((0, 0));
 
         // 2) extract the local DNS server.
         let local_dns = cfg["dns"]["servers"]
@@ -1115,8 +1123,8 @@ mod tests {
 
         // 4) if the local DNS happens to be IPv6 (it isn't today,
         // but a future default could be), also assert it's not in
-        // the TUN's /126.
-        if let Some(dns_v6) = parse_ipv6(&local_dns) {
+        // the TUN's /126 if IPv6 is configured.
+        if let (Some(dns_v6), Some(v6_str)) = (parse_ipv6(&local_dns), v6_opt) {
             assert!(
                 !same_subnet_v6(tun_v6, prefix_v6, dns_v6, 128),
                 "local DNS {local_dns} must NOT be in TUN IPv6 {v6_str}"
@@ -1715,6 +1723,19 @@ mod tests {
         assert_eq!(tun["mtu"], 1500);
         assert_eq!(tun["strict_route"], false);
         assert_eq!(tun["stack"], "gvisor");
+        assert_eq!(tun["address"], json!(["172.19.0.1/30"]));
+        assert_eq!(tun["route_address"], json!(["0.0.0.0/1", "128.0.0.0/1"]));
+        assert_eq!(
+            tun["route_exclude_address"],
+            json!(["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"])
+        );
+    }
+
+    #[test]
+    fn dns_uses_ipv4_only_strategy() {
+        let settings = GeneratorSettings::default();
+        let dns = build_dns(&settings);
+        assert_eq!(dns["strategy"], "ipv4_only");
     }
 
     #[test]
