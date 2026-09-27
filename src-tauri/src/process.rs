@@ -454,6 +454,26 @@ impl ProcessManager {
                     .await;
             }
         }
+        #[cfg(all(windows, not(test)))]
+        if spec.engine == EngineKind::Xray {
+            let config_path = spec.config_path.clone();
+            let pm_arc = Arc::clone(self);
+            tokio::spawn(async move {
+                match crate::xray::windows_tun::setup_xray_windows_tun(&config_path).await {
+                    Ok(routes) if !routes.is_empty() => {
+                        if pm_arc.is_active_run(run_id).await {
+                            *pm_arc.xray_tun_routes.lock().await = Some((run_id, routes));
+                        } else {
+                            crate::xray::windows_tun::teardown_xray_windows_tun(&routes);
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::warn!("failed to setup xray windows tun routing: {e}");
+                    }
+                }
+            });
+        }
         if spec.engine == EngineKind::Singbox {
             if let (Some(controller_url), Some(app)) = (spec.controller_url, app.cloned()) {
                 if self.is_active_singbox_run(run_id).await {

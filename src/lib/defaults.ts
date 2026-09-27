@@ -14,7 +14,7 @@
 import type { GeneratorSettings } from "./types";
 
 export const DEFAULT_SETTINGS: GeneratorSettings = {
-  tunnel_mode: "system_proxy",
+  tunnel_mode: "tun",
   kill_switch: "off",
   block_ipv6: false,
   routing: {

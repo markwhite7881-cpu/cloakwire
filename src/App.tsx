@@ -274,6 +274,12 @@ function loadSettings(): GeneratorSettings {
           window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
         } catch { /* ignore */ }
       }
+      if (parsed.tunnel_mode === "system_proxy") {
+        merged.tunnel_mode = "tun";
+        try {
+          window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+        } catch { /* ignore */ }
+      }
       return merged;
     }
     // Fall back to v1 (silent migration).
@@ -295,6 +301,9 @@ function loadSettings(): GeneratorSettings {
           ...v1,
           routing: migrateRoutingV1ToV2(v1Routing),
         };
+        if (migrated.tunnel_mode === "system_proxy") {
+          migrated.tunnel_mode = "tun";
+        }
         // Persist as v2 immediately and drop v1.
         try {
           window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(migrated));

@@ -168,7 +168,7 @@ impl Default for RoutingOptions {
 impl Default for GeneratorSettings {
     fn default() -> Self {
         Self {
-            tunnel_mode: TunnelMode::SystemProxy,
+            tunnel_mode: TunnelMode::Tun,
             kill_switch: KillSwitchMode::Off,
             block_ipv6: false,
             routing: RoutingOptions::default(),
@@ -318,9 +318,9 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
                 "fdfe:dcba:9876::1/126"
             ],
             "auto_route": true,
-            "strict_route": true,
-            "stack": "system",
-            "mtu": 9000,
+            "strict_route": false,
+            "stack": "gvisor",
+            "mtu": 1500,
             "endpoint_independent_nat": false,
             "udp_timeout": "5m",
         });
@@ -391,7 +391,13 @@ fn build_route(settings: &GeneratorSettings) -> Value {
     let mut rules: Vec<Value> = Vec::new();
     // 0. DNS hijacking — capture DNS queries into sing-box's internal resolver.
     rules.push(json!({ "action": "hijack-dns", "port": [53] }));
-    // 1. Private IP / LAN bypass — always route local traffic directly.
+    // 1. Direct DNS queries outbound rule — allow local DNS resolution to bypass proxy.
+    rules.push(json!({
+        "action": "route",
+        "port": [53],
+        "outbound": "direct"
+    }));
+    // 2. Private IP / LAN bypass — always route local traffic directly.
     rules.push(json!({ "action": "route", "ip_is_private": true, "outbound": "direct" }));
     // 2. Optional sniff action.
     if r.sniff {
@@ -1700,6 +1706,26 @@ mod tests {
         let servers = dns["servers"].as_array().expect("servers array");
         let local = servers.iter().find(|s| s["tag"] == "local").expect("local server");
         assert!(local.get("detour").is_none());
+    }
+
+    #[test]
+    fn tun_inbound_has_safe_mtu_and_gvisor_stack() {
+        let inbounds = build_inbounds(&GeneratorSettings::default());
+        let tun = inbounds.iter().find(|i| i["type"] == "tun").expect("tun inbound");
+        assert_eq!(tun["mtu"], 1500);
+        assert_eq!(tun["strict_route"], false);
+        assert_eq!(tun["stack"], "gvisor");
+    }
+
+    #[test]
+    fn route_contains_direct_dns_rule() {
+        let route = build_route(&GeneratorSettings::default());
+        let rules = route["rules"].as_array().expect("rules array");
+        assert!(rules.iter().any(|r| {
+            r.get("action") == Some(&json!("route"))
+                && r.get("port") == Some(&json!([53]))
+                && r.get("outbound") == Some(&json!("direct"))
+        }));
     }
 }
 

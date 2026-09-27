@@ -24,6 +24,7 @@ export function loadSettings(): GeneratorSettings {
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      tunnel_mode: parsed.tunnel_mode === "system_proxy" ? "tun" : (parsed.tunnel_mode ?? "tun"),
       kill_switch: "off",
       block_ipv6: false,
       routing: { ...DEFAULT_SETTINGS.routing, ...(parsed.routing ?? {}) },
