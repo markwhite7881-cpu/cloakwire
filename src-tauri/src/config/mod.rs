@@ -108,8 +108,8 @@ impl Default for ClashApiOptions {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum KillSwitchMode {
-    Off,
     #[default]
+    Off,
     OnDrop,
     AlwaysOn,
 }
@@ -120,7 +120,7 @@ pub struct GeneratorSettings {
     pub tunnel_mode: TunnelMode,
     #[serde(default)]
     pub kill_switch: KillSwitchMode,
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub block_ipv6: bool,
     pub routing: RoutingOptions,
     pub clash_api: ClashApiOptions,
@@ -169,8 +169,8 @@ impl Default for GeneratorSettings {
     fn default() -> Self {
         Self {
             tunnel_mode: TunnelMode::SystemProxy,
-            kill_switch: KillSwitchMode::default(),
-            block_ipv6: true,
+            kill_switch: KillSwitchMode::Off,
+            block_ipv6: false,
             routing: RoutingOptions::default(),
             clash_api: ClashApiOptions::default(),
             tun_interface_name: None,
@@ -310,19 +310,17 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
     let want_mixed = matches!(mode, TunnelMode::SystemProxy | TunnelMode::Both);
 
     if want_tun {
-        let mut addresses = vec![Value::String("172.19.0.1/30".into())];
-        if !settings.block_ipv6 {
-            addresses.push(Value::String("fdfe:dcba:9876::1/126".into()));
-        }
-
         let mut tun_inbound = json!({
             "type": "tun",
             "tag": "tun-in",
-            "address": addresses,
+            "address": [
+                "172.19.0.1/30",
+                "fdfe:dcba:9876::1/126"
+            ],
             "auto_route": true,
-            "strict_route": false,
-            "stack": "mixed",
-            "mtu": 1500,
+            "strict_route": true,
+            "stack": "system",
+            "mtu": 9000,
             "endpoint_independent_nat": false,
             "udp_timeout": "5m",
         });
@@ -393,10 +391,6 @@ fn build_route(settings: &GeneratorSettings) -> Value {
     let mut rules: Vec<Value> = Vec::new();
     // 0. DNS hijacking — capture DNS queries into sing-box's internal resolver.
     rules.push(json!({ "action": "hijack-dns", "port": [53] }));
-    // 0.1 IPv6 reject if block_ipv6 is enabled (prevents dual-stack leaks)
-    if settings.block_ipv6 {
-        rules.push(json!({ "action": "reject", "ip_version": 6 }));
-    }
     // 1. Private IP / LAN bypass — always route local traffic directly.
     rules.push(json!({ "action": "route", "ip_is_private": true, "outbound": "direct" }));
     // 2. Optional sniff action.
@@ -1688,8 +1682,8 @@ mod tests {
             }
         });
         let settings: GeneratorSettings = serde_json::from_value(json).expect("parses legacy settings");
-        assert_eq!(settings.kill_switch, KillSwitchMode::OnDrop);
-        assert_eq!(settings.block_ipv6, true);
+        assert_eq!(settings.kill_switch, KillSwitchMode::Off);
+        assert_eq!(settings.block_ipv6, false);
     }
 
     #[test]

@@ -360,7 +360,7 @@ export function HomeTab({
             <div className="flex items-center gap-2 text-xs">
               <span className="flex items-center gap-1 text-emerald-400/90 font-sans font-medium text-[11px]">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                {settings?.kill_switch === "off" ? "Kill Switch выкл" : "Kill Switch"}
+                <span>Защищенный туннель</span>
               </span>
               <span>•</span>
               <span>{isXrayRunning ? "Xray Core" : "sing-box Core"}</span>

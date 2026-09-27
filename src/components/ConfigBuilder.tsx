@@ -388,62 +388,7 @@ export function ConfigBuilder({
             </div>
           )}
 
-          {/* Kill Switch mode picker */}
-          <div className="space-y-1.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Kill Switch
-            </p>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-              {KILL_SWITCH_MODES.map((m) => {
-                const active = (settings.kill_switch ?? "on_drop") === m.value;
-                return (
-                  <button
-                    key={m.value}
-                    onClick={() => update("kill_switch", m.value)}
-                    className={cn(
-                      "rounded-md border px-2.5 py-1.5 text-left transition-colors",
-                      active
-                        ? "border-emerald-500/50 bg-emerald-950/40 text-emerald-300 font-medium"
-                        : "border-border bg-card/30 hover:bg-accent text-foreground",
-                    )}
-                    title={m.hint}
-                  >
-                    <div className="text-xs font-medium">{m.label}</div>
-                    <div className="text-[9px] text-muted-foreground">
-                      {m.hint}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Block IPv6 Toggle */}
-          <div className="flex items-center justify-between rounded-md border border-border bg-card/30 px-2.5 py-2 text-xs">
-            <div className="space-y-0.5">
-              <div className="font-medium text-foreground">Блокировать IPv6</div>
-              <div className="text-[10px] text-muted-foreground">
-                Предотвращает утечки через локальный IPv6 стек провайдера (Dual-Stack)
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => update("block_ipv6", !settings.block_ipv6)}
-              className={cn(
-                "relative h-5 w-10 rounded-full border transition-colors",
-                settings.block_ipv6
-                  ? "border-emerald-500/40 bg-emerald-950 text-emerald-400"
-                  : "border-border bg-foreground/5",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 h-4 w-4 rounded-full bg-foreground transition-all duration-200",
-                  settings.block_ipv6 ? "left-[22px] bg-emerald-400" : "left-0.5",
-                )}
-              />
-            </button>
-          </div>
 
           {/* Leak Diagnostics */}
           <div className="pt-1">

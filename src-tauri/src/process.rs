@@ -166,7 +166,7 @@ impl Default for ProcessManager {
             xray_test_state: Mutex::new(XrayTestState::default()),
             #[cfg(test)]
             stdio_readers: Mutex::new(Vec::new()),
-            kill_switch_mode: Mutex::new(crate::config::KillSwitchMode::OnDrop),
+            kill_switch_mode: Mutex::new(crate::config::KillSwitchMode::Off),
             xray_tun_routes: Mutex::new(None),
         }
     }
@@ -448,35 +448,6 @@ impl ProcessManager {
         status.profile_name = spec.profile_name;
         let report = status.clone();
         drop(status);
-        #[cfg(not(target_os = "android"))]
-        {
-            if self.get_kill_switch_mode().await == crate::config::KillSwitchMode::AlwaysOn {
-                let singbox_bin = app
-                    .and_then(|a| crate::engine::singbox::locate_binary(a).ok())
-                    .or_else(|| {
-                        if spec.engine == EngineKind::Singbox {
-                            Some(spec.binary.clone())
-                        } else {
-                            None
-                        }
-                    });
-                let xray_bin = app
-                    .and_then(|a| crate::engine::xray::locate_binary(a).ok())
-                    .or_else(|| {
-                        if spec.engine == EngineKind::Xray {
-                            Some(spec.binary.clone())
-                        } else {
-                            None
-                        }
-                    });
-                if let Err(e) = crate::killswitch::arm_kill_switch(
-                    singbox_bin.as_deref(),
-                    xray_bin.as_deref(),
-                ) {
-                    log::warn!("killswitch: failed to arm: {e}");
-                }
-            }
-        }
         if spec.engine == EngineKind::Xray {
             if let Some(stats_spec) = spec.xray_stats {
                 self.start_xray_telemetry(run_id, app.cloned(), stats_spec)
@@ -830,7 +801,7 @@ impl ProcessManager {
         run_id: u64,
         code: Option<i32>,
         err: Option<String>,
-        is_intentional_stop: bool,
+        _is_intentional_stop: bool,
     ) {
         if self.active_run_id.load(Ordering::Acquire) != run_id {
             return;
@@ -856,7 +827,7 @@ impl ProcessManager {
         *self.current_config.lock().await = None;
         *self.controller_url.lock().await = None;
 
-        let (line, engine_label) = {
+        let (line, _engine_label) = {
             let mut status = self.status.lock().await;
             if self.active_run_id.load(Ordering::Acquire) != run_id {
                 return;
@@ -903,23 +874,7 @@ impl ProcessManager {
         }
         #[cfg(not(target_os = "android"))]
         {
-            let ks_mode = self.get_kill_switch_mode().await;
-            if ks_mode == crate::config::KillSwitchMode::Off
-                || (is_intentional_stop && ks_mode != crate::config::KillSwitchMode::AlwaysOn)
-            {
-                let _ = crate::killswitch::disarm_kill_switch();
-            } else {
-                log::info!(
-                    "killswitch: holding firewall block on exit (mode: {ks_mode:?}, intentional: {is_intentional_stop})"
-                );
-                if !is_intentional_stop {
-                    self.push_log(
-                        LogStream::System,
-                        format!("KILL SWITCH ENGAGED: traffic blocked after unexpected {engine_label} drop"),
-                    )
-                    .await;
-                }
-            }
+            let _ = crate::killswitch::disarm_kill_switch();
         }
     }
 
@@ -1803,19 +1758,17 @@ mod engine_runtime_tests {
     #[tokio::test]
     async fn kill_switch_disarms_on_intentional_stop_and_holds_on_crash() {
         let pm = ProcessManager::new();
-        pm.set_kill_switch_mode(crate::config::KillSwitchMode::OnDrop).await;
+        pm.set_kill_switch_mode(crate::config::KillSwitchMode::Off).await;
 
         // 1. Intentional stop: disarms
         pm.active_run_id.store(1, Ordering::Release);
         pm.finalize_exit(1, Some(1), None, true).await;
         assert!(!crate::killswitch::is_kill_switch_armed());
 
-        // 2. Unexpected exit (crash): holds firewall & logs alert
+        // 2. Unexpected exit (crash): cleanly disarms without locking firewall
         pm.active_run_id.store(2, Ordering::Release);
         pm.finalize_exit(2, Some(-1), Some("unexpected crash".into()), false).await;
-        let logs = pm.snapshot_logs(10).await;
-        let alert_found = logs.iter().any(|l| l.line.contains("KILL SWITCH ENGAGED"));
-        assert!(alert_found, "expected alert log on unexpected drop");
+        assert!(!crate::killswitch::is_kill_switch_armed());
     }
 
     #[test]

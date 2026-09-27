@@ -193,38 +193,7 @@ export function SettingsScreen({
       <SectionCard>
         <SectionHeader title="Security & Privacy" />
         <div className="divide-y divide-white/5">
-          <SettingRow
-            label="Kill Switch"
-            hint={
-              (settings.kill_switch ?? "on_drop") === "off"
-                ? "Disabled: traffic allowed if tunnel disconnects."
-                : (settings.kill_switch ?? "on_drop") === "always_on"
-                  ? "Always On: blocks all internet traffic outside VPN."
-                  : "On Drop: blocks traffic if tunnel drops unexpectedly."
-            }
-            control={
-              <select
-                value={settings.kill_switch ?? "on_drop"}
-                onChange={(e) => update({ kill_switch: e.target.value as KillSwitchMode })}
-                className={cn(inputCls, "max-w-[130px]")}
-              >
-                <option value="off">Off</option>
-                <option value="on_drop">On Drop</option>
-                <option value="always_on">Always On</option>
-              </select>
-            }
-          />
-          <SettingRow
-            label="Block IPv6"
-            hint="Reject IPv6 traffic to prevent dual-stack leaks."
-            control={
-              <Switch
-                checked={settings.block_ipv6 ?? ipv6Blocked}
-                onChange={setIpv6Blocked}
-                label="Block IPv6"
-              />
-            }
-          />
+
           <div className="p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
