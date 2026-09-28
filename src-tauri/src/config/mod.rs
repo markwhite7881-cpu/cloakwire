@@ -176,7 +176,7 @@ impl Default for GeneratorSettings {
             tun_interface_name: None,
             mixed_port: Some(2080),
             local_dns: Some("1.1.1.1".to_string()),
-            remote_dns: Some("1.1.1.1".to_string()),
+            remote_dns: Some("https://dns.google/dns-query".to_string()),
             // `None` here means "let `auto` (urltest) decide". The
             // frontend switches to a real tag the moment the user
             // picks a server in the picker.
@@ -317,18 +317,9 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
                 "172.19.0.1/30"
             ],
             "auto_route": true,
-            "strict_route": false,
-            "route_address": [
-                "0.0.0.0/1",
-                "128.0.0.0/1"
-            ],
-            "route_exclude_address": [
-                "192.168.0.0/16",
-                "10.0.0.0/8",
-                "172.16.0.0/12"
-            ],
-            "stack": "gvisor",
-            "mtu": 1500,
+            "strict_route": true,
+            "stack": "system",
+            "mtu": 9000,
             "endpoint_independent_nat": false,
             "udp_timeout": "5m",
         });
@@ -399,13 +390,7 @@ fn build_route(settings: &GeneratorSettings) -> Value {
     let mut rules: Vec<Value> = Vec::new();
     // 0. DNS hijacking — capture DNS queries into sing-box's internal resolver.
     rules.push(json!({ "action": "hijack-dns", "port": [53] }));
-    // 1. Direct DNS queries outbound rule — allow local DNS resolution to bypass proxy.
-    rules.push(json!({
-        "action": "route",
-        "port": [53],
-        "outbound": "direct"
-    }));
-    // 2. Private IP / LAN bypass — always route local traffic directly.
+    // 1. Private IP / LAN bypass — always route local traffic directly.
     rules.push(json!({ "action": "route", "ip_is_private": true, "outbound": "direct" }));
     // 2. Optional sniff action.
     if r.sniff {
@@ -702,18 +687,10 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     let remote_input = settings
         .remote_dns
         .clone()
-        .unwrap_or_else(|| "1.1.1.1".to_string());
+        .unwrap_or_else(|| "https://dns.google/dns-query".to_string());
 
     let (local_type, local_server, _local_path) = classify_dns(&local_input);
-    let (mut remote_type, mut remote_server, mut remote_path) = classify_dns(&remote_input);
-
-    // If configuration has legacy slow DoH default (8.8.8.8 or dns.google),
-    // automatically migrate to fast TCP 1.1.1.1 over proxy to prevent 9s handshake timeouts.
-    if remote_type == "https" && (remote_server == "8.8.8.8" || remote_server == "dns.google") {
-        remote_type = "tcp".into();
-        remote_server = "1.1.1.1".into();
-        remote_path = None;
-    }
+    let (mut remote_type, remote_server, remote_path) = classify_dns(&remote_input);
 
     // When remote DNS is routed through the proxy detour ("detour: proxy"),
     // plain UDP DNS frequently times out or fails completely if the upstream
@@ -1261,11 +1238,12 @@ mod tests {
         assert_eq!(local["type"], "udp");
         assert_eq!(local["server"], "1.1.1.1");
         assert!(local.get("detour").is_none());
-        // Remote default is 1.1.1.1 — type=tcp over proxy detour.
+        // Remote default is https://dns.google/dns-query — type=https over proxy detour.
         let remote = &servers[1];
         assert_eq!(remote["tag"], "remote");
-        assert_eq!(remote["type"], "tcp");
-        assert_eq!(remote["server"], "1.1.1.1");
+        assert_eq!(remote["type"], "https");
+        assert_eq!(remote["server"], "dns.google");
+        assert_eq!(remote["domain_resolver"], "local");
         assert_eq!(remote["detour"], "proxy");
         assert_eq!(cfg["dns"]["final"], "remote");
     }
@@ -1717,18 +1695,13 @@ mod tests {
     }
 
     #[test]
-    fn tun_inbound_has_safe_mtu_and_gvisor_stack() {
+    fn tun_inbound_has_system_stack_and_high_mtu() {
         let inbounds = build_inbounds(&GeneratorSettings::default());
         let tun = inbounds.iter().find(|i| i["type"] == "tun").expect("tun inbound");
-        assert_eq!(tun["mtu"], 1500);
-        assert_eq!(tun["strict_route"], false);
-        assert_eq!(tun["stack"], "gvisor");
+        assert_eq!(tun["mtu"], 9000);
+        assert_eq!(tun["strict_route"], true);
+        assert_eq!(tun["stack"], "system");
         assert_eq!(tun["address"], json!(["172.19.0.1/30"]));
-        assert_eq!(tun["route_address"], json!(["0.0.0.0/1", "128.0.0.0/1"]));
-        assert_eq!(
-            tun["route_exclude_address"],
-            json!(["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"])
-        );
     }
 
     #[test]
@@ -1739,10 +1712,14 @@ mod tests {
     }
 
     #[test]
-    fn route_contains_direct_dns_rule() {
+    fn route_hijacks_dns_and_omits_direct_dns_bypass() {
         let route = build_route(&GeneratorSettings::default());
         let rules = route["rules"].as_array().expect("rules array");
         assert!(rules.iter().any(|r| {
+            r.get("action") == Some(&json!("hijack-dns"))
+                && r.get("port") == Some(&json!([53]))
+        }));
+        assert!(!rules.iter().any(|r| {
             r.get("action") == Some(&json!("route"))
                 && r.get("port") == Some(&json!([53]))
                 && r.get("outbound") == Some(&json!("direct"))

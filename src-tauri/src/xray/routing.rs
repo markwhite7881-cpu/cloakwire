@@ -190,7 +190,7 @@ pub fn merge_routing_with_tun(
         (None, None)
     };
 
-    if let (Some(dns_tag), Some(direct_tag)) = (&dns_outbound_tag, &direct_outbound_tag) {
+    if let (Some(dns_tag), Some(_direct_tag)) = (&dns_outbound_tag, &direct_outbound_tag) {
         let tun_inbound_tag = tun_tag.unwrap_or(crate::xray::inbound::MANAGED_TUN_TAG);
         translated.insert(
             0,
@@ -199,15 +199,6 @@ pub fn merge_routing_with_tun(
                 "inboundTag": [tun_inbound_tag],
                 "port": "53",
                 "outboundTag": dns_tag,
-            })),
-        );
-        translated.insert(
-            1,
-            TranslatedRule::Rule(serde_json::json!({
-                "type": "field",
-                "port": "53",
-                "network": "tcp,udp",
-                "outboundTag": direct_tag,
             })),
         );
     }
@@ -1086,7 +1077,7 @@ mod tests {
     }
 
     #[test]
-    fn tun_mode_has_direct_dns_upstream_rule() {
+    fn tun_mode_hijacks_dns_and_omits_direct_dns() {
         let provider = serde_json::json!({
             "inbounds": [],
             "outbounds": [
@@ -1104,8 +1095,9 @@ mod tests {
         assert_eq!(rules[0]["outboundTag"], "cloakwire-managed-dns");
         assert_eq!(rules[0]["inboundTag"][0], "cloakwire-managed-tun");
 
-        assert_eq!(rules[1]["port"], "53");
-        assert_eq!(rules[1]["outboundTag"], "direct");
-        assert!(rules[1].get("inboundTag").is_none());
+        assert!(!rules.iter().any(|r| {
+            r.get("port") == Some(&serde_json::json!("53"))
+                && r.get("outboundTag") == Some(&serde_json::json!("direct"))
+        }));
     }
 }

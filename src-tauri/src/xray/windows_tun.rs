@@ -301,8 +301,11 @@ pub async fn setup_xray_windows_tun(
             .unwrap_or_default();
 
         let mut bypass_ips = server_ips;
-        let dns_ips = extract_xray_dns_ips(&config);
-        bypass_ips.extend(dns_ips);
+        // Do NOT add upstream DNS IPs to physical bypass routes:
+        // In TUN mode, DNS queries from Windows (or Xray's DNS outbound) to 1.1.1.1 / 8.8.8.8
+        // must either route through the proxy tunnel or be captured by Xray's DNS outbound.
+        // Routing plain UDP/TCP port 53 directly to the physical default gateway causes martian packet
+        // drops (when source is TUN IP 172.19.0.2) or TSPU RST/drop on Russian ISPs.
         bypass_ips.sort();
         bypass_ips.dedup();
 

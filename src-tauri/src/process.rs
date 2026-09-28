@@ -458,6 +458,20 @@ impl ProcessManager {
                 }
             });
         }
+        #[cfg(all(windows, not(test)))]
+        if spec.engine == EngineKind::Singbox {
+            let config_path = spec.config_path.clone();
+            let manager = Arc::clone(self);
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                if !manager.is_active_singbox_run(run_id).await {
+                    return;
+                }
+                if let Err(e) = set_tun_dns_from_config(&manager, run_id, &config_path).await {
+                    log::warn!("could not set TUN adapter DNS: {e}");
+                }
+            });
+        }
         if spec.engine == EngineKind::Singbox {
             if let (Some(controller_url), Some(app)) = (spec.controller_url, app.cloned()) {
                 if self.is_active_singbox_run(run_id).await {
@@ -1293,22 +1307,27 @@ async fn set_tun_dns_from_config(
             return Err("stale TUN DNS setup".to_string());
         }
 
-        // `netsh interface ip set dns "<iface>" static <ip> primary`
+        // `netsh interface ip set dns "<iface>" static <ip> primary validate=no`
         // requires elevation. The whole app is already running as
         // admin (TUN needs it), so this should just work.
-        let output = std::process::Command::new("netsh")
-            .args([
-                "interface",
-                "ip",
-                "set",
-                "dns",
-                &interface,
-                "static",
-                &dns,
-                "primary",
-            ])
-            .output()
-            .map_err(|e| format!("spawn netsh: {e}"))?;
+        let mut cmd = std::process::Command::new("netsh");
+        cmd.args([
+            "interface",
+            "ip",
+            "set",
+            "dns",
+            &interface,
+            "static",
+            &dns,
+            "primary",
+            "validate=no",
+        ]);
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        let output = cmd.output().map_err(|e| format!("spawn netsh: {e}"))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
