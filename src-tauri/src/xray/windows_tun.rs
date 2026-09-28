@@ -67,6 +67,12 @@ fn extract_hosts_from_outbound(outbound: &Value, hosts: &mut Vec<String>) {
         Some(s) => s,
         None => return,
     };
+    if let Some(addr) = settings.get("address").and_then(Value::as_str) {
+        let trimmed = addr.trim();
+        if !trimmed.is_empty() {
+            hosts.push(trimmed.to_string());
+        }
+    }
     if let Some(vnext) = settings.get("vnext").and_then(Value::as_array) {
         for item in vnext {
             if let Some(addr) = item.get("address").and_then(Value::as_str) {
@@ -287,6 +293,24 @@ pub async fn setup_xray_windows_tun(
             }
         }
 
+        // If netsh text parsing didn't find the interface index, query via PowerShell
+        if wintun_if_index.is_none() {
+            let ps_cmd = "(Get-NetAdapter -Name 'wintun' -ErrorAction SilentlyContinue).InterfaceIndex";
+            if let Ok(out) = std::process::Command::new("powershell.exe")
+                .args(["-NoProfile", "-NonInteractive", "-Command", ps_cmd])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+            {
+                if out.status.success() {
+                    let text = String::from_utf8_lossy(&out.stdout);
+                    if let Ok(idx) = text.trim().parse::<u32>() {
+                        adapter_ready = true;
+                        wintun_if_index = Some(idx);
+                    }
+                }
+            }
+        }
+
         if !adapter_ready {
             return Err("wintun adapter was not created within timeout".to_string());
         }
@@ -305,7 +329,7 @@ pub async fn setup_xray_windows_tun(
         // In TUN mode, DNS queries from Windows (or Xray's DNS outbound) to 1.1.1.1 / 8.8.8.8
         // must either route through the proxy tunnel or be captured by Xray's DNS outbound.
         // Routing plain UDP/TCP port 53 directly to the physical default gateway causes martian packet
-        // drops (when source is TUN IP 172.19.0.2) or TSPU RST/drop on Russian ISPs.
+        // drops (when source is TUN IP 172.19.0.1) or TSPU RST/drop on Russian ISPs.
         bypass_ips.sort();
         bypass_ips.dedup();
 
@@ -351,7 +375,7 @@ pub async fn setup_xray_windows_tun(
             }
         }
 
-        // 2. Configure wintun IP address (without gateway to avoid default route collision)
+        // 2. Configure wintun IP address as 172.19.0.1/30 (matches split default route gateway for on-link routing)
         let set_addr = std::process::Command::new("netsh")
             .args([
                 "interface",
@@ -360,7 +384,7 @@ pub async fn setup_xray_windows_tun(
                 "address",
                 "name=wintun",
                 "source=static",
-                "addr=172.19.0.2",
+                "addr=172.19.0.1",
                 "mask=255.255.255.252",
                 "gateway=none",
                 "store=active",
@@ -460,29 +484,31 @@ pub fn teardown_xray_windows_tun(routes: &[RouteRecord]) {
     }
 }
 
-/// Unconditionally remove split default routes pointing to 172.19.0.1.
+/// Unconditionally remove split default routes pointing to 172.19.0.1 or 172.19.0.2.
 pub fn teardown_xray_windows_tun_unconditional() {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-        let _ = std::process::Command::new("route")
-            .args(["delete", "0.0.0.0", "mask", "128.0.0.0", "172.19.0.1"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-        let _ = std::process::Command::new("route")
-            .args(["delete", "128.0.0.0", "mask", "128.0.0.0", "172.19.0.1"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-        let _ = std::process::Command::new("route")
-            .args(["-p", "delete", "0.0.0.0", "172.19.0.1"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-        let _ = std::process::Command::new("route")
-            .args(["delete", "0.0.0.0", "172.19.0.1"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
+        for gw in ["172.19.0.1", "172.19.0.2"] {
+            let _ = std::process::Command::new("route")
+                .args(["delete", "0.0.0.0", "mask", "128.0.0.0", gw])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
+            let _ = std::process::Command::new("route")
+                .args(["delete", "128.0.0.0", "mask", "128.0.0.0", gw])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
+            let _ = std::process::Command::new("route")
+                .args(["-p", "delete", "0.0.0.0", gw])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
+            let _ = std::process::Command::new("route")
+                .args(["delete", "0.0.0.0", gw])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
+        }
     }
 }
 
