@@ -26,6 +26,7 @@ pub struct RouteRecord {
 pub struct DefaultGateway {
     pub gateway_ip: Ipv4Addr,
     pub if_index: Option<u32>,
+    pub if_name: Option<String>,
 }
 
 /// Check if an Xray config has a managed TUN inbound.
@@ -161,18 +162,41 @@ pub fn extract_xray_dns_ips(config: &Value) -> Vec<Ipv4Addr> {
     ips
 }
 
-/// Parse default gateway and interface index from PowerShell output: "192.168.1.254 9"
+/// Parse default gateway and interface index from PowerShell output: "192.168.1.254 9" or "192.168.1.254|8|Ethernet"
 pub fn parse_gateway_output(output: &str) -> Option<DefaultGateway> {
-    let mut tokens = output.split_whitespace();
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if trimmed.contains('|') {
+        let parts: Vec<&str> = trimmed.split('|').collect();
+        let gw_str = parts.first()?.trim();
+        let gw_ip = gw_str.parse::<Ipv4Addr>().ok()?;
+        if gw_ip.is_unspecified() || gw_ip.is_loopback() || gw_str.starts_with("172.19.") {
+            return None;
+        }
+        let if_index = parts.get(1).and_then(|s| s.trim().parse::<u32>().ok());
+        let if_name = parts.get(2).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+        return Some(DefaultGateway {
+            gateway_ip: gw_ip,
+            if_index,
+            if_name,
+        });
+    }
+
+    let mut tokens = trimmed.split_whitespace();
     let gw_str = tokens.next()?;
     let gw_ip = gw_str.parse::<Ipv4Addr>().ok()?;
     if gw_ip.is_unspecified() || gw_ip.is_loopback() || gw_str.starts_with("172.19.") {
         return None;
     }
     let if_index = tokens.next().and_then(|s| s.parse::<u32>().ok());
+    let if_name = tokens.next().map(|s| s.to_string());
     Some(DefaultGateway {
         gateway_ip: gw_ip,
         if_index,
+        if_name,
     })
 }
 
@@ -211,18 +235,20 @@ pub fn parse_route_print_fallback(output: &str) -> Option<DefaultGateway> {
     best.map(|(gateway_ip, _)| DefaultGateway {
         gateway_ip,
         if_index: None,
+        if_name: None,
     })
 }
 
-/// Discover the physical default gateway and interface index.
+/// Discover the physical default gateway and interface index/alias.
 pub fn find_physical_default_gateway() -> Option<DefaultGateway> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-        // Try PowerShell Get-NetRoute first
-        let ps_cmd = "$r = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Where-Object { $_.NextHop -ne '0.0.0.0' -and $_.NextHop -notlike '172.19.*' -and $_.InterfaceAlias -notmatch '(?i)(tun|tap|wintun|singbox)' } | Sort-Object RouteMetric | Select-Object -First 1); if ($r) { Write-Output ($r.NextHop + ' ' + $r.InterfaceIndex) }";
+        // Try PowerShell Get-NetRoute first (pipe-delimited to preserve alias names with spaces)
+        let ps_cmd = "$r = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Where-Object { $_.NextHop -ne '0.0.0.0' -and $_.NextHop -notlike '172.19.*' -and $_.InterfaceAlias -notmatch '(?i)(tun|tap|wintun|singbox)' } | Sort-Object RouteMetric | Select-Object -First 1); if ($r) { Write-Output ($r.NextHop + '|' + $r.InterfaceIndex + '|' + $r.InterfaceAlias) }";
+        let mut found_gw = None;
         if let Ok(output) = std::process::Command::new("powershell.exe")
             .args(["-NoProfile", "-NonInteractive", "-Command", ps_cmd])
             .creation_flags(CREATE_NO_WINDOW)
@@ -231,23 +257,46 @@ pub fn find_physical_default_gateway() -> Option<DefaultGateway> {
             if output.status.success() {
                 let text = String::from_utf8_lossy(&output.stdout);
                 if let Some(gw) = parse_gateway_output(&text) {
-                    return Some(gw);
+                    found_gw = Some(gw);
                 }
             }
         }
 
         // Fallback: route print 0.0.0.0
-        if let Ok(output) = std::process::Command::new("route")
-            .args(["print", "0.0.0.0"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-        {
-            if output.status.success() {
-                let text = String::from_utf8_lossy(&output.stdout);
-                if let Some(gw) = parse_route_print_fallback(&text) {
-                    return Some(gw);
+        if found_gw.is_none() {
+            if let Ok(output) = std::process::Command::new("route")
+                .args(["print", "0.0.0.0"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+            {
+                if output.status.success() {
+                    let text = String::from_utf8_lossy(&output.stdout);
+                    if let Some(gw) = parse_route_print_fallback(&text) {
+                        found_gw = Some(gw);
+                    }
                 }
             }
+        }
+
+        if let Some(mut gw) = found_gw {
+            if gw.if_name.is_none() {
+                if let Some(idx) = gw.if_index {
+                    let ps_name = format!("(Get-NetIPInterface -InterfaceIndex {idx} -ErrorAction SilentlyContinue | Select-Object -First 1).InterfaceAlias");
+                    if let Ok(out) = std::process::Command::new("powershell.exe")
+                        .args(["-NoProfile", "-NonInteractive", "-Command", &ps_name])
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .output()
+                    {
+                        if out.status.success() {
+                            let alias = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                            if !alias.is_empty() {
+                                gw.if_name = Some(alias);
+                            }
+                        }
+                    }
+                }
+            }
+            return Some(gw);
         }
     }
     None
@@ -330,6 +379,7 @@ pub async fn setup_xray_windows_tun(
         // must either route through the proxy tunnel or be captured by Xray's DNS outbound.
         // Routing plain UDP/TCP port 53 directly to the physical default gateway causes martian packet
         // drops (when source is TUN IP 172.19.0.1) or TSPU RST/drop on Russian ISPs.
+        bypass_ips.retain(|ip| *ip != default_gw.gateway_ip);
         bypass_ips.sort();
         bypass_ips.dedup();
 
@@ -627,6 +677,17 @@ mod tests {
         let gw = parse_gateway_output("192.168.1.254 9\r\n").unwrap();
         assert_eq!(gw.gateway_ip, "192.168.1.254".parse::<Ipv4Addr>().unwrap());
         assert_eq!(gw.if_index, Some(9));
+        assert_eq!(gw.if_name, None);
+
+        let gw_pipe = parse_gateway_output("192.168.1.254|8|Ethernet\r\n").unwrap();
+        assert_eq!(gw_pipe.gateway_ip, "192.168.1.254".parse::<Ipv4Addr>().unwrap());
+        assert_eq!(gw_pipe.if_index, Some(8));
+        assert_eq!(gw_pipe.if_name.as_deref(), Some("Ethernet"));
+
+        let gw_space_alias = parse_gateway_output("192.168.1.254 12 Wi-Fi\r\n").unwrap();
+        assert_eq!(gw_space_alias.gateway_ip, "192.168.1.254".parse::<Ipv4Addr>().unwrap());
+        assert_eq!(gw_space_alias.if_index, Some(12));
+        assert_eq!(gw_space_alias.if_name.as_deref(), Some("Wi-Fi"));
 
         // Ignores 172.19.* and 0.0.0.0
         assert!(parse_gateway_output("172.19.0.1 46\n").is_none());

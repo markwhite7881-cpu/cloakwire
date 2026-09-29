@@ -284,7 +284,7 @@ pub fn merge_routing_with_tun(
             .or_else(|| outbound_tags.first().cloned())
             .unwrap_or_else(|| "proxy".to_string());
 
-        let catch_all_rule = if let Some(balancer) = target_balancer {
+        let catch_all_rule = if let Some(ref balancer) = target_balancer {
             serde_json::json!({
                 "type": "field",
                 "inboundTag": [tun_inbound_tag],
@@ -299,6 +299,30 @@ pub fn merge_routing_with_tun(
                 "outboundTag": target_outbound
             })
         };
+        // Explicitly route upstream DNS traffic to proxy / balancer so internal Xray DNS queries
+        // never fall through to unintended outbounds or direct TSPU-blocked connections
+        let dns_ips = crate::xray::windows_tun::extract_xray_dns_ips(&Value::Object(root.clone()));
+        let dns_ip_cidrs: Vec<String> = dns_ips.into_iter().map(|ip| format!("{ip}/32")).collect();
+        if !dns_ip_cidrs.is_empty() {
+            let dns_upstream_rule = if let Some(balancer) = &target_balancer {
+                serde_json::json!({
+                    "type": "field",
+                    "ip": dns_ip_cidrs,
+                    "port": "53",
+                    "balancerTag": balancer
+                })
+            } else {
+                serde_json::json!({
+                    "type": "field",
+                    "ip": dns_ip_cidrs,
+                    "port": "53",
+                    "outboundTag": target_outbound
+                })
+            };
+            let insert_idx = 2.min(final_rules.len());
+            final_rules.insert(insert_idx, dns_upstream_rule);
+        }
+
         final_rules.push(catch_all_rule);
     }
 
@@ -327,9 +351,8 @@ fn ensure_tun_dns(root: &mut Map<String, Value>) -> AppResult<()> {
         AppError::UnsafeConfig("Xray dns section must be an object".into())
     })?;
 
-    if !dns_obj.contains_key("queryStrategy") {
-        dns_obj.insert("queryStrategy".into(), Value::String("UseIPv4".into()));
-    }
+    // In TUN mode on Windows, force UseIPv4 so queries for AAAA records don't hang on IPv4-only Wintun
+    dns_obj.insert("queryStrategy".into(), Value::String("UseIPv4".into()));
 
     let servers_val = dns_obj.entry("servers").or_insert_with(|| Value::Array(Vec::new()));
     let servers = servers_val.as_array_mut().ok_or_else(|| {
