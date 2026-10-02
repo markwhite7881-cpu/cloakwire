@@ -77,6 +77,7 @@ mod tests {
     fn test_build_aux_tun_config_structure() {
         let config = build_aux_tun_config(20808);
         assert_eq!(config["log"]["level"], "info");
+        assert_eq!(config["dns"]["servers"][0]["detour"], "socks-out");
 
         let inbounds = config["inbounds"].as_array().expect("inbounds array");
         assert_eq!(inbounds.len(), 1);
@@ -86,6 +87,7 @@ mod tests {
         assert_eq!(inbounds[0]["auto_route"], true);
         assert_eq!(inbounds[0]["strict_route"], true);
         assert_eq!(inbounds[0]["stack"], "gvisor");
+        assert_eq!(config["inbounds"][0]["sniff"], true);
 
         let outbounds = config["outbounds"].as_array().expect("outbounds array");
         assert_eq!(outbounds.len(), 2);
@@ -98,6 +100,7 @@ mod tests {
 
         let route = &config["route"];
         assert_eq!(route["auto_detect_interface"], true);
+        assert_eq!(config["route"]["rules"][0]["port"], 53);
         assert_eq!(route["final"], "socks-out");
     }
 }

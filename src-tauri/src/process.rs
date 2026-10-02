@@ -117,6 +117,8 @@ pub struct ProcessManager {
     started_at: Mutex<Option<std::time::Instant>>,
     /// Config path the running process was started with.
     current_config: Mutex<Option<PathBuf>>,
+    /// Auxiliary config path (e.g. sing-box TUN forwarder config when running Xray).
+    aux_config: Mutex<Option<PathBuf>>,
     /// URL of the Clash API (if any). Set when start() is called.
     controller_url: Mutex<Option<String>>,
     /// Monotonically increasing ID for each launch attempt.
@@ -155,6 +157,7 @@ impl Default for ProcessManager {
             status: Mutex::new(StatusReport::default()),
             started_at: Mutex::new(None),
             current_config: Mutex::new(None),
+            aux_config: Mutex::new(None),
             controller_url: Mutex::new(None),
             next_run_id: AtomicU64::new(0),
             active_run_id: Arc::new(AtomicU64::new(0)),
@@ -270,7 +273,18 @@ impl ProcessManager {
             #[cfg(not(test))]
             drop(reader);
         }
-        *self.aux_child.lock().await = Some(ChildSlot { run_id, child });
+        let mut aux_slot = self.aux_child.lock().await;
+        if !self.is_active_run(run_id).await {
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+            return Ok(());
+        }
+        if let Some(c_idx) = args.iter().position(|a| a == "-c") {
+            if let Some(cfg_path) = args.get(c_idx + 1) {
+                *self.aux_config.lock().await = Some(PathBuf::from(cfg_path));
+            }
+        }
+        *aux_slot = Some(ChildSlot { run_id, child });
         Ok(())
     }
 
@@ -558,6 +572,7 @@ impl ProcessManager {
             let _ = child.start_kill();
             let _ = child.wait().await;
         }
+        *self.aux_config.lock().await = None;
 
         // Try graceful first. The child is owned locally for the rest of this
         // async operation, so no child mutex guard can cross an await.
@@ -602,6 +617,18 @@ impl ProcessManager {
         let engine = self.status.lock().await.engine;
         let path = self.current_config.lock().await.clone();
         path.and_then(|path| public_config_path(engine.unwrap_or(EngineKind::Singbox), path))
+    }
+
+    pub fn active_config_path(&self) -> Option<PathBuf> {
+        self.current_config.try_lock().ok().and_then(|c| c.clone())
+    }
+
+    pub fn active_aux_config_path(&self) -> Option<PathBuf> {
+        self.aux_config.try_lock().ok().and_then(|c| c.clone())
+    }
+
+    pub async fn set_aux_config(&self, path: Option<PathBuf>) {
+        *self.aux_config.lock().await = path;
     }
 
     pub async fn controller_url(&self) -> Option<String> {
@@ -791,6 +818,7 @@ impl ProcessManager {
         self.xray_test_state.lock().await.events.push("state_clear");
         *self.started_at.lock().await = None;
         *self.current_config.lock().await = None;
+        *self.aux_config.lock().await = None;
         self.controller_url.lock().await.take();
         self.traffic.stop().await;
         self.push_log(LogStream::System, "process manager state reset")
@@ -843,6 +871,7 @@ impl ProcessManager {
         }
         *self.started_at.lock().await = None;
         *self.current_config.lock().await = None;
+        *self.aux_config.lock().await = None;
         *self.controller_url.lock().await = None;
 
         let (line, _engine_label) = {
@@ -1870,6 +1899,30 @@ mod tests {
         assert!(pm.aux_child.lock().await.is_some());
 
         pm.reset().await;
+        assert!(pm.aux_child.lock().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_start_aux_child_aborts_if_run_inactive() {
+        let pm = Arc::new(ProcessManager::new());
+        #[cfg(windows)]
+        let (bin, args) = (
+            PathBuf::from("powershell.exe"),
+            vec![
+                OsString::from("-NoProfile"),
+                OsString::from("-NonInteractive"),
+                OsString::from("-Command"),
+                OsString::from("Start-Sleep -Seconds 60"),
+            ],
+        );
+        #[cfg(not(windows))]
+        let (bin, args) = (
+            PathBuf::from("/bin/sh"),
+            vec![OsString::from("-c"), OsString::from("sleep 60")],
+        );
+
+        let res = pm.start_aux_child(999, bin, args, Vec::new()).await;
+        assert!(res.is_ok());
         assert!(pm.aux_child.lock().await.is_none());
     }
 }

@@ -272,6 +272,21 @@ async fn start_ready_profile_inner(
         pm.reset().await;
         return Err(error);
     }
+    #[cfg(not(target_os = "android"))]
+    let aux_launch = if prepared_tun_active
+        && matches!(tunnel_mode, config::TunnelMode::Tun | config::TunnelMode::Both)
+    {
+        let aux_config = crate::xray::aux_tun::build_aux_tun_config(prepared_socks_port);
+        let aux_path = write_aux_runtime_config(&app, &aux_config)?;
+        let singbox_bin = singbox::locate_binary(&app)?;
+        let _ = crate::engine::xray::ensure_wintun_driver(&app, &singbox_bin);
+        Some((singbox_bin, aux_path))
+    } else {
+        None
+    };
+    #[cfg(target_os = "android")]
+    let aux_launch: Option<(PathBuf, PathBuf)> = None;
+
     if pm.is_running().await {
         if let Err(error) = pm.stop().await {
             let _ = crate::process::clear_system_proxy();
@@ -305,12 +320,9 @@ async fn start_ready_profile_inner(
     };
 
     #[cfg(not(target_os = "android"))]
-    if prepared_tun_active && tunnel_mode == config::TunnelMode::Tun {
+    if let Some((singbox_bin, aux_path)) = aux_launch {
         let run_id = pm.active_run_id();
-        let aux_config = crate::xray::aux_tun::build_aux_tun_config(prepared_socks_port);
-        let aux_path = write_runtime_config(&app, &aux_config)?;
-        let singbox_bin = singbox::locate_binary(&app)?;
-        let _ = crate::engine::xray::ensure_wintun_driver(&app, &singbox_bin);
+        pm.set_aux_config(Some(aux_path.clone())).await;
         if let Err(error) = pm
             .inner()
             .start_aux_child(
@@ -441,14 +453,26 @@ fn write_secure_runtime_file(path: &Path, data: &[u8]) -> std::io::Result<()> {
 
 pub fn cleanup_runtime_configs(app: &AppHandle, keep: Option<&Path>) {
     let dir = runtime_config_dir(app);
+    let mut in_use = Vec::new();
+    if let Some(keep_path) = keep {
+        in_use.push(keep_path.to_path_buf());
+    }
+    #[cfg(not(target_os = "android"))]
+    if let Some(pm) = app.try_state::<Arc<ProcessManager>>() {
+        if let Some(active_cfg) = pm.active_config_path() {
+            in_use.push(active_cfg);
+        }
+        if let Some(aux_cfg) = pm.active_aux_config_path() {
+            in_use.push(aux_cfg);
+        }
+    }
+
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
-                if let Some(keep_path) = keep {
-                    if path == keep_path {
-                        continue;
-                    }
+                if in_use.iter().any(|keep_path| keep_path == &path) {
+                    continue;
                 }
                 let _ = std::fs::remove_file(path);
             }
@@ -463,6 +487,15 @@ fn write_runtime_config(app: &AppHandle, value: &serde_json::Value) -> AppResult
     let body = serde_json::to_vec_pretty(value).map_err(AppError::Serde)?;
     write_secure_runtime_file(&path, &body).map_err(AppError::Io)?;
     cleanup_runtime_configs(app, Some(&path));
+    Ok(path)
+}
+
+pub fn write_aux_runtime_config(app: &AppHandle, value: &serde_json::Value) -> AppResult<PathBuf> {
+    let dir = runtime_config_dir(app);
+    create_secure_runtime_dir(&dir).map_err(AppError::Io)?;
+    let path = dir.join(format!("aux-{}.json", Uuid::new_v4()));
+    let body = serde_json::to_vec_pretty(value).map_err(AppError::Serde)?;
+    write_secure_runtime_file(&path, &body).map_err(AppError::Io)?;
     Ok(path)
 }
 
