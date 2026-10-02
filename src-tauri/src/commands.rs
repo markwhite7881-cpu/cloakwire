@@ -342,7 +342,7 @@ async fn start_ready_profile_inner(
         }
     }
     #[cfg(target_os = "android")]
-    let _ = (prepared_tun_active, prepared_socks_port);
+    let _ = (prepared_tun_active, prepared_socks_port, aux_launch);
 
     if let Some((host, http_port, socks_port)) = proxy {
         if let Err(error) = crate::process::apply_system_proxy_with_socks(&host, http_port, socks_port) {
