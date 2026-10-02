@@ -1804,3 +1804,72 @@ mod engine_runtime_tests {
         assert_eq!(status.profile_name, None);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_process_manager_aux_child_slot_lifecycle() {
+        let pm = ProcessManager::new();
+        assert!(pm.aux_child.lock().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_process_manager_aux_child_termination_on_stop() {
+        let pm = Arc::new(ProcessManager::new());
+        pm.install_test_child(EngineKind::Xray).await;
+        let run_id = pm.active_run_id();
+
+        #[cfg(windows)]
+        let (bin, args) = (
+            PathBuf::from("powershell.exe"),
+            vec![
+                OsString::from("-NoProfile"),
+                OsString::from("-NonInteractive"),
+                OsString::from("-Command"),
+                OsString::from("Start-Sleep -Seconds 60"),
+            ],
+        );
+        #[cfg(not(windows))]
+        let (bin, args) = (
+            PathBuf::from("/bin/sh"),
+            vec![OsString::from("-c"), OsString::from("sleep 60")],
+        );
+
+        pm.start_aux_child(run_id, bin, args, Vec::new()).await.unwrap();
+        assert!(pm.aux_child.lock().await.is_some());
+
+        pm.stop().await.unwrap();
+        assert!(pm.aux_child.lock().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_process_manager_aux_child_termination_on_reset() {
+        let pm = Arc::new(ProcessManager::new());
+        pm.install_test_child(EngineKind::Xray).await;
+        let run_id = pm.active_run_id();
+
+        #[cfg(windows)]
+        let (bin, args) = (
+            PathBuf::from("powershell.exe"),
+            vec![
+                OsString::from("-NoProfile"),
+                OsString::from("-NonInteractive"),
+                OsString::from("-Command"),
+                OsString::from("Start-Sleep -Seconds 60"),
+            ],
+        );
+        #[cfg(not(windows))]
+        let (bin, args) = (
+            PathBuf::from("/bin/sh"),
+            vec![OsString::from("-c"), OsString::from("sleep 60")],
+        );
+
+        pm.start_aux_child(run_id, bin, args, Vec::new()).await.unwrap();
+        assert!(pm.aux_child.lock().await.is_some());
+
+        pm.reset().await;
+        assert!(pm.aux_child.lock().await.is_none());
+    }
+}

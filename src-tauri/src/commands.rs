@@ -228,7 +228,7 @@ async fn start_ready_profile_inner(
         .await?;
 
     let tunnel_mode = input.tunnel_mode.unwrap_or(config::TunnelMode::Tun);
-    let (value, proxy, binary, env, routing, xray_stats) = match profile.engine {
+    let (value, proxy, binary, env, routing, xray_stats, prepared_tun_active, prepared_socks_port) = match profile.engine {
         EngineKind::Xray => {
             let prepared = crate::xray::prepare_xray_runtime_config(
                 profile.config,
@@ -236,6 +236,8 @@ async fn start_ready_profile_inner(
                 tunnel_mode,
                 allocate_loopback_port,
             )?;
+            let prepared_tun_active = prepared.tun_active;
+            let prepared_socks_port = prepared.socks_port;
             let binary = xray::locate_binary(&app)?;
             let _ = crate::engine::xray::ensure_wintun_driver(&app, &binary);
             let geodata = xray::geodata::ensure(&app).await?;
@@ -255,6 +257,8 @@ async fn start_ready_profile_inner(
                 vec![geodata.env_pair()],
                 prepared.applicability,
                 Some(prepared.stats),
+                prepared_tun_active,
+                prepared_socks_port,
             )
         }
         EngineKind::Singbox => {
@@ -299,6 +303,35 @@ async fn start_ready_profile_inner(
             return Err(error);
         }
     };
+
+    #[cfg(not(target_os = "android"))]
+    if prepared_tun_active && tunnel_mode == config::TunnelMode::Tun {
+        let run_id = pm.active_run_id();
+        let aux_config = crate::xray::aux_tun::build_aux_tun_config(prepared_socks_port);
+        let aux_path = write_runtime_config(&app, &aux_config)?;
+        let singbox_bin = singbox::locate_binary(&app)?;
+        let _ = crate::engine::xray::ensure_wintun_driver(&app, &singbox_bin);
+        if let Err(error) = pm
+            .inner()
+            .start_aux_child(
+                run_id,
+                singbox_bin,
+                vec![
+                    std::ffi::OsString::from("run"),
+                    std::ffi::OsString::from("-c"),
+                    aux_path.into_os_string(),
+                ],
+                Vec::new(),
+            )
+            .await
+        {
+            let _ = pm.stop().await;
+            return Err(error);
+        }
+    }
+    #[cfg(target_os = "android")]
+    let _ = (prepared_tun_active, prepared_socks_port);
+
     if let Some((host, http_port, socks_port)) = proxy {
         if let Err(error) = crate::process::apply_system_proxy_with_socks(&host, http_port, socks_port) {
             let _ = pm.stop().await;
@@ -1560,4 +1593,29 @@ pub async fn check_leak_status() -> AppResult<LeakStatusReport> {
         ipv6_detected,
         dns_server,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn aux_tun_config_matches_prepared_socks_port() {
+        let socks_port = 20808;
+        let aux_config = crate::xray::aux_tun::build_aux_tun_config(socks_port);
+        let outbounds = aux_config["outbounds"].as_array().expect("outbounds array");
+        let socks_outbound = outbounds
+            .iter()
+            .find(|o| o["tag"] == "socks-out")
+            .expect("socks-out tag");
+        assert_eq!(socks_outbound["server_port"], socks_port);
+    }
+
+    #[test]
+    fn aux_tun_config_contains_wintun_and_gvisor_stack() {
+        let aux_config = crate::xray::aux_tun::build_aux_tun_config(1080);
+        let inbounds = aux_config["inbounds"].as_array().expect("inbounds array");
+        let tun = &inbounds[0];
+        assert_eq!(tun["type"], "tun");
+        assert_eq!(tun["interface_name"], "singbox-tun");
+        assert_eq!(tun["stack"], "gvisor");
+    }
 }
