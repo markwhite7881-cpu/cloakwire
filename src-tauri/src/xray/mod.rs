@@ -269,7 +269,7 @@ fn ensure_tls_server_name(outbound: &mut serde_json::Map<String, Value>, origina
 mod tests {
     use serde_json::json;
 
-    use super::prepare_xray_runtime_config;
+    use super::{inbound, prepare_xray_runtime_config};
     use crate::config::RoutingOptions;
 
     #[cfg(target_os = "windows")]
@@ -313,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn preparation_configures_tun_when_tun_mode_selected() {
+    fn tun_mode_injects_managed_tun_and_dns_routing() {
         let provider = json!({
             "inbounds": [],
             "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {}}],
@@ -331,7 +331,16 @@ mod tests {
         .unwrap();
 
         assert!(prepared.tun_active);
-        assert!(prepared.value["inbounds"].as_array().unwrap().iter().any(|i| i["protocol"] == "tun"));
+        assert!(!prepared.value["inbounds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|i| i["protocol"] == "tun"));
+        assert!(prepared.value["inbounds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|i| i["protocol"] == "socks" && i["tag"] == inbound::MANAGED_SOCKS_TAG));
 
         // DNS outbound injected
         let dns_outbound = prepared.value["outbounds"]
@@ -344,7 +353,7 @@ mod tests {
 
         // DNS port 53 rule prepended at index 0
         let first_rule = &prepared.value["routing"]["rules"][0];
-        assert_eq!(first_rule["inboundTag"][0], "cloakwire-managed-tun");
+        assert_eq!(first_rule["inboundTag"][0], inbound::MANAGED_SOCKS_TAG);
         assert_eq!(first_rule["port"], "53");
         assert_eq!(first_rule["outboundTag"], "cloakwire-managed-dns");
 
@@ -354,6 +363,11 @@ mod tests {
             json!(["tcp://1.1.1.1", "tcp://8.8.8.8"])
         );
         assert_eq!(prepared.value["dns"]["queryStrategy"], "UseIPv4");
+    }
+
+    #[test]
+    fn preparation_configures_tun_when_tun_mode_selected() {
+        tun_mode_injects_managed_tun_and_dns_routing();
     }
 
     #[test]

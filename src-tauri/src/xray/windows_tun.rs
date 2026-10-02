@@ -29,7 +29,10 @@ pub struct DefaultGateway {
     pub if_name: Option<String>,
 }
 
-/// Check if an Xray config has a managed TUN inbound.
+/// Check if an Xray config has a native TUN inbound.
+///
+/// In desktop TUN mode, Cloakwire uses an auxiliary Sing-box forwarder instead of native
+/// Xray TUN inbounds, so this returns false and `setup_xray_windows_tun` safely no-ops.
 pub fn has_tun_inbound(config: &Value) -> bool {
     config
         .get("inbounds")
