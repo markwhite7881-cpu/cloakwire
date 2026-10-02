@@ -1,5 +1,6 @@
 //! Runtime-safe preparation of raw Xray provider configurations.
 
+pub mod aux_tun;
 pub mod inbound;
 pub mod presentation;
 pub mod routing;
