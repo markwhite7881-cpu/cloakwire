@@ -285,6 +285,24 @@ impl ProcessManager {
             }
         }
         *aux_slot = Some(ChildSlot { run_id, child });
+        #[cfg(all(windows, not(test)))]
+        {
+            let manager = Arc::clone(self);
+            if let Some(c_idx) = args.iter().position(|a| a == "-c") {
+                if let Some(cfg_path) = args.get(c_idx + 1) {
+                    let cfg_path = PathBuf::from(cfg_path);
+                    tokio::spawn(async move {
+                        tokio::time::sleep(Duration::from_millis(500)).await;
+                        if !manager.is_active_run(run_id).await {
+                            return;
+                        }
+                        if let Err(e) = set_tun_dns_from_config(&manager, run_id, &cfg_path).await {
+                            log::warn!("could not set aux TUN adapter DNS: {e}");
+                        }
+                    });
+                }
+            }
+        }
         Ok(())
     }
 
@@ -1332,7 +1350,7 @@ async fn set_tun_dns_from_config(
 
         // The config read above may have awaited long enough for this run to
         // be replaced. Validate ownership immediately before mutating DNS.
-        if !manager.is_active_singbox_run(run_id).await {
+        if !manager.is_active_run(run_id).await {
             return Err("stale TUN DNS setup".to_string());
         }
 

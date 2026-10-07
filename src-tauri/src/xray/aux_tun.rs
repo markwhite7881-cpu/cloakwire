@@ -55,7 +55,19 @@ pub fn build_aux_tun_config(socks_port: u16) -> Value {
         "route": {
             "auto_detect_interface": true,
             "default_domain_resolver": "dns-direct",
+            "find_process": true,
             "rules": [
+                {
+                    "action": "route",
+                    "process_name": [
+                        "xray-x86_64-pc-windows-msvc.exe",
+                        "xray.exe",
+                        "xray-aarch64-apple-darwin",
+                        "xray-x86_64-apple-darwin",
+                        "xray"
+                    ],
+                    "outbound": "direct"
+                },
                 {
                     "action": "hijack-dns",
                     "port": [53]
@@ -112,12 +124,16 @@ mod tests {
         let route = &config["route"];
         assert_eq!(route["auto_detect_interface"], true);
         assert_eq!(route["default_domain_resolver"], "dns-direct");
-        assert_eq!(route["rules"][0]["action"], "hijack-dns");
-        assert_eq!(route["rules"][0]["port"][0], 53);
-        assert_eq!(route["rules"][1]["action"], "route");
-        assert_eq!(route["rules"][1]["ip_is_private"], true);
-        assert_eq!(route["rules"][1]["outbound"], "direct");
-        assert_eq!(route["rules"][2]["action"], "sniff");
+        assert_eq!(route["find_process"], true);
+        assert_eq!(route["rules"][0]["action"], "route");
+        assert_eq!(route["rules"][0]["outbound"], "direct");
+        assert_eq!(route["rules"][0]["process_name"][0], "xray-x86_64-pc-windows-msvc.exe");
+        assert_eq!(route["rules"][1]["action"], "hijack-dns");
+        assert_eq!(route["rules"][1]["port"][0], 53);
+        assert_eq!(route["rules"][2]["action"], "route");
+        assert_eq!(route["rules"][2]["ip_is_private"], true);
+        assert_eq!(route["rules"][2]["outbound"], "direct");
+        assert_eq!(route["rules"][3]["action"], "sniff");
         assert_eq!(route["final"], "socks-out");
     }
 
