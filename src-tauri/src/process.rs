@@ -144,8 +144,6 @@ pub struct ProcessManager {
     stdio_readers: Mutex<Vec<JoinHandle<()>>>,
     /// Configured Kill Switch behavior.
     kill_switch_mode: Mutex<crate::config::KillSwitchMode>,
-    /// Managed Windows routes for active Xray TUN run.
-    xray_tun_routes: Mutex<Option<(u64, Vec<crate::xray::windows_tun::RouteRecord>)>>,
 }
 
 impl Default for ProcessManager {
@@ -170,7 +168,6 @@ impl Default for ProcessManager {
             #[cfg(test)]
             stdio_readers: Mutex::new(Vec::new()),
             kill_switch_mode: Mutex::new(crate::config::KillSwitchMode::Off),
-            xray_tun_routes: Mutex::new(None),
         }
     }
 }
@@ -285,24 +282,6 @@ impl ProcessManager {
             }
         }
         *aux_slot = Some(ChildSlot { run_id, child });
-        #[cfg(all(windows, not(test)))]
-        {
-            let manager = Arc::clone(self);
-            if let Some(c_idx) = args.iter().position(|a| a == "-c") {
-                if let Some(cfg_path) = args.get(c_idx + 1) {
-                    let cfg_path = PathBuf::from(cfg_path);
-                    tokio::spawn(async move {
-                        tokio::time::sleep(Duration::from_millis(500)).await;
-                        if !manager.is_active_run(run_id).await {
-                            return;
-                        }
-                        if let Err(e) = set_tun_dns_from_config(&manager, run_id, &cfg_path).await {
-                            log::warn!("could not set aux TUN adapter DNS: {e}");
-                        }
-                    });
-                }
-            }
-        }
         Ok(())
     }
 
@@ -471,26 +450,6 @@ impl ProcessManager {
             }
         }
         #[cfg(all(windows, not(test)))]
-        if spec.engine == EngineKind::Xray {
-            let config_path = spec.config_path.clone();
-            let pm_arc = Arc::clone(self);
-            tokio::spawn(async move {
-                match crate::xray::windows_tun::setup_xray_windows_tun(&config_path).await {
-                    Ok(routes) if !routes.is_empty() => {
-                        if pm_arc.is_active_run(run_id).await {
-                            *pm_arc.xray_tun_routes.lock().await = Some((run_id, routes));
-                        } else {
-                            crate::xray::windows_tun::teardown_xray_windows_tun(&routes);
-                        }
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::warn!("failed to setup xray windows tun routing: {e}");
-                    }
-                }
-            });
-        }
-        #[cfg(all(windows, not(test)))]
         if spec.engine == EngineKind::Singbox {
             let config_path = spec.config_path.clone();
             let manager = Arc::clone(self);
@@ -572,11 +531,6 @@ impl ProcessManager {
 
         if engine == Some(EngineKind::Xray) {
             self.stop_xray_telemetry().await;
-            if let Some((_, routes)) = self.xray_tun_routes.lock().await.take() {
-                crate::xray::windows_tun::teardown_xray_windows_tun(&routes);
-            } else {
-                crate::xray::windows_tun::teardown_xray_windows_tun_unconditional();
-            }
         }
 
         // The traffic stream belongs exclusively to sing-box's Clash controller.
@@ -821,11 +775,6 @@ impl ProcessManager {
             let _ = crate::killswitch::disarm_kill_switch();
         }
         self.stop_xray_telemetry().await;
-        if let Some((_, routes)) = self.xray_tun_routes.lock().await.take() {
-            crate::xray::windows_tun::teardown_xray_windows_tun(&routes);
-        } else {
-            crate::xray::windows_tun::teardown_xray_windows_tun_unconditional();
-        }
         self.active_run_id.store(0, Ordering::Release);
         if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
             let _ = child.start_kill();
@@ -878,11 +827,6 @@ impl ProcessManager {
         // Unexpected exits bypass `stop`; cancel the old run before another
         // launch can start a sing-box traffic task.
         self.stop_xray_telemetry().await;
-        if let Some((_, routes)) = self.xray_tun_routes.lock().await.take() {
-            crate::xray::windows_tun::teardown_xray_windows_tun(&routes);
-        } else {
-            crate::xray::windows_tun::teardown_xray_windows_tun_unconditional();
-        }
         self.traffic.stop().await;
         if self.active_run_id.load(Ordering::Acquire) != run_id {
             return;
@@ -1350,7 +1294,7 @@ async fn set_tun_dns_from_config(
 
         // The config read above may have awaited long enough for this run to
         // be replaced. Validate ownership immediately before mutating DNS.
-        if !manager.is_active_run(run_id).await {
+        if !manager.is_active_singbox_run(run_id).await {
             return Err("stale TUN DNS setup".to_string());
         }
 

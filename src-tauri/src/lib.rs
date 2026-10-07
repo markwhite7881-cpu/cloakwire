@@ -177,8 +177,6 @@ pub fn run() {
                 log::info!("startup: cleared any stale system proxy from a previous run");
             }
         }
-        #[cfg(windows)]
-        crate::xray::windows_tun::teardown_xray_windows_tun_unconditional();
         #[cfg(not(target_os = "android"))]
         {
             if let Err(e) = crate::killswitch::cleanup_stale_rules() {

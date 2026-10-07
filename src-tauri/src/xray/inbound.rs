@@ -2,7 +2,6 @@ use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
 
-pub const MANAGED_TUN_TAG: &str = "cloakwire-managed-tun";
 pub const MANAGED_HTTP_TAG: &str = "cloakwire-managed-http";
 pub const MANAGED_SOCKS_TAG: &str = "cloakwire-managed-socks";
 
@@ -14,7 +13,6 @@ pub struct ManagedHttpInbound {
     pub socks_port: u16,
     pub traffic_tag: String,
     pub injected: bool,
-    pub tun_active: bool,
 }
 
 pub fn ensure_managed_http_inbound<F>(
@@ -118,7 +116,6 @@ where
                 socks_port,
                 traffic_tag: MANAGED_HTTP_TAG.into(),
                 injected: true,
-                tun_active: false,
             })
         }
         1 => {
@@ -137,56 +134,12 @@ where
                 socks_port,
                 traffic_tag,
                 injected: false,
-                tun_active: false,
             })
         }
         _ => Err(AppError::UnsafeConfig(
             "Xray provider has ambiguous HTTP inbounds".into(),
         )),
     }
-}
-
-pub fn ensure_managed_inbounds<F>(
-    mut value: Value,
-    tunnel_mode: crate::config::TunnelMode,
-    port_allocator: F,
-) -> AppResult<ManagedHttpInbound>
-where
-    F: FnMut() -> AppResult<u16>,
-{
-    let mut tun_active = false;
-    let mut tun_tag = None;
-
-    if matches!(
-        tunnel_mode,
-        crate::config::TunnelMode::Tun | crate::config::TunnelMode::Both
-    ) {
-        let root = value
-            .as_object_mut()
-            .ok_or_else(|| AppError::UnsafeConfig("Xray provider config must be an object".into()))?;
-        let inbounds = root
-            .entry("inbounds")
-            .or_insert_with(|| Value::Array(Vec::new()))
-            .as_array_mut()
-            .ok_or_else(|| AppError::UnsafeConfig("Xray inbounds must be an array".into()))?;
-
-        inbounds.retain(|i| {
-            i.as_object()
-                .and_then(|obj| obj.get("protocol"))
-                .and_then(Value::as_str)
-                != Some("tun")
-        });
-
-        tun_active = true;
-        tun_tag = Some(MANAGED_SOCKS_TAG.to_string());
-    }
-
-    let mut inbound = ensure_managed_http_inbound(value, port_allocator)?;
-    inbound.tun_active = tun_active;
-    if let Some(tag) = tun_tag {
-        inbound.traffic_tag = tag;
-    }
-    Ok(inbound)
 }
 
 fn valid_port(value: Option<&Value>) -> AppResult<u16> {
@@ -262,72 +215,5 @@ mod tests {
         ] {
             assert!(ensure_managed_http_inbound(config, || Ok(20809)).is_err());
         }
-    }
-
-    #[test]
-    fn configures_tun_mode_with_managed_socks_tag_without_native_tun() {
-        use super::{ensure_managed_inbounds, MANAGED_SOCKS_TAG};
-        let result = ensure_managed_inbounds(
-            json!({"inbounds":[]}),
-            crate::config::TunnelMode::Tun,
-            || Ok(20809),
-        )
-        .unwrap();
-
-        assert!(result.tun_active);
-        assert_eq!(result.traffic_tag, MANAGED_SOCKS_TAG);
-        assert!(!result.value["inbounds"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|i| i["protocol"] == "tun"));
-        assert!(result.value["inbounds"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|i| i["protocol"] == "socks" && i["tag"] == MANAGED_SOCKS_TAG));
-    }
-
-    #[test]
-    fn strips_existing_native_tun_inbounds_in_tun_mode() {
-        use super::{ensure_managed_inbounds, MANAGED_SOCKS_TAG};
-        let result = ensure_managed_inbounds(
-            json!({"inbounds":[{"protocol":"tun","tag":"existing-wintun"}]}),
-            crate::config::TunnelMode::Tun,
-            || Ok(20809),
-        )
-        .unwrap();
-
-        assert!(result.tun_active);
-        assert_eq!(result.traffic_tag, MANAGED_SOCKS_TAG);
-        assert!(!result.value["inbounds"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|i| i["protocol"] == "tun"));
-        assert!(result.value["inbounds"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|i| i["protocol"] == "socks" && i["tag"] == MANAGED_SOCKS_TAG));
-    }
-
-    #[test]
-    fn does_not_inject_tun_inbound_in_system_proxy_mode() {
-        use super::{ensure_managed_inbounds, MANAGED_HTTP_TAG};
-        let result = ensure_managed_inbounds(
-            json!({"inbounds":[]}),
-            crate::config::TunnelMode::SystemProxy,
-            || Ok(20809),
-        )
-        .unwrap();
-
-        assert!(!result.tun_active);
-        assert_eq!(result.traffic_tag, MANAGED_HTTP_TAG);
-        assert!(!result.value["inbounds"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|i| i["protocol"] == "tun"));
     }
 }
