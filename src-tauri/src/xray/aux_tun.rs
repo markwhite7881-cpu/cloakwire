@@ -10,22 +10,18 @@ pub fn build_aux_tun_config(socks_port: u16) -> Value {
         "dns": {
             "servers": [
                 {
+                    "type": "tcp",
                     "tag": "dns-remote",
-                    "address": "1.1.1.1",
+                    "server": "1.1.1.1",
                     "detour": "socks-out"
                 },
                 {
+                    "type": "local",
                     "tag": "dns-direct",
-                    "address": "local",
                     "detour": "direct"
                 }
             ],
-            "rules": [
-                {
-                    "outbound": "any",
-                    "server": "dns-direct"
-                }
-            ],
+            "final": "dns-remote",
             "strategy": "ipv4_only"
         },
         "inbounds": [
@@ -33,11 +29,15 @@ pub fn build_aux_tun_config(socks_port: u16) -> Value {
                 "type": "tun",
                 "tag": "tun-in",
                 "interface_name": "singbox-tun",
-                "inet4_address": "172.19.0.1/30",
+                "address": [
+                    "172.19.0.1/30"
+                ],
                 "auto_route": true,
                 "strict_route": true,
                 "stack": "gvisor",
-                "sniff": true
+                "mtu": 9000,
+                "endpoint_independent_nat": false,
+                "udp_timeout": "5m"
             }
         ],
         "outbounds": [
@@ -54,14 +54,19 @@ pub fn build_aux_tun_config(socks_port: u16) -> Value {
         ],
         "route": {
             "auto_detect_interface": true,
+            "default_domain_resolver": "dns-direct",
             "rules": [
                 {
-                    "port": 53,
-                    "outbound": "socks-out"
+                    "action": "hijack-dns",
+                    "port": [53]
                 },
                 {
+                    "action": "route",
                     "ip_is_private": true,
                     "outbound": "direct"
+                },
+                {
+                    "action": "sniff"
                 }
             ],
             "final": "socks-out"
@@ -77,17 +82,23 @@ mod tests {
     fn test_build_aux_tun_config_structure() {
         let config = build_aux_tun_config(20808);
         assert_eq!(config["log"]["level"], "info");
+        assert_eq!(config["dns"]["servers"][0]["type"], "tcp");
+        assert_eq!(config["dns"]["servers"][0]["server"], "1.1.1.1");
         assert_eq!(config["dns"]["servers"][0]["detour"], "socks-out");
+        assert_eq!(config["dns"]["servers"][1]["type"], "local");
+        assert_eq!(config["dns"]["servers"][1]["detour"], "direct");
+        assert_eq!(config["dns"]["final"], "dns-remote");
+        assert_eq!(config["dns"]["strategy"], "ipv4_only");
 
         let inbounds = config["inbounds"].as_array().expect("inbounds array");
         assert_eq!(inbounds.len(), 1);
         assert_eq!(inbounds[0]["type"], "tun");
         assert_eq!(inbounds[0]["interface_name"], "singbox-tun");
-        assert_eq!(inbounds[0]["inet4_address"], "172.19.0.1/30");
+        assert_eq!(inbounds[0]["address"][0], "172.19.0.1/30");
         assert_eq!(inbounds[0]["auto_route"], true);
         assert_eq!(inbounds[0]["strict_route"], true);
         assert_eq!(inbounds[0]["stack"], "gvisor");
-        assert_eq!(config["inbounds"][0]["sniff"], true);
+        assert_eq!(inbounds[0]["mtu"], 9000);
 
         let outbounds = config["outbounds"].as_array().expect("outbounds array");
         assert_eq!(outbounds.len(), 2);
@@ -100,7 +111,39 @@ mod tests {
 
         let route = &config["route"];
         assert_eq!(route["auto_detect_interface"], true);
-        assert_eq!(config["route"]["rules"][0]["port"], 53);
+        assert_eq!(route["default_domain_resolver"], "dns-direct");
+        assert_eq!(route["rules"][0]["action"], "hijack-dns");
+        assert_eq!(route["rules"][0]["port"][0], 53);
+        assert_eq!(route["rules"][1]["action"], "route");
+        assert_eq!(route["rules"][1]["ip_is_private"], true);
+        assert_eq!(route["rules"][1]["outbound"], "direct");
+        assert_eq!(route["rules"][2]["action"], "sniff");
         assert_eq!(route["final"], "socks-out");
+    }
+
+    #[test]
+    fn test_aux_tun_config_passes_bundled_singbox_check() {
+        let config = build_aux_tun_config(20808);
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
+        let bin_path = std::path::Path::new(&manifest_dir)
+            .join("binaries")
+            .join("sing-box-x86_64-pc-windows-msvc.exe");
+        if !bin_path.exists() {
+            return;
+        }
+        let temp_dir = std::env::temp_dir();
+        let config_file = temp_dir.join(format!("test-aux-{}.json", uuid::Uuid::new_v4()));
+        std::fs::write(&config_file, serde_json::to_vec_pretty(&config).unwrap()).unwrap();
+        let output = std::process::Command::new(&bin_path)
+            .args(["check", "-c", config_file.to_str().unwrap()])
+            .output()
+            .expect("runs sing-box check");
+        let _ = std::fs::remove_file(config_file);
+        assert!(
+            output.status.success(),
+            "sing-box check failed: stdout={}, stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }
