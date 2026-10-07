@@ -93,7 +93,7 @@ internal class ProtectedSocks5Proxy(
       } catch (_: IOException) {
         break
       }
-      executor.execute { handleClient(client) }
+      executor?.execute { handleClient(client) }
     }
   }
 
