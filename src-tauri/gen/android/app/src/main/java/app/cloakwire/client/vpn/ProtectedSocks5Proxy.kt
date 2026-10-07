@@ -1,4 +1,4 @@
-﻿package app.cloakwire.client.vpn
+package app.cloakwire.client.vpn
 
 import android.net.VpnService
 import android.util.Log
@@ -52,20 +52,26 @@ internal class ProtectedSocks5Proxy(
   @Volatile private var serverSocket: ServerSocket? = null
   @Volatile private var running: Boolean = false
   private val activeSockets = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<Socket, Boolean>())
-  private val executor = Executors.newCachedThreadPool { r ->
-    Thread(r, "socks5-protected").apply { isDaemon = true }
-  }
+  @Volatile private var executor: java.util.concurrent.ExecutorService? = null
 
+  @Synchronized
   fun start() {
     if (running) return
+    val currentExecutor = executor
+    if (currentExecutor == null || currentExecutor.isShutdown || currentExecutor.isTerminated) {
+      executor = Executors.newCachedThreadPool { r ->
+        Thread(r, "socks5-protected").apply { isDaemon = true }
+      }
+    }
     val ss = ServerSocket()
     ss.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), listenPort))
     serverSocket = ss
     running = true
     Log.i(TAG, "protected SOCKS5 listening on 127.0.0.1:$listenPort")
-    executor.execute { acceptLoop() }
+    executor?.execute { acceptLoop() }
   }
 
+  @Synchronized
   fun stop() {
     if (!running) return
     running = false
@@ -75,7 +81,8 @@ internal class ProtectedSocks5Proxy(
       runCatching { sock.close() }
     }
     activeSockets.clear()
-    executor.shutdownNow()
+    executor?.shutdownNow()
+    executor = null
     Log.i(TAG, "protected SOCKS5 stopped")
   }
 
@@ -181,11 +188,12 @@ internal class ProtectedSocks5Proxy(
       reply(output, 0x00)
 
       val out = socket
-      val inToOut = executor.submit {
+      val exec = executor ?: return
+      val inToOut = exec.submit {
         runCatching { input.copyTo(out.getOutputStream()) }
         runCatching { out.close() }
       }
-      val outToIn = executor.submit {
+      val outToIn = exec.submit {
         runCatching { out.getInputStream().copyTo(output) }
         runCatching { output.close() }
       }

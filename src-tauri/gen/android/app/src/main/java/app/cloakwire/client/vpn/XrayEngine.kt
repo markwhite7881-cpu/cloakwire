@@ -1,4 +1,4 @@
-﻿package app.cloakwire.client.vpn
+package app.cloakwire.client.vpn
 
 import android.content.Context
 import android.util.Log
@@ -78,6 +78,35 @@ class XrayEngine(
       nativePathCache = path.absolutePath
       return path.absolutePath
     }
+
+    /**
+     * Terminate any lingering libxray.so processes belonging to our app.
+     * Scans /proc for non-self processes executing libxray.so or referencing
+     * the xray session config and signals SIGKILL, with a pkill fallback.
+     */
+    fun killOrphanProcesses() {
+      val myPid = android.os.Process.myPid()
+      try {
+        val procDir = File("/proc")
+        val pidDirs = procDir.listFiles { file -> file.isDirectory && file.name.all { it.isDigit() } } ?: emptyArray()
+        for (dir in pidDirs) {
+          val pid = dir.name.toIntOrNull() ?: continue
+          if (pid == myPid) continue
+          val cmdlineFile = File(dir, "cmdline")
+          if (!cmdlineFile.exists()) continue
+          val cmdline = runCatching { cmdlineFile.readText() }.getOrDefault("")
+          if (cmdline.contains(BINARY_NAME) || cmdline.contains("libxray.so") || cmdline.contains(CONFIG_FILE_NAME)) {
+            Log.w(TAG, "Killing orphan Xray process (pid=$pid, cmdline=$cmdline)")
+            android.os.Process.sendSignal(pid, android.os.Process.SIGNAL_KILL)
+          }
+        }
+      } catch (e: Exception) {
+        Log.w(TAG, "killOrphanProcesses proc scan error: ${e.message}")
+      }
+      runCatching {
+        Runtime.getRuntime().exec(arrayOf("pkill", "-9", "-f", BINARY_NAME)).waitFor()
+      }
+    }
   }
 
   @Volatile private var process: Process? = null
@@ -95,6 +124,7 @@ class XrayEngine(
   @Synchronized
   fun start(config: String) {
     closeBestEffortLocked()
+    killOrphanProcesses()
 
     val binary = resolveBinary(context)
     val configFile = File(context.filesDir, CONFIG_FILE_NAME)
@@ -155,11 +185,12 @@ class XrayEngine(
     if (proc != null) {
       runCatching { proc.destroy() }
       runCatching {
-        if (!proc.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) {
+        if (!proc.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)) {
           proc.destroyForcibly()
         }
       }
     }
+    killOrphanProcesses()
     runCatching { File(context.filesDir, CONFIG_FILE_NAME).delete() }
   }
 

@@ -116,6 +116,7 @@ class CloakwireVpnService : VpnService() {
   @Volatile private var sessionActive = false
   @Volatile private var engineRestarts = 0
   @Volatile private var starting = false
+  @Volatile private var startGeneration = 0L
   @Volatile private var killSwitchMode = "on_drop"
   @Volatile private var blockIpv6 = true
   @Volatile private var isBlackholeActive = false
@@ -246,13 +247,25 @@ class CloakwireVpnService : VpnService() {
       // A new session replaces the old one: tear down first.
       runCatching { teardownComponents() }
     }
+    val currentGen = ++startGeneration
     starting = true
     thread(name = "vpn-start") {
       try {
-        runVpn(configPath, selectedApps, selectedAppsMode, selectedEngine)
+        if (startGeneration != currentGen || !starting) return@thread
+        runVpn(configPath, selectedApps, selectedAppsMode, selectedEngine, currentGen)
+        if (startGeneration != currentGen || !starting) {
+          Log.i(TAG, "VPN start was cancelled during setup; tearing down components")
+          runCatching { teardownComponents() }
+          return@thread
+        }
         VpnEvents.update(VpnEvents.STATE_RUNNING)
         startForegroundWith("Connected")
       } catch (e: Exception) {
+        if (startGeneration != currentGen || !starting) {
+          Log.i(TAG, "VPN start failed after cancellation, tearing down silently")
+          runCatching { teardownComponents() }
+          return@thread
+        }
         Log.e(TAG, "VPN start failed", e)
         val message = e.message ?: e.toString()
         VpnEvents.update(VpnEvents.STATE_ERROR, message)
@@ -260,20 +273,22 @@ class CloakwireVpnService : VpnService() {
         stopForeground(true)
         stopSelf()
       } finally {
-        starting = false
+        if (startGeneration == currentGen) {
+          starting = false
+        }
       }
     }
   }
 
-  private fun runVpn(configPath: String, apps: String, appsMode: String, engine: String) {
+  private fun runVpn(configPath: String, apps: String, appsMode: String, engine: String, currentGen: Long) {
     if (engine == ENGINE_SINGBOX) {
-      runSingBoxVpn(configPath, apps, appsMode)
+      runSingBoxVpn(configPath, apps, appsMode, currentGen)
       return
     }
-    runXrayVpn(configPath, apps, appsMode)
+    runXrayVpn(configPath, apps, appsMode, currentGen)
   }
 
-  private fun runXrayVpn(configPath: String, apps: String, appsMode: String) {
+  private fun runXrayVpn(configPath: String, apps: String, appsMode: String, currentGen: Long) {
     // 1. Config: normalize + inject the log output path so the UI can
     //    tail the (redacted) xray log.
     val raw = File(configPath).readText()
@@ -284,19 +299,38 @@ class CloakwireVpnService : VpnService() {
       configFile(this).writeText(config)
     }
 
+    if (startGeneration != currentGen || !starting) return
+
     // 2. TUN — the service owns the descriptor for the whole session.
     val pfd = establishTun(apps, appsMode)
     tunPfd = pfd
 
+    if (startGeneration != currentGen || !starting) {
+      runCatching { pfd.close() }
+      tunPfd = null
+      return
+    }
+
     // 3. Protected dialer. Started only after the TUN exists so
     //    protect() operates on a live VPN session.
     protectedProxy.start()
+
+    if (startGeneration != currentGen || !starting) {
+      runCatching { protectedProxy.stop() }
+      return
+    }
 
     // 4. xray sidecar (readiness-checked; throws with the sanitized
     //    tail of the engine log if the config is rejected).
     val engine = XrayEngine(this, ::onEngineDied)
     engine.start(config)
     xrayEngine = engine
+
+    if (startGeneration != currentGen || !starting) {
+      runCatching { engine.closeBestEffort() }
+      xrayEngine = null
+      return
+    }
 
     // 5. hev-socks5-tunnel: TUN fd → xray socks inbound. Uses the
     //    live descriptor (NOT detached); we close it after stopping
@@ -305,20 +339,31 @@ class CloakwireVpnService : VpnService() {
     if (!wired) {
       throw IllegalStateException("tun2socks failed to start")
     }
+    if (startGeneration != currentGen || !starting) {
+      runCatching { tun2socks.stop() }
+      return
+    }
     sessionActive = true
     engineRestarts = 0
     startTrafficPoller()
   }
 
   /** Start the in-process libbox engine. CloakwirePlatform owns TUN setup. */
-  private fun runSingBoxVpn(configPath: String, apps: String, appsMode: String) {
+  private fun runSingBoxVpn(configPath: String, apps: String, appsMode: String, currentGen: Long) {
     val raw = File(configPath).readText()
     val config = prepareSingBoxConfig(raw, apps, appsMode)
     configFile(this).writeText(config)
 
+    if (startGeneration != currentGen || !starting) return
+
     val engine = SingBoxEngine(this, ::onSingBoxDied)
     singBoxEngine = engine
     engine.start(config)
+    if (startGeneration != currentGen || !starting) {
+      runCatching { engine.closeBestEffort() }
+      singBoxEngine = null
+      return
+    }
     check(tunPfd != null) { "sing-box did not establish a TUN interface" }
     sessionActive = true
     engineRestarts = 0
@@ -666,6 +711,8 @@ class CloakwireVpnService : VpnService() {
 
   @Synchronized
   fun stopVpn() {
+    startGeneration++
+    starting = false
     isBlackholeActive = false
     blackholeThread?.interrupt()
     blackholeThread = null
@@ -701,11 +748,14 @@ class CloakwireVpnService : VpnService() {
     runCatching { protectedProxy.stop() }
     tunPfd?.let { runCatching { it.close() } }
     tunPfd = null
+    XrayEngine.killOrphanProcesses()
   }
 
   override fun onDestroy() {
     // The system can kill the service without ACTION_STOP (revoke,
     // always-on change, task removal) — make sure everything goes down.
+    startGeneration++
+    starting = false
     teardownComponents()
     active = null
     activeServerName = ""
@@ -714,6 +764,12 @@ class CloakwireVpnService : VpnService() {
       VpnEvents.update(VpnEvents.STATE_STOPPED)
     }
     super.onDestroy()
+  }
+
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    Log.i(TAG, "onTaskRemoved: app task cleared from recents; stopping VPN service")
+    stopVpn()
+    super.onTaskRemoved(rootIntent)
   }
 
   override fun onRevoke() {

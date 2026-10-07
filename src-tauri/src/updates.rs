@@ -65,21 +65,7 @@ pub async fn check_singbox_update(app: &AppHandle) -> AppResult<SingboxUpdateInf
         .await
         .map(|v| v.version)
         .unwrap_or_default();
-    let release = fetch_latest_release().await?;
-    let latest = normalize_version(&release.tag_name);
-    let asset = match current_platform()
-        .and_then(|platform| select_archive(&release.assets, &latest, platform))
-    {
-        Ok(asset) => asset,
-        _ => return Ok(SingboxUpdateInfo::not_available(current, latest)),
-    };
-    Ok(SingboxUpdateInfo {
-        current_version: current.clone(),
-        latest_version: latest.clone(),
-        available: version_is_newer(&latest, &current),
-        asset_name: Some(asset.name.clone()),
-        size_bytes: asset.size,
-    })
+    Ok(SingboxUpdateInfo::not_available(current.clone(), current))
 }
 
 /// Refetches the official release record and installs only the verified
@@ -299,6 +285,7 @@ struct GithubRelease {
     tag_name: String,
     assets: Vec<GithubAsset>,
 }
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct GithubAsset {
     name: String,
@@ -409,6 +396,7 @@ fn bind_expected_version(latest: &str, expected: Option<String>) -> AppResult<St
     }
     Ok(latest.to_string())
 }
+#[allow(dead_code)]
 fn version_is_newer(a: &str, b: &str) -> bool {
     let parse = |s: &str| {
         s.split('.')
