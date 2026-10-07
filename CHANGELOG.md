@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2026-10-07
+
+### 📱 Android Network Teardown & Routing Fixes
+- **Устранение утечки дескрипторов TUN**: Исправлена утечка дублированных дескрипторов `/dev/net/tun`, из-за которой интерфейсы туннеля оставались в ядре после отключения и блокировали трафик приложений (Ozon и др.).
+- **Сброс сокетов и фоновых процессов**: Добавлен корректный сброс `setUnderlyingNetworks(null)` и очистка зависших процессов Xray при выходе и удалении приложения из недавних.
+
+### 🖥️ Desktop UI & Core Stability
+- **Облегченная вкладка «Серверы»**: Список серверов теперь компактен и отображает только ручные серверы пользователя, не перегружая интерфейс серверами из подписок.
+- **Отключение внешних автообновлений sing-box**: Проверенные версии ядра теперь поставляются строго в составе релизов приложения.
+- **Стабильная работа системного прокси**: Улучшена логика очистки и переключения режимов для Xray.
+
+---
+
 ## [1.4.3] - 2026-08-31
 
 ### 🚀 Subscription List Collapse Persistence & Auto-Updater Prompt
