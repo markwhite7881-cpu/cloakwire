@@ -745,7 +745,7 @@ export default function App() {
               "manually in Settings → Network → Proxy.",
           );
         }
-      } else if (next.engine !== "xray" || effectiveSettings.tunnel_mode === "tun") {
+      } else if (next.engine === "singbox" && effectiveSettings.tunnel_mode === "tun") {
         try {
           await api.clearSystemProxy();
         } catch {
