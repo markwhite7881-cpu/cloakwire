@@ -1,4 +1,4 @@
-﻿package app.cloakwire.client.vpn
+package app.cloakwire.client.vpn
 
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
@@ -129,10 +129,8 @@ class CloakwirePlatform(private val service: CloakwireVpnService) : PlatformInte
 
     val pfd = builder.establish()
       ?: throw Exception("VpnService.Builder.establish() returned null — VPN permission revoked?")
-    val goPfd = pfd.dup()
-    val goFd = goPfd.detachFd()
     service.onTunEstablished(pfd)
-    return goFd
+    return pfd.fd
   }
 
   fun cleanup() {

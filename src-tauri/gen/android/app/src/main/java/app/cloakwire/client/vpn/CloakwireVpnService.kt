@@ -740,6 +740,9 @@ class CloakwireVpnService : VpnService() {
     blackholeThread = null
     sessionActive = false
     stopTrafficPoller()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+      runCatching { setUnderlyingNetworks(null) }
+    }
     runCatching { tun2socks.stop() }
     xrayEngine?.let { runCatching { it.closeBestEffort() } }
     xrayEngine = null
