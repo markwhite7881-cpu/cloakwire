@@ -8,13 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.4.4] - 2026-10-07
 
 ### 📱 Android Network Teardown & Routing Fixes
-- **Устранение утечки дескрипторов TUN**: Исправлена утечка дублированных дескрипторов `/dev/net/tun`, из-за которой интерфейсы туннеля оставались в ядре после отключения и блокировали трафик приложений (Ozon и др.).
-- **Сброс сокетов и фоновых процессов**: Добавлен корректный сброс `setUnderlyingNetworks(null)` и очистка зависших процессов Xray при выходе и удалении приложения из недавних.
+- **TUN Kernel File Descriptor Leak Remediation (`CloakwirePlatform.kt`)**:
+  - Eliminated duplicate file descriptor creation (`pfd.dup()` and `detachFd()`) in libbox TUN setup. The service now directly passes and owns the single `ParcelFileDescriptor`, allowing the Linux kernel to drop device refcounts to zero upon disconnect.
+  - Prevents zombie TUN interfaces (`tun0..tun3`) and stale netd routing rules from blackholing application traffic (such as Ozon and Russian localized services) after VPN shutdown.
+- **Socket & Network State Reset (`CloakwireVpnService.kt`)**:
+  - Added explicit `setUnderlyingNetworks(null)` during session teardown to signal Android ConnectivityService to terminate half-open sockets and re-route traffic directly.
+  - Hardened lifecycle cleanup on `onTaskRemoved` and app swipe-out with orphan Xray process killing.
 
-### 🖥️ Desktop UI & Core Stability
-- **Облегченная вкладка «Серверы»**: Список серверов теперь компактен и отображает только ручные серверы пользователя, не перегружая интерфейс серверами из подписок.
-- **Отключение внешних автообновлений sing-box**: Проверенные версии ядра теперь поставляются строго в составе релизов приложения.
-- **Стабильная работа системного прокси**: Улучшена логика очистки и переключения режимов для Xray.
+### 🖥️ Desktop UI & Core Decoupling
+- **Streamlined Servers Tab (`ServersTab.tsx`)**:
+  - Filtered the main server list to exclusively display user-added manual servers, eliminating performance lag and UI bloat from hundreds of subscription nodes (managed via the Subscriptions section).
+- **Core Update Decoupling (`UpdateCard.tsx` & `src-tauri/src/updates.rs`)**:
+  - Disabled external GitHub update polling for sing-box core binaries; verified and stable cores are now bundled exclusively with application releases.
+- **Xray System Proxy Stability (`src-tauri/src/process.rs`)**:
+  - Restored stable system proxy switching logic with WinINet registry cleanup upon disconnect.
 
 ---
 
