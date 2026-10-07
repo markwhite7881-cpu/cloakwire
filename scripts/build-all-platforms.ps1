@@ -1,8 +1,9 @@
 # Multi-platform release orchestration script for Cloakwire
 # Builds: Windows (NSIS + MSI), Android (ARM64 APK), macOS (ARM64 + x64 DMG + ZIP via Mac mini)
+# Signs all artifacts and produces latest.json for auto-updater
 
 param(
-    [string]$Version = "1.4.1",
+    [string]$Version = "1.4.4",
     [bool]$InstallPhone = $false
 )
 
@@ -22,7 +23,13 @@ Write-Host "`n[1/4] Building Windows Desktop (.exe / .msi)..." -ForegroundColor 
 $env:RUSTUP_HOME = "C:\Users\Public\cwdev\rustup-home"
 $env:CARGO_HOME = "C:\Users\Public\cwdev\cargo-home"
 $env:PATH = "C:\Users\Public\cwdev\cargo\bin;C:\Program Files\nodejs;C:\Program Files\Git\usr\bin;$env:PATH"
-npm run tauri build
+
+# Ensure frontend dist is up to date
+& npm.cmd run build
+if ($LASTEXITCODE -ne 0) { throw "Frontend build failed" }
+
+& npm.cmd run tauri build
+if ($LASTEXITCODE -ne 0) { throw "Tauri build failed" }
 
 Copy-Item "C:\Users\Public\cwdev\target\release\bundle\nsis\Cloakwire_$Version`_x64-setup.exe" -Destination "$DistDir\" -Force
 Copy-Item "C:\Users\Public\cwdev\target\release\bundle\msi\Cloakwire_$Version`_x64_en-US.msi" -Destination "$DistDir\" -Force
@@ -56,7 +63,7 @@ if ($InstallPhone) {
 }
 
 # 3. macOS Build (via Mac mini SSH)
-Write-Host "`n[3/3] Building macOS (Apple Silicon + Intel via Mac mini)..." -ForegroundColor Yellow
+Write-Host "`n[3/4] Building macOS (Apple Silicon + Intel via Mac mini)..." -ForegroundColor Yellow
 $sshKey = "C:\Users\Public\cwdev\.ssh\mavis_hermes"
 $macHost = "alexeyka@100.97.167.112"
 $sshExe = "C:\Program Files\Git\usr\bin\ssh.exe"
@@ -66,18 +73,26 @@ git archive -o "$DistDir\v$Version-source.tar.gz" HEAD
 & $scpExe -i $sshKey -o StrictHostKeyChecking=no "$DistDir\v$Version-source.tar.gz" "$macHost`:/tmp/v$Version-source.tar.gz"
 
 & $sshExe -i $sshKey -o StrictHostKeyChecking=no $macHost @"
+set -e
 mkdir -p `$HOME/cloakwire-builds/cloakwire-v$Version
 cd `$HOME/cloakwire-builds/cloakwire-v$Version
 tar -xzf /tmp/v$Version-source.tar.gz
 rm -f src-tauri/.cargo/config.toml
 mkdir -p src-tauri/binaries
-cp -r `$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/src-tauri/binaries/* src-tauri/binaries/
-if [ -d "`$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/node_modules" ]; then
+if [ -d "`$HOME/cloakwire-builds/cloakwire-v1.4.3/src-tauri/binaries" ]; then
+  cp -r `$HOME/cloakwire-builds/cloakwire-v1.4.3/src-tauri/binaries/* src-tauri/binaries/
+elif [ -d "`$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/src-tauri/binaries" ]; then
+  cp -r `$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/src-tauri/binaries/* src-tauri/binaries/
+fi
+if [ -d "`$HOME/cloakwire-builds/cloakwire-v1.4.3/node_modules" ]; then
+  cp -R `$HOME/cloakwire-builds/cloakwire-v1.4.3/node_modules ./
+elif [ -d "`$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/node_modules" ]; then
   cp -R `$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/node_modules ./
 fi
 export PATH="/opt/homebrew/bin:`$HOME/.cargo/bin:`$PATH"
 export CARGO_TARGET_DIR="`$HOME/cloakwire-builds/cloakwire-v$Version/src-tauri/target"
 
+npm run build
 npm run tauri:build -- --target aarch64-apple-darwin --bundles app
 npm run tauri:build -- --target x86_64-apple-darwin --bundles app
 
@@ -91,15 +106,66 @@ hdiutil create -volname "Cloakwire" -srcfolder src-tauri/target/x86_64-apple-dar
 
 & $scpExe -i $sshKey -o StrictHostKeyChecking=no "$macHost`:`$HOME/cloakwire-builds/cloakwire-v$Version/dist-release/Cloakwire_$Version`_*" "$DistDir\"
 
+# 4. Signing & Manifest Generation
+Write-Host "`n[4/4] Signing release artifacts and generating latest.json..." -ForegroundColor Yellow
+$KeyPath = Join-Path $ProjectRoot 'src-tauri\.tauri-updater.key'
+$SignerExe = "C:\Users\Public\cwdev\target\release\tauri-signer.exe"
+$BaseUrl = "https://github.com/markwhite7881-cpu/cloakwire/releases/download/v$Version"
+
+$artifactsToSign = @(
+    @{ File = "Cloakwire_$Version`_x64-setup.exe"; Platform = "windows-x86_64" },
+    @{ File = "Cloakwire_$Version`_aarch64.dmg"; Platform = "darwin-aarch64" },
+    @{ File = "Cloakwire_$Version`_x64.dmg"; Platform = "darwin-x86_64" },
+    @{ File = "Cloakwire_$Version`_arm64-v8a.apk"; Platform = "android-arm64-v8a" }
+)
+
+$signatures = [ordered]@{}
+$utf8 = [Text.UTF8Encoding]::new($false)
+
+foreach ($item in $artifactsToSign) {
+    $filePath = Join-Path $DistDir $item.File
+    if (Test-Path $filePath) {
+        Write-Host "Signing $($item.File)..." -ForegroundColor Cyan
+        & $SignerExe -k $KeyPath $filePath
+        $sigPath = "$filePath.sig"
+        if (Test-Path $sigPath) {
+            $sigText = (Get-Content $sigPath -Raw -Encoding UTF8).Trim()
+            $sigB64 = [Convert]::ToBase64String($utf8.GetBytes($sigText))
+            $signatures[$item.Platform] = [ordered]@{
+                url = "$BaseUrl/$($item.File)"
+                signature = $sigB64
+            }
+        }
+    }
+}
+
+# Sign MSI if present
+$msiFile = Join-Path $DistDir "Cloakwire_$Version`_x64_en-US.msi"
+if (Test-Path $msiFile) {
+    & $SignerExe -k $KeyPath $msiFile
+}
+
+$manifest = [ordered]@{
+    version = $Version
+    notes = "## Cloakwire $Version\n\nAndroid TUN fd leak fix, Servers tab redesign, Xray & sing-box core stability."
+    pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    platforms = $signatures
+}
+
+$latestJsonPath = Join-Path $DistDir "latest.json"
+$jsonContent = $manifest | ConvertTo-Json -Depth 8
+[IO.File]::WriteAllText($latestJsonPath, $jsonContent, $utf8)
+
 # 5. Checksums
 Write-Host "`nComputing SHA-256 checksums..." -ForegroundColor Cyan
-$files = Get-ChildItem "$DistDir\Cloakwire_$Version`_*" | Select-Object -ExpandProperty FullName
+$files = Get-ChildItem "$DistDir\Cloakwire_$Version`_*" | Where-Object { $_.Extension -ne ".sig" } | Select-Object -ExpandProperty FullName
 $hashes = foreach ($f in $files) {
-  $hash = (Get-FileHash -Path $f -Algorithm SHA256).Hash.ToLower()
-  $name = [System.IO.Path]::GetFileName($f)
-  "$hash  $name"
+    $hash = (Get-FileHash -Path $f -Algorithm SHA256).Hash.ToLower()
+    $name = [System.IO.Path]::GetFileName($f)
+    "$hash  $name"
 }
 $hashes | Set-Content -Path "$DistDir\SHA256SUMS_v$Version.txt" -Encoding utf8
+$hashes | Set-Content -Path "$DistDir\SHA256SUMS.txt" -Encoding utf8
 
-Write-Host "`n[SUCCESS] All multi-platform artifacts are ready in $DistDir!" -ForegroundColor Green
+Write-Host "`n[SUCCESS] All multi-platform artifacts are ready and signed in $DistDir!" -ForegroundColor Green
 Get-ChildItem "$DistDir\Cloakwire_$Version`_*" | Format-Table Name, Length, LastWriteTime -AutoSize
