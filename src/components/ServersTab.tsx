@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link2, Loader2, Plus, Rss, Trash2 } from "lucide-react";
+import { Link2, Loader2, Plus, Rss, Server, Trash2 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import {
@@ -221,10 +221,11 @@ export function ServersTab({
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
+                <Server className="h-4 w-4 text-theme-accent" />
                 Custom Servers
                 <Badge
                   variant="secondary"
-                  className="px-2 py-0.5 text-xs font-mono bg-secondary text-foreground border border-border/80"
+                  className="badge-theme px-2 py-0.5 text-xs font-mono"
                 >
                   {manualProfiles.length}
                 </Badge>

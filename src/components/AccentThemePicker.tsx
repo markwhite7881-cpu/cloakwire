@@ -15,7 +15,7 @@ export function AccentThemePicker({ compact = false }: Props) {
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
-            <Palette className="h-4 w-4 text-muted-foreground" />
+            <Palette className="h-4 w-4 text-theme-accent" />
             <span>Accent Theme</span>
           </div>
           <p className="text-xs text-muted-foreground">
