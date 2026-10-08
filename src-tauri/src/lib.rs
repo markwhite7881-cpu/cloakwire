@@ -48,6 +48,8 @@ pub mod traffic;
 #[cfg(not(target_os = "android"))]
 pub mod updates;
 #[cfg(not(target_os = "android"))]
+pub mod tray;
+#[cfg(not(target_os = "android"))]
 pub mod xray;
 pub mod xray_config;
 
@@ -195,6 +197,13 @@ pub fn run() {
             log::error!("failed to initialise subscription service: {e}");
         }
 
+        #[cfg(not(target_os = "android"))]
+        {
+            if let Err(e) = crate::tray::create_tray(app.handle()) {
+                log::error!("failed to initialise system tray: {e}");
+            }
+        }
+
         Ok(())
     });
     // Two platform-specific command surfaces. Android delegates both
@@ -299,6 +308,7 @@ pub fn run() {
             commands::get_kill_switch_mode,
             commands::cleanup_kill_switch,
             commands::check_leak_status,
+            commands::update_tray_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running singbox-client");

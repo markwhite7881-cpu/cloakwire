@@ -9,6 +9,7 @@ import { newRuleId } from "@/lib/presets";
 import { SectionCard, SectionHeader, SettingRow } from "../components/SectionCard";
 import { Switch } from "../components/Switch";
 import { type MobileEngine } from "@/mobile/lib/settings";
+import { AccentThemePicker } from "@/components/AccentThemePicker";
 
 const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -187,6 +188,13 @@ export function SettingsScreen({
               />
             }
           />
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <SectionHeader title="Appearance & Themes" />
+        <div className="p-3">
+          <AccentThemePicker compact />
         </div>
       </SectionCard>
 

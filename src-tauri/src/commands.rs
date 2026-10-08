@@ -1569,4 +1569,15 @@ pub async fn check_leak_status() -> AppResult<LeakStatusReport> {
     })
 }
 
+#[tauri::command]
+pub async fn update_tray_status(
+    app: AppHandle,
+    connected: bool,
+    profile_name: Option<String>,
+) -> Result<(), String> {
+    crate::tray::update_tray_state(&app, connected, profile_name.as_deref());
+    Ok(())
+}
+
+
 

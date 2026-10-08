@@ -11,6 +11,7 @@ import { ConfigBuilder } from "@/components/ConfigBuilder";
 import { SubscriptionIdentityCard } from "@/components/SubscriptionIdentityCard";
 import { ProxiesCard } from "@/components/ProxiesCard";
 import { UpdateCard } from "@/components/UpdateCard";
+import { AccentThemePicker } from "@/components/AccentThemePicker";
 import { basename } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type {
@@ -108,6 +109,13 @@ export function ConfigTab({
         onResetSettings={onResetSettings}
         onConfigPath={onConfigPath}
       />
+
+      {/* Appearance & Accent Themes */}
+      <Card className="bento-card">
+        <CardContent className="pt-6">
+          <AccentThemePicker />
+        </CardContent>
+      </Card>
 
       {/* Live: proxies */}
       <ProxiesCard status={status} />

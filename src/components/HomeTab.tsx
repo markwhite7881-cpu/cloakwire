@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ChevronDown,
+  Clock,
   Globe,
   Layers,
   Link2,
@@ -20,6 +21,7 @@ import { Card, CardContent } from "@/components/Card";
 import { Badge } from "@/components/Badge";
 import { FlagIcon } from "@/components/FlagIcon";
 import { useTrafficStream } from "@/hooks/useTrafficStream";
+import { useSessionTimer } from "@/hooks/useSessionTimer";
 import { latencyToBars, useServerLatency } from "@/hooks/useServerLatency";
 import { cn } from "@/lib/utils";
 import { flagForProfile } from "@/lib/flags";
@@ -105,6 +107,7 @@ export function HomeTab({
 
   const isRunning = statusLabel === "running";
   const isTransition = statusLabel === "starting" || statusLabel === "stopping";
+  const sessionTimer = useSessionTimer(isRunning);
   const trafficLive = useTrafficStream(isRunning || !inTauri, profiles.length);
   const current = trafficLive.current;
 
@@ -239,7 +242,30 @@ export function HomeTab({
           <div className="relative z-10 my-8 flex flex-col items-center justify-center text-center">
             <div className="relative flex items-center justify-center">
               {isRunning && (
-                <div className="absolute h-28 w-28 rounded-full bg-emerald-500/25 animate-ping opacity-40 pointer-events-none" />
+                <>
+                  <div
+                    className="absolute h-36 w-36 rounded-full pointer-events-none animate-neon-outer"
+                    style={{
+                      background: "radial-gradient(circle, rgba(var(--accent-glow-rgb), 0.35) 0%, rgba(var(--accent-glow-rgb), 0) 70%)",
+                    }}
+                  />
+                  <div
+                    className="absolute h-28 w-28 rounded-full pointer-events-none animate-neon-halo"
+                    style={{
+                      background: "radial-gradient(circle, rgba(var(--accent-glow-rgb), 0.5) 0%, rgba(var(--accent-glow-rgb), 0) 65%)",
+                    }}
+                  />
+                </>
+              )}
+              {isTransition && (
+                <div
+                  className="absolute h-28 w-28 rounded-full pointer-events-none animate-spin-conic opacity-75"
+                  style={{
+                    background: "conic-gradient(from 0deg, transparent 0deg, rgba(var(--accent-glow-rgb), 0.8) 180deg, transparent 360deg)",
+                    maskImage: "radial-gradient(circle, transparent 44px, black 46px)",
+                    WebkitMaskImage: "radial-gradient(circle, transparent 44px, black 46px)",
+                  }}
+                />
               )}
               <button
                 type="button"
@@ -296,6 +322,14 @@ export function HomeTab({
                     ? "Add a server in the Servers tab to get started."
                     : "Click the button to bring the tunnel up."}
               </p>
+              {isRunning && (
+                <div className="flex items-center justify-center gap-1.5 pt-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground shadow-sm">
+                    <Clock className="h-3 w-3 text-emerald-400" />
+                    <span>session {sessionTimer.formatted}</span>
+                  </span>
+                </div>
+              )}
               {isRunning && !isXrayRunning && userPicked && (
                 <p className="font-mono text-[10px] text-muted-foreground/70">
                   picked: {userPicked}
@@ -768,7 +802,7 @@ function SparklineWave({
 
 export function powerButtonClasses(statusLabel: Status): string {
   if (statusLabel === "running") {
-    return "border-emerald-500/50 bg-success bg-gradient-to-tr from-emerald-500 to-teal-400 text-zinc-950 glow-button shadow-xl shadow-emerald-500/30 hover:scale-105 active:scale-95";
+    return "border-emerald-500/50 bg-success bg-gradient-to-tr from-emerald-500 to-teal-400 text-zinc-950 glow-button shadow-xl shadow-emerald-500/30 animate-neon-pulse hover:scale-105 active:scale-95";
   }
   if (statusLabel === "starting" || statusLabel === "stopping") {
     return "border-foreground/20 bg-foreground/5";

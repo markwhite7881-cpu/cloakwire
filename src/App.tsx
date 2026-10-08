@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getVersion } from "@tauri-apps/api/app";
+import { listen } from "@tauri-apps/api/event";
 import cloakwireLogo from "@/assets/cloakwire-logo.png";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
@@ -37,7 +38,7 @@ import {
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useGeoIp } from "@/hooks/useGeoIp";
 import { useReadyProfileMetadata } from "@/hooks/useReadyProfileMetadata";
-import { isSupported } from "@/lib/outbound";
+import { isSupported, profileLabel } from "@/lib/outbound";
 import { basename } from "@/lib/utils";
 import { shouldFrontendApplySystemProxy } from "@/lib/systemProxy";
 import {
@@ -830,6 +831,52 @@ export default function App() {
       setBusy(false);
     }
   }, [refresh]);
+
+  const onStopRef = useRef(onStop);
+  useEffect(() => {
+    onStopRef.current = onStop;
+  }, [onStop]);
+
+  const liveStatusRef = useRef(status);
+  useEffect(() => {
+    liveStatusRef.current = status;
+  }, [status]);
+
+  // Synchronize status with desktop system tray
+  useEffect(() => {
+    if (!inTauri) return;
+    const isConnected = status.status === "running";
+    const selected = selectedIndex >= 0 ? profiles[selectedIndex] : null;
+    const activeName = isConnected
+      ? status.profile_name ||
+        (selected
+          ? selected.kind === "manual"
+            ? profileLabel(selected.outbound)
+            : selected.kind === "subscription"
+              ? selected.label
+              : selected.name
+          : null)
+      : null;
+    void api.updateTrayStatus(isConnected, activeName).catch(() => {});
+  }, [inTauri, status.status, status.profile_name, selectedIndex, profiles]);
+
+  // Listen for tray connect/disconnect toggle event
+  useEffect(() => {
+    if (!inTauri) return;
+    let unlisten: (() => void) | undefined;
+    listen("tray:toggle-connect", () => {
+      if (liveStatusRef.current.status === "running") {
+        void onStopRef.current();
+      } else {
+        void onStartRef.current();
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [inTauri]);
 
   const onPickConfig = useCallback(async () => {
     if (!inTauri) {

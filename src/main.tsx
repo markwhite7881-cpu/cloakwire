@@ -2,6 +2,7 @@ import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import "./lib/accentTheme";
 
 // Mobile UI is a separate bundle chunk — desktop users never pay for it.
 const MobileApp = React.lazy(() => import("./mobile/MobileApp"));

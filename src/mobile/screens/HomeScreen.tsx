@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
+  Clock,
   Loader2,
   Plus,
   Power,
@@ -10,6 +11,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+import { formatDuration } from "@/hooks/useSessionTimer";
 import { FlagIcon } from "@/components/FlagIcon";
 import { useTrafficStream } from "@/hooks/useTrafficStream";
 import { useServerLatency } from "@/hooks/useServerLatency";
@@ -268,7 +270,30 @@ export function HomeScreen({
         <div className="relative z-10 my-6 flex flex-col items-center justify-center text-center">
           <div className="relative flex items-center justify-center">
             {isRunning && (
-              <div className="pointer-events-none absolute h-32 w-32 animate-ping rounded-full bg-emerald-500/20 opacity-40" />
+              <>
+                <div
+                  className="pointer-events-none absolute h-40 w-40 rounded-full animate-neon-outer"
+                  style={{
+                    background: "radial-gradient(circle, rgba(var(--accent-glow-rgb), 0.35) 0%, rgba(var(--accent-glow-rgb), 0) 70%)",
+                  }}
+                />
+                <div
+                  className="pointer-events-none absolute h-32 w-32 rounded-full animate-neon-halo"
+                  style={{
+                    background: "radial-gradient(circle, rgba(var(--accent-glow-rgb), 0.5) 0%, rgba(var(--accent-glow-rgb), 0) 65%)",
+                  }}
+                />
+              </>
+            )}
+            {isTransition && (
+              <div
+                className="pointer-events-none absolute h-32 w-32 rounded-full animate-spin-conic opacity-75"
+                style={{
+                  background: "conic-gradient(from 0deg, transparent 0deg, rgba(var(--accent-glow-rgb), 0.8) 180deg, transparent 360deg)",
+                  maskImage: "radial-gradient(circle, transparent 52px, black 54px)",
+                  WebkitMaskImage: "radial-gradient(circle, transparent 52px, black 54px)",
+                }}
+              />
             )}
             <button
               type="button"
@@ -285,7 +310,7 @@ export function HomeScreen({
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
                 "disabled:cursor-not-allowed",
                 isRunning
-                  ? "border-emerald-500/50 bg-gradient-to-tr from-emerald-500 to-teal-400 text-zinc-950 shadow-xl shadow-emerald-500/30 active:scale-95"
+                  ? "border-emerald-500/50 bg-gradient-to-tr from-emerald-500 to-teal-400 text-zinc-950 glow-button shadow-xl shadow-emerald-500/30 animate-neon-pulse active:scale-95"
                   : isTransition
                     ? "border-foreground/20 bg-foreground/5 text-foreground/70"
                     : "border-muted-foreground/40 bg-muted/40 text-muted-foreground active:scale-95 hover:border-foreground/40 hover:text-foreground",
@@ -338,9 +363,12 @@ export function HomeScreen({
             </button>
 
             {isRunning && uptimeSecs != null && (
-              <p className="pt-0.5 font-mono text-[10px] text-muted-foreground/70">
-                uptime {formatUptime(uptimeSecs)}
-              </p>
+              <div className="flex items-center justify-center pt-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/60 px-2.5 py-0.5 font-mono text-[10px] text-muted-foreground shadow-sm">
+                  <Clock className="h-3 w-3 text-emerald-400" />
+                  <span>session {formatDuration(uptimeSecs)}</span>
+                </span>
+              </div>
             )}
 
             {vpn.state === "error" && (vpn.message || vpn.error) && (

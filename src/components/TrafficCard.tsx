@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Activity, ArrowDownToLine, ArrowUpToLine } from "lucide-react";
 import { Badge } from "./Badge";
 import { cn } from "@/lib/utils";
@@ -182,15 +182,23 @@ function RateBox({
 }) {
   const Icon = direction === "down" ? ArrowDownToLine : ArrowUpToLine;
   return (
-    <div className="rounded border border-border bg-card/40 p-3">
+    <div className="rounded border border-border bg-card/40 p-3 transition-colors">
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-        <Icon className="h-3 w-3" />
+        <Icon
+          className="h-3.5 w-3.5"
+          style={{
+            color:
+              direction === "down"
+                ? "rgb(var(--accent-glow-rgb))"
+                : "hsl(var(--muted-foreground))",
+          }}
+        />
         {label}
       </div>
-      <div className="mt-1 font-mono text-lg font-medium tabular-nums">
+      <div className="mt-1 font-mono text-lg font-medium tabular-nums text-foreground">
         {formatBytes(value)}
       </div>
-      <div className="mt-0.5 text-[10px] text-muted-foreground">
+      <div className="mt-0.5 text-[10px] text-muted-foreground font-mono">
         total: {formatTotal(total)}
       </div>
     </div>
@@ -214,8 +222,14 @@ function Chart({
 }) {
   const line = buildPath(values, width, height, max);
   const area = buildAreaPath(values, width, height, max);
-  const stroke = tone === "foreground" ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))";
-  const fill = tone === "foreground" ? "hsl(var(--foreground) / 0.08)" : "hsl(var(--muted-foreground) / 0.08)";
+  const stroke =
+    tone === "foreground"
+      ? "rgb(var(--accent-glow-rgb))"
+      : "hsl(var(--muted-foreground))";
+  const fill =
+    tone === "foreground"
+      ? "rgba(var(--accent-glow-rgb), 0.14)"
+      : "hsl(var(--muted-foreground) / 0.08)";
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">

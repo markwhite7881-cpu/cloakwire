@@ -51,6 +51,7 @@ url = "2"
 base64 = "0.22"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-autostart = "2"
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }

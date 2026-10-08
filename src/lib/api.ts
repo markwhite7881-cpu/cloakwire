@@ -239,6 +239,11 @@ export const api = {
   getKillSwitchMode: () => call<KillSwitchMode>("get_kill_switch_mode"),
   cleanupKillSwitch: () => call<void>("cleanup_kill_switch"),
   checkLeakStatus: () => call<LeakStatusReport>("check_leak_status"),
+  updateTrayStatus: (connected: boolean, profileName?: string | null) =>
+    call<void>("update_tray_status", {
+      connected,
+      profileName: profileName ?? null,
+    }),
 };
 
 export { TauriCommandError };
