@@ -605,7 +605,7 @@ export default function MobileApp() {
 
   const dotCls =
     vpn.state === "running"
-      ? "bg-emerald-400"
+      ? "bg-theme-accent"
       : vpn.state === "starting"
         ? "bg-foreground animate-pulse-dot"
         : vpn.state === "error"
@@ -617,7 +617,7 @@ export default function MobileApp() {
       {/* Header: brand + live status capsule. */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/5 bg-[#07080c]/85 px-4 py-3 backdrop-blur-xl pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/30">
+          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-theme-subtle ring-1 ring-theme-accent">
             <img src={cloakwireLogo} alt="Cloakwire" className="h-5 w-5" />
           </div>
           <div>
@@ -653,7 +653,7 @@ export default function MobileApp() {
           }) && (
           <div
             role="status"
-            className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-emerald-500/20 bg-emerald-950/40 px-4 py-2.5 backdrop-blur-md shadow-sm"
+            className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-theme-accent-subtle bg-theme-subtle px-4 py-2.5 backdrop-blur-md shadow-sm"
           >
             <span className="text-xs text-foreground/90">
               {reconnectInProgress
@@ -674,7 +674,7 @@ export default function MobileApp() {
               type="button"
               onClick={() => void reconnect()}
               disabled={vpn.busy || reconnectInProgress}
-              className="flex h-8 items-center gap-1.5 rounded-xl bg-emerald-500 px-3 text-xs font-semibold text-zinc-950 shadow-sm transition active:scale-95 disabled:opacity-50"
+              className="flex h-8 items-center gap-1.5 rounded-xl bg-theme-accent px-3 text-xs font-semibold text-zinc-950 shadow-sm transition active:scale-95 disabled:opacity-50"
             >
               <RefreshCw
                 className={cn(

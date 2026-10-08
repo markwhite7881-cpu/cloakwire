@@ -173,7 +173,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
 
       {/* Simple UX: two process-picker cards. */}
       <ProcessPickerCard
-        icon={<Shield size={18} className="text-emerald-400" />}
+        icon={<Shield size={18} className="text-theme-accent" />}
         title="Apps via VPN"
         description="Traffic from these programs goes through the VPN. Everything else stays direct."
         accent="vpn"
@@ -182,7 +182,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
         disabled={!isTunActive}
       />
       <ProcessPickerCard
-        icon={<ShieldOff size={18} className="text-emerald-400" />}
+        icon={<ShieldOff size={18} className="text-theme-accent" />}
         title="Apps direct"
         description="Always bypass the VPN, even if a rule-set or final outbound would otherwise route them via proxy. For most users, leave empty."
         accent="direct"
@@ -210,7 +210,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
 
       {/* Advanced — collapsed by default. */}
       <details className="bento-card rounded-2xl p-4 transition open:p-5">
-        <summary className="cursor-pointer select-none px-2 py-1 text-sm font-semibold text-foreground hover:text-emerald-400 flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
+        <summary className="cursor-pointer select-none px-2 py-1 text-sm font-semibold text-foreground hover:text-theme-accent flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
           <span className="advanced-arrow text-xs text-muted-foreground" />
           Advanced Rules & Route Engine
           {(r.rules.length > 0 || r.rule_sets.length > 0) && (
@@ -240,7 +240,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
                   type="checkbox"
                   checked={r.sniff}
                   onChange={(e) => updateRouting({ sniff: e.target.checked })}
-                  className="rounded border-input bg-background text-emerald-500 focus:ring-emerald-500"
+                  className="rounded border-input bg-background accent-brand focus:ring-brand"
                 />
                 Sniff protocol (HTTP/TLS/QUIC)
               </label>
@@ -249,7 +249,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
                   type="checkbox"
                   checked={r.auto_detect_interface}
                   onChange={(e) => updateRouting({ auto_detect_interface: e.target.checked })}
-                  className="rounded border-input bg-background text-emerald-500 focus:ring-emerald-500"
+                  className="rounded border-input bg-background accent-brand focus:ring-brand"
                 />
                 Auto-detect interface
               </label>
@@ -258,7 +258,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
                 <select
                   value={r.final_outbound}
                   onChange={(e) => updateRouting({ final_outbound: e.target.value })}
-                  className="w-full rounded-md bg-[#0b0c12] border border-border/80 px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                  className="w-full rounded-md bg-[#0b0c12] border border-border/80 px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent"
                 >
                   <option value="direct">direct (default for the simple UX)</option>
                   <option value="proxy">proxy (selector)</option>
@@ -344,7 +344,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
                   {jsonCopied ? "Copied" : "Copy"}
                 </Button>
               </div>
-              <pre className="text-xs text-emerald-300/90 overflow-x-auto whitespace-pre-wrap font-mono">
+              <pre className="text-xs text-theme-accent/90 overflow-x-auto whitespace-pre-wrap font-mono">
                 {JSON.stringify(jsonPreview, null, 2)}
               </pre>
             </div>
@@ -416,7 +416,7 @@ function ProcessPickerCard({
                 "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition",
                 "hover:opacity-80",
                 accent === "vpn"
-                  ? "border-emerald-500/40 bg-emerald-950/60 text-emerald-300 font-medium"
+                  ? "badge-theme font-medium"
                   : "border-border/80 bg-secondary/80 text-muted-foreground",
                 disabled && "cursor-not-allowed hover:opacity-100",
               )}

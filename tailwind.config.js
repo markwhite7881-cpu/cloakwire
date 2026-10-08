@@ -47,6 +47,12 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        brand: {
+          DEFAULT: "rgba(var(--accent-glow-rgb), <alpha-value>)",
+          from: "rgba(var(--accent-from-rgb), <alpha-value>)",
+          to: "rgba(var(--accent-to-rgb), <alpha-value>)",
+          text: "var(--accent-badge-text)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

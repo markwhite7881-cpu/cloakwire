@@ -65,7 +65,7 @@ export function ConfigTab({
         <CardHeader>
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
-              <FileJson className="h-4 w-4 text-emerald-400" />
+              <FileJson className="h-4 w-4 text-theme-accent" />
               Active config
             </CardTitle>
             <CardDescription>
@@ -125,7 +125,7 @@ export function ConfigTab({
         <CardHeader>
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-emerald-400" />
+              <Server className="h-4 w-4 text-theme-accent" />
               Core binaries
             </CardTitle>
             <CardDescription>Verified sidecars discovered by the backend</CardDescription>

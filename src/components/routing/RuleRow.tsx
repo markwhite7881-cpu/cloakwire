@@ -81,7 +81,7 @@ export function RuleRow({
       className={cn(
         "rounded-xl border bg-[#07080c] transition overflow-hidden",
         rule.enabled ? "border-border/80" : "border-border/40 opacity-60",
-        isDragging && "shadow-lg ring-1 ring-emerald-500/30",
+        isDragging && "shadow-lg ring-1 ring-theme-accent",
       )}
     >
       {/* Collapsed bar */}
@@ -103,7 +103,7 @@ export function RuleRow({
           className={cn(
             "p-1 rounded-md transition",
             rule.enabled
-              ? "text-emerald-400 hover:text-emerald-300"
+              ? "text-theme-accent hover:opacity-80"
               : "text-muted-foreground/50 hover:text-muted-foreground",
           )}
         >
@@ -125,7 +125,7 @@ export function RuleRow({
               }
               className={cn(
                 "text-[10px] font-mono",
-                rule.action.kind === "route" && "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60",
+                rule.action.kind === "route" && "badge-theme",
               )}
             >
               {actionSummary}

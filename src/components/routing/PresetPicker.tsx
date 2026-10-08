@@ -44,10 +44,10 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
               key={p.id}
               type="button"
               onClick={() => onAddRule({ id: newRuleId(), ...p.build() })}
-              className="text-left rounded-lg border border-border/80 bg-[#0b0c12] hover:border-emerald-500/50 hover:bg-emerald-950/20 transition px-3.5 py-2.5 group"
+              className="text-left rounded-lg border border-border/80 bg-[#0b0c12] hover:border-theme-accent hover:bg-theme-subtle transition px-3.5 py-2.5 group"
             >
               <div className="flex items-center gap-2">
-                <Plus size={14} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                <Plus size={14} className="text-theme-accent group-hover:scale-110 transition-transform" />
                 <span className="text-sm font-medium text-foreground">{p.label}</span>
               </div>
               <div className="text-xs text-muted-foreground mt-0.5 ml-5 line-clamp-2">
@@ -76,7 +76,7 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
                 className={cn(
                   "px-2.5 py-1 rounded-md text-xs font-mono transition",
                   source === s
-                    ? "bg-emerald-500 text-zinc-950 font-medium shadow-sm"
+                    ? "bg-theme-accent text-zinc-950 font-medium shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >

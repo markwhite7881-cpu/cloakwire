@@ -171,7 +171,7 @@ export function ProxiesCard({ status }: Props) {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
-              <Network className="h-4 w-4 text-emerald-400" />
+              <Network className="h-4 w-4 text-theme-accent" />
               Proxies
               <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
                 {groups.length}

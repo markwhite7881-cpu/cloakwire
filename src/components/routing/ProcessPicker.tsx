@@ -141,11 +141,11 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
         )}
       >
         <span className="flex items-center gap-2">
-          <ListChecks size={13} className="text-emerald-400" />
+          <ListChecks size={13} className="text-theme-accent" />
           {open ? "Hide process list" : "Pick from running processes…"}
         </span>
         {selected.length > 0 && (
-          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+          <span className="badge-theme text-[10px] font-mono px-2 py-0.5 rounded-full">
             {selected.length} active
           </span>
         )}
@@ -160,7 +160,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search process name…"
               disabled={disabled}
-              className="flex-1 rounded-lg bg-[#0b0c12] border border-border/80 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-lg bg-[#0b0c12] border border-border/80 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <Button
               variant="outline"
@@ -232,8 +232,8 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
                     disabled={disabled}
                     className={cn(
                       "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs text-left rounded-md transition",
-                      "hover:bg-emerald-950/30",
-                      active && "bg-emerald-950/50 text-emerald-300 font-medium",
+                      "hover:bg-theme-subtle",
+                      active && "bg-theme-subtle text-theme-accent font-medium",
                       disabled && "opacity-50 cursor-not-allowed hover:bg-transparent",
                     )}
                   >
@@ -242,7 +242,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
                         className={cn(
                           "inline-block w-3.5 h-3.5 rounded border flex-shrink-0 transition",
                           active
-                            ? "bg-emerald-500 border-emerald-500"
+                            ? "bg-theme-accent border-theme-accent"
                             : "border-border/80 bg-background/50",
                         )}
                         aria-hidden

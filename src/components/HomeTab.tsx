@@ -354,7 +354,7 @@ export function HomeTab({
                   className={cn(
                     "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all",
                     currentMode === "tun"
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                      ? "bg-theme-subtle text-theme-accent border border-theme-accent-subtle shadow-sm"
                       : "text-muted-foreground hover:text-foreground hover:bg-white/5",
                   )}
                 >
@@ -422,7 +422,7 @@ export function HomeTab({
             <div className="grid grid-cols-2 gap-3 mb-2">
               <div className="rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-                  <TrendingDown className="h-3.5 w-3.5 text-emerald-500" />
+                  <TrendingDown className="h-3.5 w-3.5 text-theme-accent" />
                   Download
                 </div>
                 <p className="mt-1 font-mono text-xl font-bold tabular-nums text-foreground">
@@ -460,7 +460,7 @@ export function HomeTab({
               <button
                 type="button"
                 onClick={() => onNavigateTab?.("routing")}
-                className="text-xs text-emerald-400 hover:underline cursor-pointer flex items-center gap-1 font-medium"
+                className="text-xs text-theme-accent hover:underline cursor-pointer flex items-center gap-1 font-medium"
               >
                 Manage ({vpnProcesses.length + directProcesses.length} active) ↗
               </button>
@@ -473,10 +473,10 @@ export function HomeTab({
             ) : (
               <div className="flex flex-wrap gap-2 pt-0.5">
                 {vpnProcesses.slice(0, 4).map((app: string) => (
-                  <div key={app} className="flex items-center gap-1.5 bg-background/70 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <div key={app} className="flex items-center gap-1.5 bg-background/70 border border-theme-accent-subtle px-2.5 py-1 rounded-lg text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-theme-accent" />
                     <span className="font-mono text-foreground text-[11px]">{app}</span>
-                    <span className="text-[10px] text-emerald-400 font-mono">VPN</span>
+                    <span className="text-[10px] text-theme-accent font-mono">VPN</span>
                   </div>
                 ))}
                 {directProcesses.slice(0, 2).map((app: string) => (
@@ -513,13 +513,13 @@ export function HomeTab({
         <Card className="bento-card p-4">
           <div className="mb-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-              <Server className="h-3.5 w-3.5 text-emerald-400" />
+              <Server className="h-3.5 w-3.5 text-theme-accent" />
               All Servers ({profiles.length})
             </div>
             <button
               type="button"
               onClick={() => setQuickAddOpen(true)}
-              className="flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-950/60 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900/60 transition shadow-sm"
+              className="flex items-center gap-1 rounded-lg border border-theme-accent-subtle bg-theme-subtle px-2.5 py-1 text-xs font-medium text-theme-accent hover:bg-theme-subtle/80 transition shadow-sm"
               title="Add Server or Subscription"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -551,7 +551,7 @@ export function HomeTab({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/50 p-2 text-emerald-400">
+                <div className="rounded-xl border border-theme-accent-subtle bg-theme-subtle p-2 text-theme-accent">
                   <Link2 className="h-5 w-5" />
                 </div>
                 <div>
@@ -579,7 +579,7 @@ export function HomeTab({
                 "vless://uuid@host:port?type=tcp&security=reality&pbk=...\n" +
                 "https://provider.example.com/sub?token=ABCD-1234"
               }
-              className="min-h-[120px] w-full resize-y rounded-xl border border-border/80 bg-[#07080c] px-3.5 py-2.5 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-emerald-500/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+              className="min-h-[120px] w-full resize-y rounded-xl border border-border/80 bg-[#07080c] px-3.5 py-2.5 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
               spellCheck={false}
               autoFocus
             />
@@ -602,7 +602,7 @@ export function HomeTab({
                     setQuickAddOpen(false);
                   }
                 }}
-                className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium px-4"
+                className="bg-theme-accent hover:opacity-90 text-zinc-950 font-medium px-4"
               >
                 Import
               </Button>
@@ -716,10 +716,11 @@ function SparklineWave({
         upPoints.push({ x, y: yUp });
       }
 
-      // Draw Download Wave Fill Gradient
+      // Draw Download Wave Fill Gradient with dynamic accent
+      const accentRgb = (canvas && getComputedStyle(canvas).getPropertyValue("--accent-glow-rgb").trim()) || "16, 185, 129";
       const grad = ctx.createLinearGradient(0, topY, 0, bottomY);
-      grad.addColorStop(0, active ? "rgba(16, 185, 129, 0.35)" : "rgba(16, 185, 129, 0.08)");
-      grad.addColorStop(1, "rgba(16, 185, 129, 0.0)");
+      grad.addColorStop(0, active ? `rgba(${accentRgb}, 0.35)` : `rgba(${accentRgb}, 0.08)`);
+      grad.addColorStop(1, `rgba(${accentRgb}, 0.0)`);
 
       ctx.beginPath();
       ctx.moveTo(downPoints[0].x, downPoints[0].y);
@@ -744,12 +745,12 @@ function SparklineWave({
         const mx = (p0.x + p1.x) / 2;
         ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
       }
-      ctx.strokeStyle = active ? "#10b981" : "#3f3f46";
+      ctx.strokeStyle = active ? `rgb(${accentRgb})` : "#3f3f46";
       ctx.lineWidth = active ? 2.5 : 1.5;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       if (active) {
-        ctx.shadowColor = "rgba(16, 185, 129, 0.45)";
+        ctx.shadowColor = `rgba(${accentRgb}, 0.45)`;
         ctx.shadowBlur = 6;
       }
       ctx.stroke();

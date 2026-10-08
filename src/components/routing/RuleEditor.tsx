@@ -116,7 +116,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
               className={cn(
                 "rounded-lg px-2.5 py-1 text-xs font-mono transition border",
                 a.kind === kind
-                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 font-medium shadow-sm"
+                  ? "bg-theme-accent text-zinc-950 border-theme-accent font-medium shadow-sm"
                   : "bg-[#07080c] text-muted-foreground border-border/80 hover:text-foreground",
               )}
             >
@@ -129,7 +129,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
             <select
               value={a.outbound}
               onChange={(e) => setAction({ kind: "route", outbound: e.target.value })}
-              className="w-full rounded-lg bg-[#07080c] border border-border/80 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 font-mono"
+              className="w-full rounded-lg bg-[#07080c] border border-border/80 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent font-mono"
             >
               <option value="proxy">proxy (selector)</option>
               <option value="auto">auto (urltest)</option>
@@ -341,13 +341,13 @@ function ChipField({ label, values, placeholder, onChange }: ChipFieldProps) {
         {arr.map((v) => (
           <span
             key={v}
-            className="inline-flex items-center gap-1 rounded-lg bg-[#07080c] text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-mono"
+            className="inline-flex items-center gap-1 rounded-lg bg-theme-subtle text-theme-accent border border-theme-accent-subtle px-2.5 py-0.5 text-xs font-mono"
           >
             {v}
             <button
               type="button"
               onClick={() => remove(v)}
-              className="text-emerald-400/70 hover:text-emerald-300 ml-0.5"
+              className="text-theme-accent/70 hover:text-theme-accent ml-0.5"
               aria-label={`Remove ${v}`}
             >
               ×
@@ -368,7 +368,7 @@ function ChipField({ label, values, placeholder, onChange }: ChipFieldProps) {
               }
             }}
             placeholder={placeholder}
-            className="rounded-lg bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 w-36 font-mono"
+            className="rounded-lg bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent w-36 font-mono"
           />
           <Button variant="ghost" size="sm" onClick={add} title="Add">
             <Plus size={12} />
@@ -404,13 +404,13 @@ function PortField({ label, values, onChange }: PortFieldProps) {
         {arr.map((n) => (
           <span
             key={n}
-            className="inline-flex items-center gap-1 rounded-lg bg-[#07080c] text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-mono"
+            className="inline-flex items-center gap-1 rounded-lg bg-theme-subtle text-theme-accent border border-theme-accent-subtle px-2.5 py-0.5 text-xs font-mono"
           >
             {n}
             <button
               type="button"
               onClick={() => remove(n)}
-              className="text-emerald-400/70 hover:text-emerald-300 ml-0.5"
+              className="text-theme-accent/70 hover:text-theme-accent ml-0.5"
               aria-label={`Remove port ${n}`}
             >
               ×
@@ -428,7 +428,7 @@ function PortField({ label, values, onChange }: PortFieldProps) {
               if (e.key === "Enter") { e.preventDefault(); add(); }
             }}
             placeholder="443"
-            className="rounded-lg bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 w-24 font-mono"
+            className="rounded-lg bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent w-24 font-mono"
           />
           <Button variant="ghost" size="sm" onClick={add} title="Add">
             <Plus size={12} />
@@ -461,7 +461,7 @@ function ChipsPicker({ label, options, values, onToggle }: ChipsPickerProps) {
               className={cn(
                 "rounded-lg px-2.5 py-0.5 text-xs font-mono border transition",
                 active
-                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 font-medium shadow-sm"
+                  ? "bg-theme-accent text-zinc-950 border-theme-accent font-medium shadow-sm"
                   : "bg-[#07080c] text-muted-foreground border-border/80 hover:text-foreground",
               )}
             >

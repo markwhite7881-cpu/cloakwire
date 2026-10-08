@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Download, Loader2, Sparkles, X, ArrowRight } from "lucide-react";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
@@ -35,13 +35,13 @@ export function UpdateModal({
         aria-modal="true"
       >
         {/* Glow effect */}
-        <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-emerald-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-brand/15 blur-3xl" />
         <div className="pointer-events-none absolute -left-12 -bottom-12 h-36 w-36 rounded-full bg-cyan-500/10 blur-3xl" />
 
         {/* Top Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-950/50 text-emerald-400 shadow-inner">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-theme-accent-subtle bg-theme-subtle text-theme-accent shadow-inner">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
@@ -51,7 +51,7 @@ export function UpdateModal({
               <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="font-mono">v{currentVersion}</span>
                 <ArrowRight className="h-3 w-3 text-muted-foreground/60" />
-                <span className="font-mono font-medium text-emerald-400">v{version}</span>
+                <span className="font-mono font-medium text-theme-accent">v{version}</span>
               </div>
             </div>
           </div>
@@ -100,7 +100,7 @@ export function UpdateModal({
             size="sm"
             onClick={() => void onUpdate()}
             disabled={busy}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-5 text-xs font-semibold text-black hover:bg-emerald-400 active:scale-95 shadow-lg shadow-emerald-950/50"
+            className="flex items-center gap-1.5 rounded-xl bg-theme-accent px-5 text-xs font-semibold text-black hover:opacity-90 active:scale-95 shadow-theme-accent"
           >
             {busy ? (
               <>

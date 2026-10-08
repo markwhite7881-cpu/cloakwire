@@ -87,7 +87,7 @@ export function SubscriptionIdentityCard() {
       <CardHeader>
         <div className="space-y-1">
           <CardTitle className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-emerald-400" />
+            <KeyRound className="h-4 w-4 text-theme-accent" />
             Subscription identity
             {info?.custom && <Badge variant="secondary">custom</Badge>}
           </CardTitle>

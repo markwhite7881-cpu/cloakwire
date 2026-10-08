@@ -144,9 +144,9 @@ export function AddSubscriptionSheet({
     <Sheet open={open} onClose={onClose} title="Add servers & subscriptions">
       <div className="space-y-4">
         {clipboardContent && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 shadow-sm animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-theme-accent-subtle bg-theme-subtle p-3 shadow-sm animate-in fade-in slide-in-from-top-1">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+              <div className="flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-theme-accent">
                 <Clipboard className="h-3 w-3" />
                 <span>Link in clipboard</span>
               </div>
@@ -157,7 +157,7 @@ export function AddSubscriptionSheet({
             <button
               type="button"
               onClick={() => void pasteFromClipboard()}
-              className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 shadow transition active:scale-95 hover:bg-emerald-400"
+              className="shrink-0 rounded-lg bg-theme-accent px-3 py-1.5 text-xs font-semibold text-zinc-950 shadow transition active:scale-95 hover:opacity-90"
             >
               Paste
             </button>
@@ -172,7 +172,7 @@ export function AddSubscriptionSheet({
             <button
               type="button"
               onClick={() => void pasteFromClipboard()}
-              className="flex items-center gap-1 font-mono text-[11px] text-emerald-400 hover:underline active:opacity-80"
+              className="flex items-center gap-1 font-mono text-[11px] text-theme-accent hover:underline active:opacity-80"
             >
               <Clipboard className="h-3 w-3" />
               <span>Paste from clipboard</span>
@@ -190,7 +190,7 @@ export function AddSubscriptionSheet({
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
-            className="min-h-[120px] w-full resize-none rounded-xl border border-border/80 bg-[#07080c] px-3.5 py-2.5 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-emerald-500/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+            className="min-h-[120px] w-full resize-none rounded-xl border border-border/80 bg-[#07080c] px-3.5 py-2.5 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
           />
           <p className="mt-1.5 text-[11px] text-muted-foreground/80">{sourceHint}</p>
         </div>
@@ -202,7 +202,7 @@ export function AddSubscriptionSheet({
           disabled={busy || source.trim().length === 0}
           className={cn(
             "flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold",
-            "bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20 active:scale-[0.98] transition",
+            "bg-theme-accent text-zinc-950 shadow-theme-accent active:scale-[0.98] transition hover:opacity-90",
             "disabled:pointer-events-none disabled:opacity-50",
           )}
         >

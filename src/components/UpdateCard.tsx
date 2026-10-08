@@ -72,7 +72,7 @@ export function UpdateCard({ currentSingboxVersion }: Props) {
   return (
     <div className="bento-card rounded-2xl p-5 space-y-4">
       <div className="flex items-start gap-2.5">
-        <ShieldCheck size={16} className="mt-0.5 text-emerald-400" />
+        <ShieldCheck size={16} className="mt-0.5 text-theme-accent" />
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground">Updates & Core Status</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -93,7 +93,7 @@ export function UpdateCard({ currentSingboxVersion }: Props) {
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">
             <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1 uppercase">
-              <Cpu size={11} className="text-emerald-400" />
+              <Cpu size={11} className="text-theme-accent" />
               sing-box Core
             </div>
             <div className="text-sm font-medium text-foreground mt-0.5">
@@ -141,7 +141,7 @@ function AppUpdateRow({
             {available ? (
               <>
                 New version{" "}
-                <span className="font-mono text-emerald-400">{update!.version}</span>{" "}
+                <span className="font-mono text-theme-accent">{update!.version}</span>{" "}
                 available
                 {update!.notes ? (
                   <span className="text-xs text-muted-foreground"> — {update!.notes}</span>
@@ -165,7 +165,7 @@ function AppUpdateRow({
             <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
           </Button>
           {available && (
-            <Button size="sm" onClick={onInstall} disabled={busy} className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium">
+            <Button size="sm" onClick={onInstall} disabled={busy} className="bg-theme-accent hover:opacity-90 text-zinc-950 font-medium">
               <Download size={12} className="mr-1" />
               {busy ? "Installing…" : "Update & restart"}
             </Button>

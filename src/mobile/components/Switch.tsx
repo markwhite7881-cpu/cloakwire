@@ -27,10 +27,10 @@ export function Switch({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative h-6 w-11 shrink-0 rounded-full border transition-all duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-accent",
         "disabled:cursor-not-allowed disabled:opacity-50",
         checked
-          ? "border-emerald-500 bg-emerald-500 shadow-md shadow-emerald-500/25"
+          ? "border-theme-accent bg-theme-accent shadow-theme-accent"
           : "border-border/80 bg-[#07080c]",
       )}
     >

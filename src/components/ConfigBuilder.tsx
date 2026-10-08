@@ -252,9 +252,9 @@ export function ConfigBuilder({
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="flex items-center gap-2">
-            <FileCog className="h-4 w-4 text-emerald-400" />
+            <FileCog className="h-4 w-4 text-theme-accent" />
             Config builder
-            <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
+            <Badge variant="secondary" className="badge-theme ml-1 px-1.5 py-0 text-[10px]">
               {profiles.length}
             </Badge>
           </CardTitle>
@@ -289,7 +289,7 @@ export function ConfigBuilder({
                   className={cn(
                     "rounded-md border px-2 py-1.5 text-left transition-colors",
                     active
-                      ? "border-foreground/30 bg-foreground/5"
+                      ? "border-theme-accent bg-theme-subtle text-foreground shadow-sm"
                       : "border-border bg-card/30 hover:bg-accent",
                   )}
                   title={m.hint}
@@ -367,7 +367,7 @@ export function ConfigBuilder({
         {/* Security & Privacy */}
         <div className="space-y-3 rounded-lg border border-border/80 bg-card/20 p-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-theme-accent">
               <ShieldCheck className="h-4 w-4" />
               <span>Безопасность и защита от утечек</span>
             </div>
@@ -383,7 +383,7 @@ export function ConfigBuilder({
           </div>
 
           {firewallResetMsg && (
-            <div className="rounded border border-emerald-500/30 bg-emerald-950/40 p-2 text-xs text-emerald-300">
+            <div className="rounded border border-theme-accent-subtle bg-theme-subtle p-2 text-xs text-theme-accent">
               {firewallResetMsg}
             </div>
           )}
@@ -422,7 +422,7 @@ export function ConfigBuilder({
                 className={cn(
                   "mt-2 rounded-lg border p-2.5 text-xs space-y-1.5",
                   leakResult.verdict === "protected"
-                    ? "border-emerald-500/40 bg-emerald-950/30 text-emerald-300"
+                    ? "border-theme-accent-subtle bg-theme-subtle text-theme-accent"
                     : leakResult.verdict === "leaking"
                       ? "border-destructive/50 bg-destructive/15 text-destructive"
                       : "border-border bg-card/40 text-foreground",

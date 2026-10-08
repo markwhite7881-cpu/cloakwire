@@ -22,7 +22,7 @@ function formatTs(iso: string): string {
 const STREAM_COLOR: Record<LogLine["stream"], string> = {
   stdout: "text-zinc-300",
   stderr: "text-rose-400 font-medium",
-  system: "text-emerald-400 font-medium",
+  system: "text-theme-accent font-medium",
 };
 
 export function LogView({ logs, onClear, className }: Props) {
@@ -56,7 +56,7 @@ export function LogView({ logs, onClear, className }: Props) {
             className={cn(
               "rounded-lg px-2.5 py-1 text-[11px] font-medium transition",
               filter === "all"
-                ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800/60"
+                ? "badge-theme"
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary"
             )}
           >
@@ -78,7 +78,7 @@ export function LogView({ logs, onClear, className }: Props) {
             className={cn(
               "rounded-lg px-2.5 py-1 text-[11px] font-medium transition",
               filter === "system"
-                ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800/60"
+                ? "badge-theme"
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary"
             )}
           >

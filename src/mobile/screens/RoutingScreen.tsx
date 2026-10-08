@@ -70,7 +70,7 @@ export function RoutingScreen({
                 className={cn(
                   "rounded-xl border py-2.5 px-2 text-xs font-medium transition-all duration-200",
                   active
-                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 font-semibold shadow-sm"
+                    ? "border-theme-accent bg-theme-subtle text-theme-accent font-semibold shadow-sm"
                     : "border-white/5 bg-[#07080c] text-muted-foreground active:scale-95 hover:text-foreground",
                 )}
               >
@@ -196,7 +196,7 @@ function PerAppSection({
               className={cn(
                 "rounded-xl border py-2.5 px-2 text-[11px] font-medium transition-all duration-200",
                 mode === m.id
-                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 font-semibold shadow-sm"
+                  ? "border-theme-accent bg-theme-subtle text-theme-accent font-semibold shadow-sm"
                   : "border-white/5 bg-[#07080c] text-muted-foreground active:scale-95 hover:text-foreground",
               )}
             >
@@ -267,13 +267,13 @@ function PerAppSection({
                             className={cn(
                               "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition",
                               selected.has(a.packageName)
-                                ? "border-emerald-400 bg-emerald-500/20"
+                                ? "border-theme-accent bg-theme-accent"
                                 : "border-muted-foreground/40",
                             )}
                             aria-hidden
                           >
                             {selected.has(a.packageName) && (
-                              <span className="h-2 w-2 rounded-sm bg-emerald-400" />
+                              <span className="h-2 w-2 rounded-sm bg-zinc-950" />
                             )}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -427,14 +427,14 @@ function RuleGroup({
               if (e.key === "Enter") add();
             }}
             placeholder={group === "block" ? "ads.example.com" : "example.com or 1.2.3.0/24"}
-            className="h-10 w-full rounded-xl border border-white/10 bg-[#07080c] px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-emerald-500/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+            className="h-10 w-full rounded-xl border border-white/10 bg-[#07080c] px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
           />
           <button
             type="button"
             onClick={add}
             disabled={!value.trim()}
             aria-label="Add entry"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20 active:scale-95 transition disabled:opacity-50"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-theme-accent text-zinc-950 shadow-theme-accent active:scale-95 transition hover:opacity-90 disabled:opacity-50"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
           </button>

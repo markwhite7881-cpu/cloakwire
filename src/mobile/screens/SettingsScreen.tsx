@@ -154,7 +154,7 @@ export function SettingsScreen({
     )?.id ?? "custom";
 
   const inputCls =
-    "rounded-xl border border-white/10 bg-[#07080c] px-3 py-2 text-xs text-foreground focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40";
+    "rounded-xl border border-white/10 bg-[#07080c] px-3 py-2 text-xs text-foreground focus:outline-none focus:border-theme-accent focus:ring-1 focus:ring-theme-accent";
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -211,7 +211,7 @@ export function SettingsScreen({
                 type="button"
                 onClick={handleTestLeaks}
                 disabled={testingLeaks}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/60 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900/60 transition disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-theme-accent-subtle bg-theme-subtle px-2.5 py-1 text-xs font-medium text-theme-accent hover:opacity-90 transition disabled:opacity-50"
               >
                 {testingLeaks ? (
                   <>
@@ -232,7 +232,7 @@ export function SettingsScreen({
                 className={cn(
                   "rounded-lg border p-2.5 text-xs space-y-1",
                   leakResult.verdict === "protected"
-                    ? "border-emerald-500/40 bg-emerald-950/30 text-emerald-300"
+                    ? "border-theme-accent-subtle bg-theme-subtle text-theme-accent"
                     : leakResult.verdict === "leaking"
                       ? "border-destructive/50 bg-destructive/15 text-destructive"
                       : "border-white/10 bg-black/40 text-foreground",
@@ -328,7 +328,7 @@ export function SettingsScreen({
               onClick={onOpenLogs}
               className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#07080c] text-sm text-foreground active:scale-[0.98] transition"
             >
-              <Terminal className="h-4 w-4 text-emerald-400" />
+              <Terminal className="h-4 w-4 text-theme-accent" />
               View logs
             </button>
           </div>
@@ -337,7 +337,7 @@ export function SettingsScreen({
               type="button"
               onClick={onRefreshAllSubs}
               disabled={subsFetching}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-zinc-950 text-sm font-semibold shadow-md shadow-emerald-500/20 active:scale-[0.98] transition disabled:opacity-50"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-theme-accent text-zinc-950 text-sm font-semibold shadow-theme-accent active:scale-[0.98] transition hover:opacity-90 disabled:opacity-50"
             >
               <RefreshCw
                 className={cn("h-4 w-4 stroke-[2.5]", subsFetching && "animate-spin")}

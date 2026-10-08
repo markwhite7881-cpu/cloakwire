@@ -403,7 +403,7 @@ export function HomeScreen({
         <div className="mb-2 grid grid-cols-2 gap-2.5">
           <div className="rounded-xl border border-white/5 bg-background/50 p-2.5 shadow-sm">
             <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              <TrendingDown className="h-3.5 w-3.5 text-emerald-400" />
+              <TrendingDown className="h-3.5 w-3.5 text-theme-accent" />
               Download
             </div>
             <p className="mt-1 font-mono text-lg font-bold tabular-nums text-foreground">
@@ -436,13 +436,13 @@ export function HomeScreen({
       <div className="bento-card flex flex-col justify-between rounded-3xl p-4 shadow-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-            <Shield className="h-3.5 w-3.5 text-emerald-400" />
+            <Shield className="h-3.5 w-3.5 text-theme-accent" />
             Per-App Routing
           </div>
           <button
             type="button"
             onClick={onOpenRouting}
-            className="flex items-center gap-0.5 text-xs font-medium text-emerald-400 hover:underline active:opacity-80"
+            className="flex items-center gap-0.5 text-xs font-medium text-theme-accent hover:underline active:opacity-80"
           >
             Manage ↗
           </button>
@@ -462,7 +462,7 @@ export function HomeScreen({
       <div className="bento-card flex flex-col rounded-3xl p-4 shadow-xl">
         <div className="mb-2 flex items-center justify-between px-1">
           <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            <Server className="h-3.5 w-3.5 text-emerald-400" />
+            <Server className="h-3.5 w-3.5 text-theme-accent" />
             <span>All Servers</span>
             <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
               {totalServersCount}
@@ -872,10 +872,12 @@ function MobileSparklineWave({
         upPoints.push({ x, y: yUp });
       }
 
-      // Download fill gradient
+      // Download fill gradient with dynamic theme accent
+      const accentRgb = (canvas && getComputedStyle(canvas).getPropertyValue("--accent-glow-rgb").trim()) || "16, 185, 129";
+      const badgeText = (canvas && getComputedStyle(canvas).getPropertyValue("--accent-badge-text").trim()) || "#34d399";
       const grad = ctx.createLinearGradient(0, topY, 0, bottomY);
-      grad.addColorStop(0, active ? "rgba(16, 185, 129, 0.35)" : "rgba(16, 185, 129, 0.08)");
-      grad.addColorStop(1, "rgba(16, 185, 129, 0.0)");
+      grad.addColorStop(0, active ? `rgba(${accentRgb}, 0.35)` : `rgba(${accentRgb}, 0.08)`);
+      grad.addColorStop(1, `rgba(${accentRgb}, 0.0)`);
 
       ctx.beginPath();
       ctx.moveTo(downPoints[0].x, downPoints[0].y);
@@ -900,12 +902,12 @@ function MobileSparklineWave({
         const mx = (p0.x + p1.x) / 2;
         ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
       }
-      ctx.strokeStyle = active ? "#10b981" : "#3f3f46";
+      ctx.strokeStyle = active ? `rgb(${accentRgb})` : "#3f3f46";
       ctx.lineWidth = active ? 2.5 : 1.5;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       if (active) {
-        ctx.shadowColor = "rgba(16, 185, 129, 0.45)";
+        ctx.shadowColor = `rgba(${accentRgb}, 0.45)`;
         ctx.shadowBlur = 6;
       }
       ctx.stroke();
@@ -934,7 +936,7 @@ function MobileSparklineWave({
         const pulse = Math.sin(elapsed * 4) * 0.5 + 0.5;
         ctx.beginPath();
         ctx.arc(lastPt.x - 2, lastPt.y, 3 + pulse * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = "#34d399";
+        ctx.fillStyle = badgeText;
         ctx.fill();
         ctx.strokeStyle = "#090a0f";
         ctx.lineWidth = 1.5;

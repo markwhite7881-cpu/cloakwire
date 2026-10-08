@@ -1204,7 +1204,7 @@ export default function App() {
       <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-border/80 bg-card/60 px-6 py-3 backdrop-blur-md">
         {/* Left: Brand */}
         <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/30">
+          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-theme-subtle ring-1 ring-theme-accent">
             <img
               src={cloakwireLogo}
               alt="Cloakwire"

@@ -224,7 +224,7 @@ export function ServersScreen({
                 "text-[10px] font-mono uppercase tracking-wider",
                 engine === "xray"
                   ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+                  : "badge-theme",
               )}
               title={`Active VPN engine: ${engine}`}
             >
@@ -237,7 +237,7 @@ export function ServersScreen({
             type="button"
             onClick={() => setSheetOpen(true)}
             aria-label="Add subscription"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20 active:scale-95 transition"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-theme-accent text-zinc-950 shadow-theme-accent active:scale-95 transition hover:opacity-90"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
           </button>
@@ -318,13 +318,13 @@ export function ServersScreen({
                               className={cn(
                                 "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                                 isSel
-                                  ? "border-emerald-400/70"
+                                  ? "border-theme-accent"
                                   : "border-muted-foreground/40",
                               )}
                               aria-hidden
                             >
                               {isSel && (
-                                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                <span className="h-2 w-2 rounded-full bg-theme-accent" />
                               )}
                             </span>
                             <span className="min-w-0 flex-1">
@@ -420,13 +420,13 @@ export function ServersScreen({
                             className={cn(
                               "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                               isSel
-                                ? "border-emerald-400/70"
+                                ? "border-theme-accent"
                                 : "border-muted-foreground/40",
                             )}
                             aria-hidden
                           >
                             {isSel && (
-                              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                              <span className="h-2 w-2 rounded-full bg-theme-accent" />
                             )}
                           </span>
                           <FlagIcon code={code} size={18} className="shrink-0" />

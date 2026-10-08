@@ -76,11 +76,11 @@ export function LogsScreen({ onBack }: { onBack: () => void }) {
             className={cn(
               "flex h-8 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition active:scale-95",
               copied
-                ? "border-emerald-500/40 bg-emerald-950/60 text-emerald-300"
+                ? "border-theme-accent-subtle bg-theme-subtle text-theme-accent"
                 : "border-white/10 bg-[#07080c] text-foreground",
             )}
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? <Check className="h-3.5 w-3.5 text-theme-accent" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? "Copied" : "Diagnostics"}
           </button>
           <button
@@ -89,7 +89,7 @@ export function LogsScreen({ onBack }: { onBack: () => void }) {
             disabled={loading}
             className="flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-[#07080c] px-3 text-xs text-foreground active:scale-95 transition disabled:opacity-50"
           >
-            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-emerald-400")} />
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-theme-accent")} />
             Refresh
           </button>
         </div>

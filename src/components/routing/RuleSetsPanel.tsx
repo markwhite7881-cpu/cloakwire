@@ -81,9 +81,9 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
                 checked={rs.enabled}
                 onChange={(e) => update(rs.tag, { enabled: e.target.checked })}
                 title="Enable / disable"
-                className="rounded border-input bg-background text-emerald-500 focus:ring-emerald-500"
+                className="rounded border-input bg-background accent-brand focus:ring-brand"
               />
-              <code className="text-xs text-emerald-400 font-mono font-medium">{rs.tag}</code>
+              <code className="text-xs text-theme-accent font-mono font-medium">{rs.tag}</code>
               <Badge variant="secondary" className="font-mono text-[10px]">{rs.type}</Badge>
               {rs.format && <Badge variant="outline" className="font-mono text-[10px]">{rs.format}</Badge>}
               {rs.update_interval && <Badge variant="outline" className="font-mono text-[10px]">↻ {rs.update_interval}</Badge>}
@@ -104,7 +104,7 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
                   value={rs.url ?? ""}
                   onChange={(e) => update(rs.tag, { url: e.target.value })}
                   placeholder="https://…/geoip-cn.srs"
-                  className="w-full rounded-md bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 font-mono"
+                  className="w-full rounded-md bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent font-mono"
                 />
               </div>
             )}

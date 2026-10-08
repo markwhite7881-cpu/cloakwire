@@ -49,7 +49,7 @@ export function LogsTab({ logs, onClear }: { logs: LogLine[]; onClear: () => voi
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-emerald-400" />
+                <Terminal className="h-4 w-4 text-theme-accent" />
                 Live Console & Diagnostics
               </CardTitle>
               <CardDescription>
