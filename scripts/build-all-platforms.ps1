@@ -79,12 +79,16 @@ cd `$HOME/cloakwire-builds/cloakwire-v$Version
 tar -xzf /tmp/v$Version-source.tar.gz
 rm -f src-tauri/.cargo/config.toml
 mkdir -p src-tauri/binaries
-if [ -d "`$HOME/cloakwire-builds/cloakwire-v1.4.3/src-tauri/binaries" ]; then
+if [ -d "`$HOME/cloakwire-builds/cloakwire-v1.4.4/src-tauri/binaries" ]; then
+  cp -r `$HOME/cloakwire-builds/cloakwire-v1.4.4/src-tauri/binaries/* src-tauri/binaries/
+elif [ -d "`$HOME/cloakwire-builds/cloakwire-v1.4.3/src-tauri/binaries" ]; then
   cp -r `$HOME/cloakwire-builds/cloakwire-v1.4.3/src-tauri/binaries/* src-tauri/binaries/
 elif [ -d "`$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/src-tauri/binaries" ]; then
   cp -r `$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/src-tauri/binaries/* src-tauri/binaries/
 fi
-if [ -d "`$HOME/cloakwire-builds/cloakwire-v1.4.3/node_modules" ]; then
+if [ -d "`$HOME/cloakwire-builds/cloakwire-v1.4.4/node_modules" ]; then
+  cp -R `$HOME/cloakwire-builds/cloakwire-v1.4.4/node_modules ./
+elif [ -d "`$HOME/cloakwire-builds/cloakwire-v1.4.3/node_modules" ]; then
   cp -R `$HOME/cloakwire-builds/cloakwire-v1.4.3/node_modules ./
 elif [ -d "`$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/node_modules" ]; then
   cp -R `$HOME/cloakwire-builds/cloakwire-v1.3.2-fixed/node_modules ./
