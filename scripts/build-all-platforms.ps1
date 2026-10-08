@@ -4,7 +4,7 @@
 
 param(
     [string]$Version = "1.4.5",
-    [bool]$InstallPhone = $false
+    [switch]$InstallPhone
 )
 
 $ErrorActionPreference = 'Stop'
