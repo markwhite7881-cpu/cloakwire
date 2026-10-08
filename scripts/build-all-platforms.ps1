@@ -3,7 +3,7 @@
 # Signs all artifacts and produces latest.json for auto-updater
 
 param(
-    [string]$Version = "1.4.4",
+    [string]$Version = "1.4.5",
     [bool]$InstallPhone = $false
 )
 
@@ -147,7 +147,7 @@ if (Test-Path $msiFile) {
 
 $manifest = [ordered]@{
     version = $Version
-    notes = "## Cloakwire $Version\n\nAndroid TUN fd leak fix, Servers tab redesign, Xray & sing-box core stability."
+    notes = "## Cloakwire $Version\n\nCustom Accent Themes & OLED mode, Neon Breathing / Glow connection animation, Tray Quick Menu, Session Timer & Connection Stats, UI polish."
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     platforms = $signatures
 }

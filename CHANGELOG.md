@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2026-10-08
+
+### 🎨 Custom Accent Themes & OLED Mode (Desktop & Mobile)
+- **Dynamic Accent Themes**: Full palette customization (Emerald, Cyan, Violet, Amber, Rose) dynamically controlling UI glow, active tabs, buttons, latency badges, and section accents across Desktop and Mobile.
+- **Deep OLED Pitch-Black Mode**: High-contrast pure black (`#000000`) theme optimized for AMOLED/OLED mobile displays and dark desktop workflows.
+- **Instant CSS Variable Reactivity**: Real-time theme application with CSS variables (`--theme-accent`, `--theme-glow`, `--theme-subtle`) updating all interactive components instantly without reload.
+
+### ✨ Neon Breathing & Connection Pulse Animation
+- **Connection Glow Pulse**: Added living neon breathing effect (`connect-glow-pulse`) to the primary Connect/Disconnect button reflecting live VPN state.
+- **Smooth State Transitions**: Fluid visual transitions between idle, connecting, and active tunnel states.
+
+### ⚡ System Tray Quick Menu (Desktop)
+- **Tray Quick Controls**: Native desktop system tray menu with one-click Connect / Disconnect toggle, active connection status indicators, and background app control.
+
+### ⏱️ Session Timer & Statistics
+- **Live Elapsed Timer**: Integrated real-time session duration counter (`useSessionTimer`) tracking active connection time.
+- **Enhanced Data Metrics**: Clean, formatted throughput and connection statistics with modern monospace typography.
+
+### 🖌️ UI Refinements & Polish
+- Added dedicated Server icon to the Custom Servers section header on the Servers tab.
+- Dynamically tinted Accent Theme palette icon in Settings.
+- Unified accent badges and cards across desktop and mobile views.
+
+---
+
+### Русская версия (кратко)
+- **Цветовые акцентные темы и OLED-режим**: 5 акцентных палитр (Emerald, Cyan, Violet, Amber, Rose) с полной адаптацией интерфейса на Windows, macOS и Android, а также глубокий черный OLED-режим.
+- **Неоновое «дыхание» и анимация кнопки**: живое пульсирующее свечение в такт активному состоянию соединения.
+- **Быстрое меню в системном трее**: управление подключением и статус прямо из области уведомлений.
+- **Таймер сессии и статистика**: точный учет времени работы туннеля и отображение статистики сессии.
+- **Косметические улучшения**: иконка для раздела Custom Servers, динамическая окраска иконки палитры в настройках.
+
+---
+
 ## [1.4.4] - 2026-10-07
 
 ### 📱 Android Network Teardown & Routing Fixes

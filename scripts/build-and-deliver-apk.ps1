@@ -21,7 +21,7 @@ try {
 
 Write-Host "`n== [3/3] Delivering APK to Desktop ==" -ForegroundColor Cyan
 $apkSrc = Join-Path $repo "src-tauri\gen\android\app\build\outputs\apk\arm64\debug\app-arm64-debug.apk"
-$desktopApk = Join-Path $env:USERPROFILE "Desktop\Cloakwire_1.4.4_arm64-v8a.apk"
+$desktopApk = Join-Path $env:USERPROFILE "Desktop\Cloakwire_1.4.5_arm64-v8a.apk"
 Copy-Item $apkSrc -Destination $desktopApk -Force
 Write-Host "Delivered APK to: $desktopApk" -ForegroundColor Green
 

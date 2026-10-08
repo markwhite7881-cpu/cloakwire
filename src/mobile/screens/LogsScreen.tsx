@@ -35,7 +35,7 @@ export function LogsScreen({ onBack }: { onBack: () => void }) {
       const coreVersion = inTauri ? await vpnCoreVersion().catch(() => null) : "preview";
       await copyTextToClipboard(buildDiagnosticsReport({
         platform: "android",
-        appVersion: "1.4.4",
+        appVersion: "1.4.5",
         coreVersion,
         logLines: String(text).split("\n"),
       }));

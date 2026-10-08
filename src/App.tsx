@@ -323,7 +323,7 @@ function loadSettings(): GeneratorSettings {
 }
 
 export default function App() {
-  const [appVersion, setAppVersion] = useState("1.4.4");
+  const [appVersion, setAppVersion] = useState("1.4.5");
   const [binary, setBinary] = useState<BinaryInfo | null>(null);
   const [version, setVersion] = useState<SingboxVersion | null>(null);
   const [xrayVersion, setXrayVersion] = useState<string | null>(null);
