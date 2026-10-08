@@ -108,7 +108,7 @@ ditto -c -k --keepParent src-tauri/target/x86_64-apple-darwin/release/bundle/mac
 hdiutil create -volname "Cloakwire" -srcfolder src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Cloakwire.app -ov -format UDZO dist-release/Cloakwire_$Version`_x64.dmg
 "@
 
-& $scpExe -i $sshKey -o StrictHostKeyChecking=no "$macHost`:`$HOME/cloakwire-builds/cloakwire-v$Version/dist-release/Cloakwire_$Version`_*" "$DistDir\"
+& $scpExe -i $sshKey -o StrictHostKeyChecking=no "$macHost`:/Users/alexeyka/cloakwire-builds/cloakwire-v$Version/dist-release/Cloakwire_$Version`_*" "$DistDir\"
 
 # 4. Signing & Manifest Generation
 Write-Host "`n[4/4] Signing release artifacts and generating latest.json..." -ForegroundColor Yellow
