@@ -207,7 +207,10 @@ export function HomeTab({
         {/* Bento 1: Primary Hero Connect Card (7 cols on desktop) */}
         <div className="col-span-7 bento-card rounded-2xl p-6 sm:p-7 flex flex-col justify-between relative z-20 group">
           <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
+            <div
+              className="absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl"
+              style={{ background: "rgba(var(--accent-glow-rgb), 0.12)" }}
+            />
           </div>
 
           {/* Top Info inside Hero */}
@@ -275,7 +278,7 @@ export function HomeTab({
                 className={cn(
                   "group relative flex h-24 w-24 items-center justify-center rounded-full",
                   "border-2 transition-all duration-300",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                  "focus-visible:outline-none focus-visible:ring-2 ring-theme-accent",
                   "disabled:cursor-not-allowed",
                   powerButtonClasses(statusLabel),
                 )}
@@ -297,7 +300,7 @@ export function HomeTab({
               <div className="flex items-center justify-center gap-2">
                 <h1 className="text-xl font-bold tracking-tight text-foreground">{headline}</h1>
                 {isRunning && (
-                  <Badge variant="default" className="bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 text-[10px]">
+                  <Badge variant="default" className="badge-theme text-[10px]">
                     <Sparkles className="h-3 w-3 mr-1" />
                     live
                   </Badge>
@@ -325,7 +328,7 @@ export function HomeTab({
               {isRunning && (
                 <div className="flex items-center justify-center gap-1.5 pt-1">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground shadow-sm">
-                    <Clock className="h-3 w-3 text-emerald-400" />
+                    <Clock className="h-3 w-3 text-theme-accent" />
                     <span>session {sessionTimer.formatted}</span>
                   </span>
                 </div>
@@ -392,7 +395,7 @@ export function HomeTab({
             </div>
 
             <div className="flex items-center gap-2 text-xs">
-              <span className="flex items-center gap-1 text-emerald-400/90 font-sans font-medium text-[11px]">
+              <span className="flex items-center gap-1 text-theme-accent font-sans font-medium text-[11px]">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 <span>Защищенный туннель</span>
               </span>
@@ -802,7 +805,7 @@ function SparklineWave({
 
 export function powerButtonClasses(statusLabel: Status): string {
   if (statusLabel === "running") {
-    return "border-emerald-500/50 bg-success bg-gradient-to-tr from-emerald-500 to-teal-400 text-zinc-950 glow-button shadow-xl shadow-emerald-500/30 animate-neon-pulse hover:scale-105 active:scale-95";
+    return "border-theme-accent bg-success bg-theme-gradient text-zinc-950 glow-button shadow-xl shadow-theme-accent animate-neon-pulse hover:scale-105 active:scale-95";
   }
   if (statusLabel === "starting" || statusLabel === "stopping") {
     return "border-foreground/20 bg-foreground/5";
@@ -939,8 +942,8 @@ function ProfileChoice({
         compact ? "px-2.5 py-2" : "border border-border/80 bg-[#07080c]/60 px-3 py-2 hover:bg-secondary/80",
         isSelected
           ? compact
-            ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800/50 font-medium"
-            : "border-emerald-500/50 bg-emerald-950/40 text-emerald-300 font-medium"
+            ? "bg-theme-subtle text-theme-accent border border-theme-accent-subtle font-medium"
+            : "border-theme-accent bg-theme-subtle text-theme-accent font-medium"
           : compact
             ? "hover:bg-secondary/80 text-foreground"
             : "hover:border-border text-foreground",
@@ -1153,7 +1156,7 @@ function ServerPicker({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition",
                   selectedIndex === -1
-                    ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800/50 font-medium"
+                    ? "bg-theme-subtle text-theme-accent border border-theme-accent-subtle font-medium"
                     : "hover:bg-secondary/80 text-foreground",
                 )}
               >

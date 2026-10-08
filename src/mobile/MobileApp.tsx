@@ -803,12 +803,12 @@ export default function MobileApp() {
                 className={cn(
                   "relative flex flex-1 flex-col items-center gap-1 py-1.5 rounded-xl transition-all duration-200",
                   active
-                    ? "text-emerald-400 font-semibold"
+                    ? "text-theme-accent font-semibold"
                     : "text-muted-foreground hover:text-foreground/80 active:scale-95",
                 )}
               >
                 {active && (
-                  <span className="absolute inset-0 rounded-xl bg-emerald-500/10 -z-10" />
+                  <span className="absolute inset-0 rounded-xl bg-theme-subtle -z-10" />
                 )}
                 <Icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
                 <span className="text-[10px] tracking-tight">{t.label}</span>

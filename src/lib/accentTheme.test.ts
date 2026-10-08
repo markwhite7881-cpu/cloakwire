@@ -11,6 +11,9 @@ describe("accentTheme", () => {
       expect(accent.colorHex).toMatch(/^#[0-9a-fA-F]{6}$/);
       expect(accent.hslValue).toBeTruthy();
       expect(accent.glowRgb).toBeTruthy();
+      expect(accent.fromRgb).toBeTruthy();
+      expect(accent.toRgb).toBeTruthy();
+      expect(accent.badgeText).toBeTruthy();
       expect(accent.gradientClass).toBeTruthy();
     }
   });

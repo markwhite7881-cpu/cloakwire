@@ -240,7 +240,10 @@ export function HomeScreen({
     <div className="flex flex-col gap-4 p-4 pb-8">
       {/* ─── Bento 1: Primary Hero Connection Card ────────────────── */}
       <div className="bento-card relative flex flex-col justify-between overflow-hidden rounded-3xl p-5 shadow-xl">
-        <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div
+          className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full blur-3xl"
+          style={{ background: "rgba(var(--accent-glow-rgb), 0.12)" }}
+        />
 
         {/* Top Active Server Selector Pill */}
         <div className="relative z-10 flex w-full items-center justify-between gap-2">
@@ -307,10 +310,10 @@ export function HomeScreen({
               className={cn(
                 "group relative flex h-28 w-28 items-center justify-center rounded-full",
                 "border-2 transition-all duration-300",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                "focus-visible:outline-none focus-visible:ring-2 ring-theme-accent",
                 "disabled:cursor-not-allowed",
                 isRunning
-                  ? "border-emerald-500/50 bg-gradient-to-tr from-emerald-500 to-teal-400 text-zinc-950 glow-button shadow-xl shadow-emerald-500/30 animate-neon-pulse active:scale-95"
+                  ? "border-theme-accent bg-success bg-theme-gradient text-zinc-950 glow-button shadow-xl shadow-theme-accent animate-neon-pulse active:scale-95"
                   : isTransition
                     ? "border-foreground/20 bg-foreground/5 text-foreground/70"
                     : "border-muted-foreground/40 bg-muted/40 text-muted-foreground active:scale-95 hover:border-foreground/40 hover:text-foreground",
@@ -333,7 +336,7 @@ export function HomeScreen({
             <div className="flex items-center justify-center gap-2">
               <h1 className="text-xl font-bold tracking-tight text-foreground">{headline}</h1>
               {isRunning && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-800/60 bg-emerald-950/80 px-2 py-0.5 text-[10px] text-emerald-400">
+                <span className="inline-flex items-center gap-1 rounded-full badge-theme px-2 py-0.5 text-[10px]">
                   <Sparkles className="h-2.5 w-2.5" />
                   live
                 </span>
@@ -365,7 +368,7 @@ export function HomeScreen({
             {isRunning && uptimeSecs != null && (
               <div className="flex items-center justify-center pt-1">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/60 px-2.5 py-0.5 font-mono text-[10px] text-muted-foreground shadow-sm">
-                  <Clock className="h-3 w-3 text-emerald-400" />
+                  <Clock className="h-3 w-3 text-theme-accent" />
                   <span>session {formatDuration(uptimeSecs)}</span>
                 </span>
               </div>
@@ -468,7 +471,7 @@ export function HomeScreen({
           <button
             type="button"
             onClick={() => setAddSheetOpen(true)}
-            className="flex items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-950/60 px-3 py-1 text-xs font-medium text-emerald-300 shadow-sm transition active:scale-95"
+            className="flex items-center gap-1 rounded-xl badge-theme px-3 py-1 text-xs font-medium shadow-sm transition active:scale-95"
             title="Add server or subscription"
           >
             <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
@@ -540,18 +543,18 @@ export function HomeScreen({
                                 }}
                                 className={cn(
                                   "flex w-full items-center gap-3.5 rounded-xl px-2 py-3 text-left transition-colors",
-                                  isSel ? "bg-emerald-500/10 text-emerald-300 font-medium" : "active:bg-white/5",
+                                  isSel ? "bg-theme-subtle text-theme-accent font-medium" : "active:bg-white/5",
                                 )}
                               >
                                 <span
                                   className={cn(
                                     "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition",
                                     isSel
-                                      ? "border-emerald-400 bg-emerald-500/20"
+                                      ? "border-theme-accent bg-theme-subtle"
                                       : "border-white/20",
                                   )}
                                 >
-                                  {isSel && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                                  {isSel && <span className="h-1.5 w-1.5 rounded-full bg-theme-accent" />}
                                 </span>
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-sm font-medium text-foreground">
@@ -599,7 +602,7 @@ export function HomeScreen({
                               disabled={!supported}
                               className={cn(
                                 "flex w-full items-center gap-3.5 rounded-xl px-2 py-3 text-left transition-colors",
-                                entry.selected ? "bg-emerald-500/10 text-emerald-300 font-medium" : "active:bg-white/5",
+                                entry.selected ? "bg-theme-subtle text-theme-accent font-medium" : "active:bg-white/5",
                                 !supported && "cursor-not-allowed opacity-50",
                               )}
                             >
@@ -607,11 +610,11 @@ export function HomeScreen({
                                 className={cn(
                                   "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition",
                                   entry.selected
-                                    ? "border-emerald-400 bg-emerald-500/20"
+                                    ? "border-theme-accent bg-theme-subtle"
                                     : "border-white/20",
                                 )}
                               >
-                                {entry.selected && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                                {entry.selected && <span className="h-1.5 w-1.5 rounded-full bg-theme-accent" />}
                               </span>
 
                               {code ? (
@@ -659,7 +662,7 @@ export function HomeScreen({
             className={cn(
               "flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition",
               selectedIndex === -1
-                ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40 font-medium"
+                ? "bg-theme-subtle text-theme-accent border-theme-accent font-medium"
                 : "bg-[#07080c] border-white/5 active:bg-secondary/80 text-foreground",
             )}
           >
@@ -701,7 +704,7 @@ export function HomeScreen({
                         className={cn(
                           "flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition",
                           isSel
-                            ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40 font-medium"
+                            ? "bg-theme-subtle text-theme-accent border-theme-accent font-medium"
                             : "bg-[#07080c] border-white/5 active:bg-secondary/80 text-foreground",
                         )}
                       >
@@ -738,7 +741,7 @@ export function HomeScreen({
                         className={cn(
                           "flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition",
                           entry.selected
-                            ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40 font-medium"
+                            ? "bg-theme-subtle text-theme-accent border-theme-accent font-medium"
                             : "bg-[#07080c] border-white/5 active:bg-secondary/80 text-foreground",
                           !supported && "opacity-50",
                         )}

@@ -44,14 +44,14 @@ export function TabBar({
                 : "text-muted-foreground hover:text-foreground hover:bg-background/40",
             )}
           >
-            <Icon className={cn("h-3.5 w-3.5", isActive ? "text-emerald-500" : "text-muted-foreground")} />
+            <Icon className={cn("h-3.5 w-3.5", isActive ? "text-theme-accent" : "text-muted-foreground")} />
             <span>{t.label}</span>
             {t.badge != null && (
               <span
                 className={cn(
                   "ml-1 rounded-full px-1.5 py-0.2 text-[10px] tabular-nums font-mono",
                   isActive
-                    ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800/60"
+                    ? "badge-theme"
                     : "bg-muted text-muted-foreground border border-border/60",
                 )}
               >

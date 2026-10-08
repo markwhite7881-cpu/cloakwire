@@ -62,35 +62,74 @@
   /* Dynamic Accent Overrides */
   :root, .dark {
     --accent-glow-rgb: 16, 185, 129;
+    --accent-rgb: 16, 185, 129;
     --accent-dynamic-hsl: 142.1 76.2% 45%;
+    --accent-from-rgb: 16, 185, 129;
+    --accent-to-rgb: 45, 212, 191;
+    --accent-badge-text: #34d399;
   }
 
   [data-accent="emerald"] {
     --accent-glow-rgb: 16, 185, 129;
+    --accent-rgb: 16, 185, 129;
     --accent-dynamic-hsl: 142.1 76.2% 45%;
+    --accent-from-rgb: 16, 185, 129;
+    --accent-to-rgb: 45, 212, 191;
+    --accent-badge-text: #34d399;
   }
   [data-accent="cyan"] {
     --accent-glow-rgb: 6, 182, 212;
+    --accent-rgb: 6, 182, 212;
     --accent-dynamic-hsl: 189 94% 48%;
+    --accent-from-rgb: 6, 182, 212;
+    --accent-to-rgb: 56, 189, 248;
+    --accent-badge-text: #22d3ee;
   }
   [data-accent="violet"] {
     --accent-glow-rgb: 139, 92, 246;
+    --accent-rgb: 139, 92, 246;
     --accent-dynamic-hsl: 262 83% 58%;
+    --accent-from-rgb: 139, 92, 246;
+    --accent-to-rgb: 192, 132, 252;
+    --accent-badge-text: #a78bfa;
   }
   [data-accent="amber"] {
     --accent-glow-rgb: 245, 158, 11;
+    --accent-rgb: 245, 158, 11;
     --accent-dynamic-hsl: 38 92% 50%;
+    --accent-from-rgb: 245, 158, 11;
+    --accent-to-rgb: 250, 204, 21;
+    --accent-badge-text: #fbbf24;
   }
   [data-accent="rose"] {
     --accent-glow-rgb: 244, 63, 94;
+    --accent-rgb: 244, 63, 94;
     --accent-dynamic-hsl: 349 89% 60%;
+    --accent-from-rgb: 244, 63, 94;
+    --accent-to-rgb: 251, 113, 133;
+    --accent-badge-text: #fb7185;
   }
 
   .oled, [data-oled="true"] {
     --background: 0 0% 0% !important;
-    --card: 0 0% 2.5% !important;
-    --popover: 0 0% 2.5% !important;
+    --card: 0 0% 1.5% !important;
+    --popover: 0 0% 1.5% !important;
     --border: 0 0% 12% !important;
+  }
+
+  html.oled body, html.oled #root {
+    background-color: #000000 !important;
+  }
+
+  html.oled .bento-card {
+    background: #000000 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.95) !important;
+  }
+
+  html.oled .bento-card-subtle {
+    background: #040404 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 }
 
@@ -137,6 +176,45 @@
   .mesh-bg {
     background-image: radial-gradient(at 50% 0%, rgba(16, 185, 129, 0.07) 0px, transparent 50%),
                       radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.05) 0px, transparent 50%);
+  }
+
+  /* Accent Theme Utilities */
+  .bg-theme-gradient {
+    background-image: linear-gradient(135deg, rgb(var(--accent-from-rgb)) 0%, rgb(var(--accent-to-rgb)) 100%) !important;
+  }
+
+  .border-theme-accent {
+    border-color: rgba(var(--accent-glow-rgb), 0.55) !important;
+  }
+
+  .border-theme-accent-subtle {
+    border-color: rgba(var(--accent-glow-rgb), 0.3) !important;
+  }
+
+  .text-theme-accent {
+    color: var(--accent-badge-text, rgb(var(--accent-glow-rgb))) !important;
+  }
+
+  .bg-theme-subtle {
+    background-color: rgba(var(--accent-glow-rgb), 0.12) !important;
+  }
+
+  .bg-theme-accent {
+    background-color: rgb(var(--accent-glow-rgb)) !important;
+  }
+
+  .shadow-theme-accent {
+    box-shadow: 0 10px 25px -5px rgba(var(--accent-glow-rgb), 0.4), 0 8px 10px -6px rgba(var(--accent-glow-rgb), 0.2) !important;
+  }
+
+  .badge-theme {
+    background-color: rgba(var(--accent-glow-rgb), 0.14) !important;
+    border: 1px solid rgba(var(--accent-glow-rgb), 0.35) !important;
+    color: var(--accent-badge-text, rgb(var(--accent-glow-rgb))) !important;
+  }
+
+  .ring-theme-accent {
+    --tw-ring-color: rgba(var(--accent-glow-rgb), 0.45) !important;
   }
 
   .glow-emerald {

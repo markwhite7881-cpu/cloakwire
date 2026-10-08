@@ -12,8 +12,23 @@ export function useAccentTheme() {
   const [oled, setOledState] = useState<boolean>(loadSavedOled);
 
   useEffect(() => {
-    applyAccentTheme(accent, oled);
-  }, [accent, oled]);
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ accent: AccentId; oled: boolean }>;
+      if (customEvent.detail) {
+        setAccentState(customEvent.detail.accent);
+        setOledState(customEvent.detail.oled);
+      } else {
+        setAccentState(loadSavedAccent());
+        setOledState(loadSavedOled());
+      }
+    };
+    window.addEventListener("cloakwire:theme-changed", handleThemeChange);
+    window.addEventListener("storage", handleThemeChange);
+    return () => {
+      window.removeEventListener("cloakwire:theme-changed", handleThemeChange);
+      window.removeEventListener("storage", handleThemeChange);
+    };
+  }, []);
 
   const setAccent = useCallback((next: AccentId) => {
     setAccentState(next);
