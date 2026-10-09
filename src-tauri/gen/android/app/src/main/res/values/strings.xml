@@ -1,4 +1,10 @@
 <resources>
     <string name="app_name">"Cloakwire"</string>
     <string name="main_activity_title">"Cloakwire"</string>
+    <string name="widget_toggle_name">Cloakwire — Кнопка</string>
+    <string name="widget_card_name">Cloakwire — Статус-карта</string>
+    <string name="widget_state_connected">Подключено</string>
+    <string name="widget_state_connecting">Подключение…</string>
+    <string name="widget_state_disconnected">Отключено</string>
+    <string name="widget_state_disconnecting">Отключение…</string>
 </resources>
