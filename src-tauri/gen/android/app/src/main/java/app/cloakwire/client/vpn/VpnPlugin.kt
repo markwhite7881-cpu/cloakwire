@@ -1,6 +1,8 @@
 package app.cloakwire.client.vpn
 
 import android.app.Activity
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -8,6 +10,7 @@ import android.net.VpnService
 import android.os.Build
 import android.webkit.WebView
 import androidx.activity.result.ActivityResult
+import app.cloakwire.client.widget.CloakwireWidgetUpdater
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -19,6 +22,11 @@ import app.tauri.plugin.Plugin
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.concurrent.thread
+
+@InvokeArg
+class SetAccentArgs {
+  var accent: String = "emerald"
+}
 
 @InvokeArg
 class StartArgs {
@@ -417,6 +425,37 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(JSObject().put("value", text))
       } catch (e: Exception) {
         invoke.reject(e.message ?: e.toString())
+      }
+    }
+  }
+
+  @Command
+  fun setAccentTheme(invoke: Invoke) {
+    try {
+      val args = invoke.parseArgs(SetAccentArgs::class.java)
+      activity.getSharedPreferences("cloakwire_state", Context.MODE_PRIVATE)
+        .edit().putString("accent_theme", args.accent).apply()
+      CloakwireWidgetUpdater.updateAllWidgets(activity)
+      invoke.resolve()
+    } catch (e: Exception) {
+      invoke.reject(e.message ?: e.toString())
+    }
+  }
+
+  @Command
+  fun readClipboard(invoke: Invoke) {
+    activity.runOnUiThread {
+      try {
+        val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val clip = clipboard?.primaryClip
+        val text = if (clip != null && clip.itemCount > 0) {
+          clip.getItemAt(0)?.coerceToText(activity)?.toString() ?: ""
+        } else {
+          ""
+        }
+        invoke.resolve(JSObject().put("value", text))
+      } catch (e: Exception) {
+        invoke.reject(e.message ?: "Failed to read clipboard")
       }
     }
   }

@@ -20,8 +20,9 @@ object CloakwireWidgetUpdater {
   private const val PREFS = "cloakwire_state"
   private const val KEY_LAST_SERVER = "last_server_name"
   private const val KEY_LAST_ENGINE = "last_engine"
+  private const val KEY_ACCENT = "accent_theme"
 
-  // Standard theme colors
+  // Standard theme colors matching src/lib/accentTheme.ts
   private const val COLOR_EMERALD = 0xFF10B981.toInt()
   private const val COLOR_CYAN = 0xFF06B6D4.toInt()
   private const val COLOR_VIOLET = 0xFF8B5CF6.toInt()
@@ -30,6 +31,17 @@ object CloakwireWidgetUpdater {
   private const val COLOR_MUTED = 0xFF71717A.toInt()
   private const val COLOR_WHITE = 0xFFFFFFFF.toInt()
   private const val COLOR_BLUE = 0xFF38BDF8.toInt()
+
+  fun resolveAccentColor(accentName: String?): Int {
+    return when (accentName?.lowercase()) {
+      "cyan" -> COLOR_CYAN
+      "violet" -> COLOR_VIOLET
+      "amber" -> COLOR_AMBER
+      "rose" -> COLOR_ROSE
+      "emerald" -> COLOR_EMERALD
+      else -> COLOR_EMERALD
+    }
+  }
 
   /**
    * Pushes latest state and RemoteViews to all active widget instances.
@@ -55,26 +67,21 @@ object CloakwireWidgetUpdater {
       isConnecting = VpnEvents.state == VpnEvents.STATE_STARTING
     }
 
+    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
     // Determine active server name
     val activeServer = CloakwireVpnService.activeServerName
     val serverName = if (activeServer.isNotBlank()) {
       activeServer
     } else {
-      context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getString(KEY_LAST_SERVER, null)
+      prefs.getString(KEY_LAST_SERVER, null)
         ?.takeIf { it.isNotBlank() } ?: "Cloakwire"
     }
 
-    val engine = if (VpnEvents.activeEngine.isNotBlank()) {
-      VpnEvents.activeEngine
-    } else {
-      context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getString(KEY_LAST_ENGINE, "sing-box") ?: "sing-box"
-    }
+    val accentName = prefs.getString(KEY_ACCENT, "emerald")
+    val accentColor = resolveAccentColor(accentName)
 
-    val accentColor = COLOR_EMERALD
-
-    // 1. Update Toggle Widgets
+    // Update Toggle Widgets
     try {
       val toggleComponent = ComponentName(context, CloakwireToggleWidgetProvider::class.java)
       val toggleIds = appWidgetManager.getAppWidgetIds(toggleComponent)
@@ -84,18 +91,6 @@ object CloakwireWidgetUpdater {
       }
     } catch (e: Exception) {
       Log.w(TAG, "Failed updating toggle widgets: ${e.message}")
-    }
-
-    // 2. Update Card Widgets
-    try {
-      val cardComponent = ComponentName(context, CloakwireCardWidgetProvider::class.java)
-      val cardIds = appWidgetManager.getAppWidgetIds(cardComponent)
-      if (cardIds != null && cardIds.isNotEmpty()) {
-        val cardViews = buildCardViews(context, isRunning, isConnecting, optimisticDisconnecting, serverName, engine, accentColor)
-        appWidgetManager.updateAppWidget(cardIds, cardViews)
-      }
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed updating card widgets: ${e.message}")
     }
   }
 
@@ -158,85 +153,6 @@ object CloakwireWidgetUpdater {
         views.setInt(R.id.widget_text_status, "setTextColor", COLOR_MUTED)
         views.setInt(R.id.widget_dot_status, "setColorFilter", COLOR_MUTED)
         views.setInt(R.id.widget_btn_power, "setColorFilter", COLOR_WHITE)
-      }
-    }
-
-    return views
-  }
-
-  private fun buildCardViews(
-    context: Context,
-    isRunning: Boolean,
-    isConnecting: Boolean,
-    isDisconnecting: Boolean,
-    serverName: String,
-    engine: String,
-    accentColor: Int
-  ): RemoteViews {
-    val views = RemoteViews(context.packageName, R.layout.widget_card)
-
-    // Setup toggle button pending intent
-    val toggleIntent = Intent(context, CloakwireWidgetReceiver::class.java).apply {
-      action = CloakwireWidgetReceiver.ACTION_TOGGLE
-    }
-    val togglePending = PendingIntent.getBroadcast(
-      context, 201, toggleIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-    views.setOnClickPendingIntent(R.id.widget_btn_power, togglePending)
-
-    // Setup app launch on info click
-    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
-      addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-    }
-    if (launchIntent != null) {
-      val launchPending = PendingIntent.getActivity(
-        context, 202, launchIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-      )
-      views.setOnClickPendingIntent(R.id.widget_info_container, launchPending)
-    }
-
-    views.setTextViewText(R.id.widget_text_server, serverName)
-    views.setTextViewText(R.id.widget_badge_engine, engine)
-
-    when {
-      isRunning -> {
-        views.setTextViewText(R.id.widget_text_status, context.getString(R.string.widget_state_connected))
-        views.setInt(R.id.widget_text_status, "setTextColor", accentColor)
-        views.setInt(R.id.widget_dot_status, "setColorFilter", accentColor)
-        views.setInt(R.id.widget_btn_power, "setColorFilter", accentColor)
-
-        // Chronometer for live session time
-        views.setViewVisibility(R.id.widget_chronometer, View.VISIBLE)
-        val sinceMs = if (VpnEvents.since > 0L) VpnEvents.since else System.currentTimeMillis()
-        val elapsed = System.currentTimeMillis() - sinceMs
-        val baseTime = SystemClock.elapsedRealtime() - elapsed
-        views.setChronometer(R.id.widget_chronometer, baseTime, null, true)
-      }
-      isConnecting -> {
-        views.setTextViewText(R.id.widget_text_status, context.getString(R.string.widget_state_connecting))
-        views.setInt(R.id.widget_text_status, "setTextColor", COLOR_BLUE)
-        views.setInt(R.id.widget_dot_status, "setColorFilter", COLOR_BLUE)
-        views.setInt(R.id.widget_btn_power, "setColorFilter", COLOR_BLUE)
-        views.setViewVisibility(R.id.widget_chronometer, View.GONE)
-        views.setChronometer(R.id.widget_chronometer, SystemClock.elapsedRealtime(), null, false)
-      }
-      isDisconnecting -> {
-        views.setTextViewText(R.id.widget_text_status, context.getString(R.string.widget_state_disconnecting))
-        views.setInt(R.id.widget_text_status, "setTextColor", COLOR_MUTED)
-        views.setInt(R.id.widget_dot_status, "setColorFilter", COLOR_MUTED)
-        views.setInt(R.id.widget_btn_power, "setColorFilter", COLOR_MUTED)
-        views.setViewVisibility(R.id.widget_chronometer, View.GONE)
-        views.setChronometer(R.id.widget_chronometer, SystemClock.elapsedRealtime(), null, false)
-      }
-      else -> {
-        views.setTextViewText(R.id.widget_text_status, context.getString(R.string.widget_state_disconnected))
-        views.setInt(R.id.widget_text_status, "setTextColor", COLOR_MUTED)
-        views.setInt(R.id.widget_dot_status, "setColorFilter", COLOR_MUTED)
-        views.setInt(R.id.widget_btn_power, "setColorFilter", COLOR_WHITE)
-        views.setViewVisibility(R.id.widget_chronometer, View.GONE)
-        views.setChronometer(R.id.widget_chronometer, SystemClock.elapsedRealtime(), null, false)
       }
     }
 

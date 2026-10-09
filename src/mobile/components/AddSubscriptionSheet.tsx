@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Clipboard, Loader2, Plus } from "lucide-react";
 import { Sheet } from "./Sheet";
 import { api } from "@/lib/api";
+import { vpnReadClipboard } from "@/lib/vpn";
 import type { Outbound } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { classifySourceInput } from "../lib/mobileUi";
@@ -31,6 +32,27 @@ export function AddSubscriptionSheet({
   const [clipboardContent, setClipboardContent] = useState<string | null>(null);
   const sourceKind = classifySourceInput(source).kind;
 
+  const readClipboardText = async (): Promise<string> => {
+    try {
+      const native = await vpnReadClipboard();
+      if (native) return native;
+    } catch {
+      // ignore
+    }
+    try {
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.readText === "function"
+      ) {
+        return (await navigator.clipboard.readText()) || "";
+      }
+    } catch {
+      // ignore
+    }
+    return "";
+  };
+
   useEffect(() => {
     if (!open) {
       setClipboardContent(null);
@@ -39,14 +61,12 @@ export function AddSubscriptionSheet({
     let cancelled = false;
     const checkClipboard = async () => {
       try {
-        if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.readText === "function") {
-          const text = await navigator.clipboard.readText();
-          if (cancelled || !text) return;
-          const trimmed = text.trim();
-          const isVpnLink = /^(vless|vmess|ss|trojan|tuic|hy2|hysteria2|http|https):\/\//i.test(trimmed);
-          if (isVpnLink && trimmed !== source.trim()) {
-            setClipboardContent(trimmed);
-          }
+        const text = await readClipboardText();
+        if (cancelled || !text) return;
+        const trimmed = text.trim();
+        const isVpnLink = /^(vless|vmess|ss|trojan|tuic|hy2|hysteria2|http|https):\/\//i.test(trimmed);
+        if (isVpnLink && trimmed !== source.trim()) {
+          setClipboardContent(trimmed);
         }
       } catch {
         // Ignored if browser / OS restricts background clipboard read
@@ -61,12 +81,10 @@ export function AddSubscriptionSheet({
   const pasteFromClipboard = async () => {
     try {
       triggerHaptic("light");
-      if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.readText === "function") {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          setSource((prev) => (prev.trim() ? `${prev.trim()}\n${text.trim()}` : text.trim()));
-          setClipboardContent(null);
-        }
+      const text = await readClipboardText();
+      if (text) {
+        setSource((prev) => (prev.trim() ? `${prev.trim()}\n${text.trim()}` : text.trim()));
+        setClipboardContent(null);
       }
     } catch {
       // Ignored

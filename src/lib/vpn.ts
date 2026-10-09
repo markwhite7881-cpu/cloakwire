@@ -128,3 +128,19 @@ export const onVpnStatus = (
   cb: (s: VpnStatus) => void,
 ): Promise<PluginListener> => addPluginListener("vpn", "status", cb);
 
+/** Sync chosen accent theme to Android SharedPreferences for widgets. */
+export const vpnSetAccentTheme = (accent: string) =>
+  invoke<void>("plugin:vpn|setAccentTheme", { accent }).catch(() => {});
+
+/** Read system clipboard text via native Android ClipboardManager. */
+export const vpnReadClipboard = async (): Promise<string> => {
+  try {
+    const r = await invoke<string | { value?: string }>(
+      "plugin:vpn|readClipboard",
+    );
+    return typeof r === "string" ? r : (r?.value ?? "");
+  } catch {
+    return "";
+  }
+};
+

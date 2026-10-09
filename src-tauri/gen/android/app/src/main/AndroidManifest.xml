@@ -83,17 +83,6 @@
                 android:resource="@xml/widget_toggle_info" />
         </receiver>
 
-        <receiver
-            android:name="app.cloakwire.client.widget.CloakwireCardWidgetProvider"
-            android:label="@string/widget_card_name"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_card_info" />
-        </receiver>
 
         <receiver
             android:name="app.cloakwire.client.widget.CloakwireWidgetReceiver"

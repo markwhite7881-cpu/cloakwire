@@ -6,10 +6,15 @@ import {
   loadSavedAccent,
   loadSavedOled,
 } from "@/lib/accentTheme";
+import { vpnSetAccentTheme } from "@/lib/vpn";
 
 export function useAccentTheme() {
   const [accent, setAccentState] = useState<AccentId>(loadSavedAccent);
   const [oled, setOledState] = useState<boolean>(loadSavedOled);
+
+  useEffect(() => {
+    vpnSetAccentTheme(accent);
+  }, [accent]);
 
   useEffect(() => {
     const handleThemeChange = (e: Event) => {
