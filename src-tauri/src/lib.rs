@@ -7,7 +7,7 @@
 // Force-rebuild marker: tauri::generate_context!() embeds dist/ at lib
 // compile time. Touching this file makes cargo recompile the lib, which
 // re-runs the macro and re-embeds the current dist/ (after every
-// `npm run build`). 2026-08-20 21:21 (getSubscriptionOutbounds + UI real proto).
+// `npm run build`). 2026-10-09 17:16 (vpn permissions + widget compact size).
 
 use std::sync::Arc;
 

@@ -6,8 +6,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import app.cloakwire.client.R
@@ -86,12 +89,81 @@ object CloakwireWidgetUpdater {
       val toggleComponent = ComponentName(context, CloakwireToggleWidgetProvider::class.java)
       val toggleIds = appWidgetManager.getAppWidgetIds(toggleComponent)
       if (toggleIds != null && toggleIds.isNotEmpty()) {
-        val toggleViews = buildToggleViews(context, isRunning, isConnecting, optimisticDisconnecting, serverName, accentColor)
-        appWidgetManager.updateAppWidget(toggleIds, toggleViews)
+        for (id in toggleIds) {
+          val options = appWidgetManager.getAppWidgetOptions(id)
+          val views = buildViews(context, isRunning, isConnecting, optimisticDisconnecting, serverName, accentColor, options)
+          appWidgetManager.updateAppWidget(id, views)
+        }
       }
     } catch (e: Exception) {
       Log.w(TAG, "Failed updating toggle widgets: ${e.message}")
     }
+  }
+
+  private fun buildViews(
+    context: Context,
+    isRunning: Boolean,
+    isConnecting: Boolean,
+    isDisconnecting: Boolean,
+    serverName: String,
+    accentColor: Int,
+    options: Bundle?
+  ): RemoteViews {
+    val normalViews = buildToggleViews(context, isRunning, isConnecting, isDisconnecting, serverName, accentColor)
+    val compactViews = buildCompactViews(context, isRunning, isConnecting, isDisconnecting, accentColor)
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      val viewMapping = mapOf(
+        SizeF(40f, 40f) to compactViews,
+        SizeF(110f, 40f) to normalViews
+      )
+      return RemoteViews(viewMapping)
+    }
+
+    val minWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) ?: 0
+    return if (minWidth in 1..105) {
+      compactViews
+    } else {
+      normalViews
+    }
+  }
+
+  private fun buildCompactViews(
+    context: Context,
+    isRunning: Boolean,
+    isConnecting: Boolean,
+    isDisconnecting: Boolean,
+    accentColor: Int
+  ): RemoteViews {
+    val views = RemoteViews(context.packageName, R.layout.widget_toggle_compact)
+
+    // Setup toggle button pending intent
+    val toggleIntent = Intent(context, CloakwireWidgetReceiver::class.java).apply {
+      action = CloakwireWidgetReceiver.ACTION_TOGGLE
+    }
+    val togglePending = PendingIntent.getBroadcast(
+      context, 103, toggleIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    views.setOnClickPendingIntent(R.id.widget_btn_power, togglePending)
+    views.setOnClickPendingIntent(R.id.widget_toggle_compact_root, togglePending)
+
+    when {
+      isRunning -> {
+        views.setInt(R.id.widget_btn_power, "setColorFilter", accentColor)
+      }
+      isConnecting -> {
+        views.setInt(R.id.widget_btn_power, "setColorFilter", COLOR_BLUE)
+      }
+      isDisconnecting -> {
+        views.setInt(R.id.widget_btn_power, "setColorFilter", COLOR_MUTED)
+      }
+      else -> {
+        views.setInt(R.id.widget_btn_power, "setColorFilter", COLOR_WHITE)
+      }
+    }
+
+    return views
   }
 
   private fun buildToggleViews(

@@ -1,3 +1,5 @@
+import { vpnSetAccentTheme } from "./vpn";
+
 export type AccentId = "emerald" | "cyan" | "violet" | "amber" | "rose";
 
 export interface AccentDefinition {
@@ -116,6 +118,9 @@ export function applyAccentTheme(accent: AccentId, oled: boolean): void {
   root.style.setProperty("--accent-from-rgb", def.fromRgb);
   root.style.setProperty("--accent-to-rgb", def.toRgb);
   root.style.setProperty("--accent-badge-text", def.badgeText);
+
+  // Sync to native Android widget
+  vpnSetAccentTheme(accent);
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(

@@ -3,6 +3,7 @@ package app.cloakwire.client.widget
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.os.Bundle
 
 class CloakwireToggleWidgetProvider : AppWidgetProvider() {
 
@@ -12,6 +13,16 @@ class CloakwireToggleWidgetProvider : AppWidgetProvider() {
     appWidgetIds: IntArray
   ) {
     super.onUpdate(context, appWidgetManager, appWidgetIds)
+    CloakwireWidgetUpdater.updateAllWidgets(context)
+  }
+
+  override fun onAppWidgetOptionsChanged(
+    context: Context,
+    appWidgetManager: AppWidgetManager,
+    appWidgetId: Int,
+    newOptions: Bundle
+  ) {
+    super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
     CloakwireWidgetUpdater.updateAllWidgets(context)
   }
 

@@ -11,10 +11,13 @@ commands.allow = [
   "stop",
   "status",
   "listApps",
+  "testLatency",
   "coreVersion",
   "readLogs",
   "registerListener",
   "removeListener",
+  "setAccentTheme",
+  "readClipboard",
 ]
 
 # CRITICAL: `vpn:default` in a capability resolves ONLY via the manifest's
