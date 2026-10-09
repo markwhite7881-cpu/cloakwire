@@ -138,10 +138,11 @@ class CloakwireVpnService : VpnService() {
     super.onCreate()
     active = this
     createNotificationChannel()
-    // Wake the Quick Settings tile on every state transition so it
-    // re-reads [VpnEvents] / [activeServerName] without the service
-    // having to notify it at each of the 10 update() call sites.
-    VpnEvents.setStateChangeListener { QuickTileService.notifyStateChanged(this) }
+    // Wake the Quick Settings tile and Home Screen widgets on every state transition
+    VpnEvents.setStateChangeListener {
+      QuickTileService.notifyStateChanged(this)
+      app.cloakwire.client.widget.CloakwireWidgetUpdater.updateAllWidgets(this)
+    }
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -766,6 +767,8 @@ class CloakwireVpnService : VpnService() {
     if (VpnEvents.state != VpnEvents.STATE_STOPPED) {
       VpnEvents.update(VpnEvents.STATE_STOPPED)
     }
+    QuickTileService.notifyStateChanged(this)
+    app.cloakwire.client.widget.CloakwireWidgetUpdater.updateAllWidgets(this)
     super.onDestroy()
   }
 
