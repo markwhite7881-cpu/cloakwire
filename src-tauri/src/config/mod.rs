@@ -22,6 +22,13 @@ use crate::parser::Outbound;
 
 pub mod ready;
 
+/// Name of the TUN interface sing-box creates on Windows.
+///
+/// Wintun registers the adapter under this name, so the name has to be
+/// stable: a leftover adapter from an earlier session makes
+/// `WintunCreateAdapter` fail with `ERROR_FILE_EXISTS`.
+pub const DEFAULT_TUN_INTERFACE_NAME: &str = "singbox-tun";
+
 /// How the client should intercept system traffic.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -341,7 +348,7 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
                 }
             }
         } else {
-            let if_name = custom_interface.unwrap_or("singbox-tun");
+            let if_name = custom_interface.unwrap_or(DEFAULT_TUN_INTERFACE_NAME);
             tun_inbound["interface_name"] = json!(if_name);
         }
 

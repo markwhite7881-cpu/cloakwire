@@ -225,6 +225,18 @@ impl ProcessManager {
                 return Err(AppError::TunCapabilities(e));
             }
         }
+        // Windows only: the auxiliary forwarder is a sing-box as well, so it
+        // creates the same TUN adapter and hits the same leftover problem.
+        #[cfg(windows)]
+        {
+            if let Some(config_path) = args
+                .iter()
+                .position(|arg| arg == "-c")
+                .and_then(|index| args.get(index + 1))
+            {
+                self.cleanup_tun_adapter(Some(Path::new(config_path))).await;
+            }
+        }
         let mut cmd = Command::new(&binary);
         cmd.args(&args)
             .envs(env.iter().map(|(k, v)| (k, v)))
@@ -379,6 +391,13 @@ impl ProcessManager {
                 .await;
                 return Err(AppError::TunCapabilities(message));
             }
+            // Windows only: a sing-box that was killed never removes its
+            // Wintun adapter, so the device stays registered and the next
+            // start fails while creating the TUN interface with
+            // ERROR_FILE_EXISTS. Clear the leftover before starting.
+            #[cfg(windows)]
+            self.cleanup_tun_adapter(Some(spec.config_path.as_path()))
+                .await;
         }
         let mut cmd = Command::new(&spec.binary);
         cmd.args(&spec.args)
@@ -826,6 +845,15 @@ impl ProcessManager {
             return;
         }
 
+        // Captured before the state is cleared below: the post-exit cleanup
+        // needs the config to learn the TUN interface name.
+        #[cfg(windows)]
+        let engine = self.status.lock().await.engine;
+        #[cfg(windows)]
+        let config_path = self.current_config.lock().await.clone();
+        #[cfg(windows)]
+        let aux_config_path = self.aux_config.lock().await.clone();
+
         if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
             let _ = child.start_kill();
         }
@@ -890,6 +918,44 @@ impl ProcessManager {
         #[cfg(not(target_os = "android"))]
         {
             let _ = crate::killswitch::disarm_kill_switch();
+        }
+
+        // Windows only: a sing-box that is killed never removes its Wintun
+        // adapter, so the device stays registered and the next start fails
+        // while creating the TUN interface with ERROR_FILE_EXISTS ("Cannot
+        // create a file when that file already exists"). The child is gone
+        // at this point, so the leftover can be removed right away.
+        #[cfg(windows)]
+        {
+            if engine == Some(EngineKind::Singbox) {
+                self.cleanup_tun_adapter(config_path.as_deref()).await;
+            }
+            // The auxiliary TUN forwarder is a sing-box too and owns the very
+            // same adapter.
+            self.cleanup_tun_adapter(aux_config_path.as_deref()).await;
+        }
+    }
+
+    /// Windows only: remove the TUN adapter a killed sing-box left behind.
+    ///
+    /// Wintun adapters are persistent device objects, so a sing-box that was
+    /// killed never removes its own adapter and the next start fails while
+    /// creating the TUN interface. The adapter name is read from the
+    /// generated config, so a custom interface name is honoured as well.
+    #[cfg(windows)]
+    async fn cleanup_tun_adapter(&self, config_path: Option<&Path>) {
+        let Some(config_path) = config_path else {
+            return;
+        };
+        let Some(interface) = crate::platform::windows::tun_interface_name(config_path) else {
+            return;
+        };
+        if let Err(error) = crate::platform::windows::cleanup_tun_adapter(&interface) {
+            self.push_log(
+                LogStream::System,
+                format!("could not remove TUN adapter '{interface}': {error}"),
+            )
+            .await;
         }
     }
 
