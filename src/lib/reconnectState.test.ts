@@ -103,3 +103,28 @@ describe("shouldShowReconnectNotice", () => {
     },
   );
 });
+
+describe("reconnectSelectedProfile", () => {
+  it("lets native validation protect a running connection before replacement", async () => {
+    const { reconnectSelectedProfile } = await import("./reconnectState");
+    const events: string[] = [];
+    const result = await reconnectSelectedProfile({
+      readyProfile: true,
+      stop: async () => { events.push("stop"); },
+      start: async () => { events.push("check-and-start"); return false; },
+    });
+    expect(result).toBe(false);
+    expect(events).toEqual(["check-and-start"]);
+  });
+
+  it("keeps the existing stop then start order for a generated profile", async () => {
+    const { reconnectSelectedProfile } = await import("./reconnectState");
+    const events: string[] = [];
+    await reconnectSelectedProfile({
+      readyProfile: false,
+      stop: async () => { events.push("stop"); },
+      start: async () => { events.push("start"); },
+    });
+    expect(events).toEqual(["stop", "start"]);
+  });
+});

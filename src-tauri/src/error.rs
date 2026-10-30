@@ -10,6 +10,9 @@ use crate::parser;
 
 #[derive(Debug, Error)]
 pub enum AppError {
+    #[error("{0}")]
+    ProfileCheck(#[from] crate::config::preflight::ProfileCheckIssue),
+
     #[error("sing-box is not running")]
     NotRunning,
 
@@ -92,6 +95,7 @@ impl Serialize for AppError {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
         let (kind, message) = match self {
+            AppError::ProfileCheck(issue) => (issue.code(), issue.to_string()),
             AppError::NotRunning => ("not_running", self.to_string()),
             AppError::AlreadyRunning(_) => ("already_running", self.to_string()),
             AppError::BinaryNotFound(_) => ("binary_not_found", self.to_string()),

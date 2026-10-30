@@ -82,6 +82,13 @@ pub fn check_args(config_path: &Path) -> [&std::ffi::OsStr; 3] {
     ["check".as_ref(), "-c".as_ref(), config_path.as_os_str()]
 }
 
+pub async fn validate_config(binary: &Path, config_path: &Path) -> AppResult<()> {
+    let checked = crate::config::preflight::CheckConfig::new(config_path, false)?;
+    let mut command = tokio::process::Command::new(binary);
+    command.args(check_args(checked.path()));
+    crate::config::preflight::run_check(command).await
+}
+
 pub fn parse_version(stdout: &str) -> (String, String, String) {
     let mut version = String::new();
     let mut environment = String::new();

@@ -39,6 +39,8 @@ class CloakwireVpnService : VpnService() {
     const val ACTION_START = "app.cloakwire.client.START"
     const val ACTION_STOP = "app.cloakwire.client.STOP"
     const val EXTRA_CONFIG_PATH = "configPath"
+    internal const val EXTRA_PREFLIGHTED = "configPreflighted"
+    internal const val EXTRA_PENDING_START_CANCELLED = "pendingStartCancelled"
     const val EXTRA_APPS = "apps"
     const val EXTRA_APPS_MODE = "appsMode"
     /** Friendly server label supplied by the JS side. The Quick Settings
@@ -117,6 +119,8 @@ class CloakwireVpnService : VpnService() {
   @Volatile private var engineRestarts = 0
   @Volatile private var starting = false
   @Volatile private var startGeneration = 0L
+  @Volatile private var preflightGeneration = 0L
+  private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
   @Volatile private var killSwitchMode = "on_drop"
   @Volatile private var blockIpv6 = true
   @Volatile private var isBlackholeActive = false
@@ -148,7 +152,7 @@ class CloakwireVpnService : VpnService() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_STOP -> {
-        stopVpn()
+        stopVpn(cancelPendingStart = !intent.getBooleanExtra(EXTRA_PENDING_START_CANCELLED, false))
         return START_NOT_STICKY
       }
       ACTION_START -> {
@@ -171,7 +175,10 @@ class CloakwireVpnService : VpnService() {
           ?: ENGINE_SINGBOX
         val killSwitch = intent.getStringExtra(EXTRA_KILL_SWITCH) ?: "on_drop"
         val blockIpv6Val = intent.getBooleanExtra(EXTRA_BLOCK_IPV6, true)
-        acceptStart(configPath, apps, appsMode, serverName, engine, killSwitch, blockIpv6Val)
+        queueStart(
+          configPath, apps, appsMode, serverName, engine, killSwitch, blockIpv6Val,
+          preflighted = intent.getBooleanExtra(EXTRA_PREFLIGHTED, false),
+        )
         return START_STICKY
       }
       else -> {
@@ -184,7 +191,7 @@ class CloakwireVpnService : VpnService() {
           val engine = prefs.getString(KEY_LAST_ENGINE, ENGINE_SINGBOX) ?: ENGINE_SINGBOX
           val apps = prefs.getString(KEY_LAST_APPS, "[]") ?: "[]"
           val appsMode = prefs.getString(KEY_LAST_APPS_MODE, "exclude") ?: "exclude"
-          acceptStart(persisted.absolutePath, apps, appsMode, engine = engine)
+          queueStart(persisted.absolutePath, apps, appsMode, engine = engine)
           return START_STICKY
         }
         if (!sessionActive) {
@@ -196,8 +203,73 @@ class CloakwireVpnService : VpnService() {
     }
   }
 
-  private fun acceptStart(
+  /** Saved quick-tile/widget/sticky configs are checked too, including pre-upgrade sessions. */
+  private fun queueStart(
     configPath: String,
+    apps: String,
+    appsMode: String,
+    serverName: String = "",
+    engine: String = ENGINE_SINGBOX,
+    killSwitch: String = "on_drop",
+    blockIpv6Option: Boolean = true,
+    preflighted: Boolean = false,
+  ) {
+    val request = ++preflightGeneration
+    val selectedEngine = if (engine == ENGINE_SINGBOX) ENGINE_SINGBOX else ENGINE_XRAY
+    val selectedApps = apps.ifBlank { "[]" }
+    val selectedMode = if (appsMode == "include") "include" else "exclude"
+    val source = File(configPath)
+    val checkedSnapshot = preflighted && runCatching {
+      source.canonicalFile.parentFile == cacheDir.canonicalFile && source.name.startsWith("vpn-checked-")
+    }.getOrDefault(false)
+    // Android requires a foreground notification promptly; an existing session
+    // keeps its notification/state while the candidate is being checked.
+    if (!sessionActive && !starting) startForegroundWith("Checking profile…")
+    thread(name = "vpn-profile-preflight") {
+      try {
+        ProfilePreflight.run(
+          prepare = {
+            val raw = source.readText()
+            if (checkedSnapshot) raw else AndroidProfilePreflight.prepare(
+              this, raw, selectedEngine, selectedApps, selectedMode,
+            )
+          },
+          check = { config ->
+            if (!checkedSnapshot) AndroidProfilePreflight.check(this, config, selectedEngine)
+          },
+          handoff = { config ->
+            mainHandler.post {
+              if (request != preflightGeneration) return@post
+              try {
+                acceptStart(config, selectedApps, selectedMode, serverName, selectedEngine, killSwitch, blockIpv6Option)
+              } catch (error: Exception) {
+                reportPreflightFailure(request, error)
+              }
+            }
+          },
+        )
+      } catch (error: Exception) {
+        reportPreflightFailure(request, error)
+      } catch (error: LinkageError) {
+        reportPreflightFailure(request, error)
+      } finally {
+        if (checkedSnapshot) source.delete()
+      }
+    }
+  }
+
+  private fun reportPreflightFailure(request: Long, error: Throwable) {
+    val safe = ProfilePreflight.failure(error).message ?: ProfileCheckKind.FAILED.token
+    mainHandler.post {
+      if (request != preflightGeneration || sessionActive || starting) return@post
+      VpnEvents.update(VpnEvents.STATE_ERROR, safe)
+      stopForeground(STOP_FOREGROUND_REMOVE)
+      stopSelf()
+    }
+  }
+
+  private fun acceptStart(
+    config: String,
     apps: String,
     appsMode: String,
     serverName: String = "",
@@ -205,6 +277,8 @@ class CloakwireVpnService : VpnService() {
     killSwitch: String = "on_drop",
     blockIpv6Option: Boolean = true,
   ) {
+    // Only a checked, fully prepared snapshot can replace the restart config.
+    configFile(this).writeText(config)
     killSwitchMode = killSwitch
     blockIpv6 = blockIpv6Option
     isBlackholeActive = false
@@ -229,7 +303,7 @@ class CloakwireVpnService : VpnService() {
       getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
         .getString(KEY_LAST_SERVER, "")
         .orEmpty()
-        .ifBlank { extractProxyOutboundTag(configPath).orEmpty() }
+        .ifBlank { extractProxyOutboundTag(config).orEmpty() }
     }
     activeServerName = resolvedName
     if (resolvedName.isNotEmpty()) {
@@ -253,7 +327,7 @@ class CloakwireVpnService : VpnService() {
     thread(name = "vpn-start") {
       try {
         if (startGeneration != currentGen || !starting) return@thread
-        runVpn(configPath, selectedApps, selectedAppsMode, selectedEngine, currentGen)
+        runVpn(config, selectedApps, selectedAppsMode, selectedEngine, currentGen)
         if (startGeneration != currentGen || !starting) {
           Log.i(TAG, "VPN start was cancelled during setup; tearing down components")
           runCatching { teardownComponents() }
@@ -281,24 +355,17 @@ class CloakwireVpnService : VpnService() {
     }
   }
 
-  private fun runVpn(configPath: String, apps: String, appsMode: String, engine: String, currentGen: Long) {
+  private fun runVpn(config: String, apps: String, appsMode: String, engine: String, currentGen: Long) {
     if (engine == ENGINE_SINGBOX) {
-      runSingBoxVpn(configPath, apps, appsMode, currentGen)
+      runSingBoxVpn(config, currentGen)
       return
     }
-    runXrayVpn(configPath, apps, appsMode, currentGen)
+    runXrayVpn(config, apps, appsMode, currentGen)
   }
 
-  private fun runXrayVpn(configPath: String, apps: String, appsMode: String, currentGen: Long) {
-    // 1. Config: normalize + inject the log output path so the UI can
-    //    tail the (redacted) xray log.
-    val raw = File(configPath).readText()
-    val config = injectLogOutput(raw)
+  private fun runXrayVpn(config: String, apps: String, appsMode: String, currentGen: Long) {
+    resetLogFile(logFile(this))
     logOutboundTopology(config)
-    // Persist the normalized config for sticky restarts.
-    runCatching {
-      configFile(this).writeText(config)
-    }
 
     if (startGeneration != currentGen || !starting) return
 
@@ -350,10 +417,8 @@ class CloakwireVpnService : VpnService() {
   }
 
   /** Start the in-process libbox engine. CloakwirePlatform owns TUN setup. */
-  private fun runSingBoxVpn(configPath: String, apps: String, appsMode: String, currentGen: Long) {
-    val raw = File(configPath).readText()
-    val config = prepareSingBoxConfig(raw, apps, appsMode)
-    configFile(this).writeText(config)
+  private fun runSingBoxVpn(config: String, currentGen: Long) {
+    resetLogFile(singboxLogFile(this))
 
     if (startGeneration != currentGen || !starting) return
 
@@ -370,92 +435,10 @@ class CloakwireVpnService : VpnService() {
     engineRestarts = 0
   }
 
-  /** Ensure provider sing-box bundles have an Android TUN and app policy. */
-  private fun prepareSingBoxConfig(raw: String, appsJson: String, appsMode: String): String {
-    val root = JSONObject(raw)
-    val inbounds = root.optJSONArray("inbounds") ?: JSONArray().also {
-      root.put("inbounds", it)
-    }
-    var existing: JSONObject? = null
-    for (i in 0 until inbounds.length()) {
-      val candidate = inbounds.optJSONObject(i) ?: continue
-      if (candidate.optString("type") == "tun") {
-        existing = candidate
-        break
-      }
-    }
-    val tun = existing ?: JSONObject().also { inbounds.put(it) }
-    // A provider bundle may carry a desktop-oriented TUN. Preserve its tag
-    // (route rules can reference it), but normalize every Android-owned field.
-    tun.put("type", "tun")
-    if (tun.optString("tag").isBlank()) tun.put("tag", "tun-in")
-    tun.remove("inet4_address")
-    tun.remove("inet6_address")
-    tun.put("address", JSONArray().put("172.19.0.1/30"))
-    tun.put("auto_route", true)
-    tun.put("strict_route", false)
-    tun.put("stack", "gvisor")
-    tun.put("mtu", 9000)
-    tun.put("endpoint_independent_nat", false)
-    tun.put("udp_timeout", "5m")
-    tun.put("interface_name", "singbox-tun")
-
-    tun.remove("include_package")
-    tun.remove("exclude_package")
-    val policy = XrayAppRoutingPolicy.create(parseAppList(appsJson), appsMode, packageName)
-    if (policy.allowedPackages.isNotEmpty()) {
-      tun.put("include_package", JSONArray().also { arr ->
-        policy.allowedPackages.forEach { arr.put(it) }
-      })
-    } else {
-      tun.put("exclude_package", JSONArray().also { arr ->
-        policy.disallowedPackages.forEach { arr.put(it) }
-      })
-    }
-
-    // Ensure route has hijack-dns and private IP bypass, and clean up any legacy rules
-    val route = root.optJSONObject("route") ?: JSONObject().also { root.put("route", it) }
-    val rawRules = route.optJSONArray("rules") ?: JSONArray().also { route.put("rules", it) }
-    val newRules = JSONArray()
-    var hasHijack = false
-    var hasPrivate = false
-
-    // Clean existing rules
-    for (i in 0 until rawRules.length()) {
-      val r = rawRules.optJSONObject(i) ?: continue
-      if (r.optString("network") == "dns") {
-        r.remove("network")
-        r.put("action", "hijack-dns")
-        r.put("port", JSONArray().put(53))
-        hasHijack = true
-        newRules.put(r)
-        continue
-      }
-      if (r.optString("action") == "hijack-dns") hasHijack = true
-      if (r.optBoolean("ip_is_private")) hasPrivate = true
-      newRules.put(r)
-    }
-
-    // Prepend hijack-dns and private bypass if missing
-    val finalRules = JSONArray()
-    if (!hasHijack) {
-      finalRules.put(JSONObject().put("action", "hijack-dns").put("port", JSONArray().put(53)))
-    }
-    if (!hasPrivate) {
-      finalRules.put(JSONObject().put("action", "route").put("ip_is_private", true).put("outbound", "direct"))
-    }
-    for (i in 0 until newRules.length()) {
-      finalRules.put(newRules.get(i))
-    }
-    route.put("rules", finalRules)
-
-    val log = root.optJSONObject("log") ?: JSONObject().also { root.put("log", it) }
-    val file = singboxLogFile(this)
+  /** Runtime log rotation happens only after the candidate passed preflight. */
+  private fun resetLogFile(file: File) {
     file.parentFile?.mkdirs()
     if (file.exists()) file.delete()
-    log.put("output", file.absolutePath)
-    if (!log.has("level")) log.put("level", "info")
-    return root.toString()
   }
 
   private fun onSingBoxDied(message: String) {
@@ -621,27 +604,6 @@ class CloakwireVpnService : VpnService() {
     }
   }
 
-  /** Route xray's log output to the file the UI tails. */
-  private fun injectLogOutput(configContent: String): String {
-    return try {
-      val json = JSONObject(configContent)
-      val log = json.optJSONObject("log") ?: JSONObject().also { json.put("log", it) }
-      val file = logFile(this)
-      file.parentFile?.mkdirs()
-      if (file.exists()) file.delete()
-      log.put("output", file.absolutePath)
-      // "info" surfaces outbound dial targets + accepted connections —
-      // the evidence needed to debug routing decisions on-device.
-      // Lines pass through XrayLogRedactor before they reach this
-      // file or logcat.
-      log.put("loglevel", log.optString("loglevel", "info"))
-      json.toString()
-    } catch (e: Exception) {
-      Log.w(TAG, "log injection failed, using config as-is", e)
-      configContent
-    }
-  }
-
   /**
    * The xray process died unexpectedly. Restart it (bounded); when the
    * budget is exhausted, error the session out — a dead engine with a
@@ -715,7 +677,9 @@ class CloakwireVpnService : VpnService() {
   }
 
   @Synchronized
-  fun stopVpn() {
+  fun stopVpn(cancelPendingStart: Boolean = true) {
+    if (cancelPendingStart) AndroidProfilePreflight.starts.cancel()
+    preflightGeneration++
     startGeneration++
     starting = false
     isBlackholeActive = false
@@ -762,13 +726,14 @@ class CloakwireVpnService : VpnService() {
   override fun onDestroy() {
     // The system can kill the service without ACTION_STOP (revoke,
     // always-on change, task removal) — make sure everything goes down.
+    preflightGeneration++
     startGeneration++
     starting = false
     teardownComponents()
     active = null
     activeServerName = ""
     VpnEvents.setStateChangeListener(null)
-    if (VpnEvents.state != VpnEvents.STATE_STOPPED) {
+    if (VpnEvents.state != VpnEvents.STATE_STOPPED && VpnEvents.state != VpnEvents.STATE_ERROR) {
       VpnEvents.update(VpnEvents.STATE_STOPPED)
     }
     QuickTileService.notifyStateChanged(this)
@@ -877,11 +842,9 @@ class CloakwireVpnService : VpnService() {
    * tile then shows the actual VPN endpoint (e.g. "1.2.3.4:443")
    * instead of the unhelpful internal tag.
    */
-  private fun extractProxyOutboundTag(configPath: String): String? {
+  private fun extractProxyOutboundTag(config: String): String? {
     return try {
-      val file = File(configPath)
-      if (!file.exists()) return null
-      val outbounds = JSONObject(file.readText()).optJSONArray("outbounds") ?: return null
+      val outbounds = JSONObject(config).optJSONArray("outbounds") ?: return null
       val proxyProtocols = setOf(
         "vless", "vmess", "trojan", "shadowsocks", "tuic", "hysteria2", "hysteria",
         "wireguard", "http", "socks", "shadowtls"

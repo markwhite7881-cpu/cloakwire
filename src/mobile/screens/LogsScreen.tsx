@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/lib/appVersion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Copy, RefreshCw, Terminal } from "lucide-react";
 import { vpnCoreVersion, vpnReadLogs } from "@/lib/vpn";
@@ -37,7 +38,7 @@ export function LogsScreen({ onBack }: { onBack: () => void }) {
       const coreVersion = inTauri ? await vpnCoreVersion().catch(() => null) : "preview";
       await copyTextToClipboard(buildDiagnosticsReport({
         platform: "android",
-        appVersion: "1.4.7",
+        appVersion: APP_VERSION,
         coreVersion,
         logLines: String(text).split("\n"),
       }));

@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useState } from "react";
 import { RefreshCw, Terminal } from "lucide-react";
 import { api } from "@/lib/api";
@@ -243,6 +244,12 @@ export function SettingsScreen({
       <SectionCard>
         <SectionHeader title={t("settings.about")} />
         <div className="divide-y divide-white/5">
+          <SettingRow
+            label="Cloakwire"
+            control={
+              <span className="font-mono text-xs text-muted-foreground">v{APP_VERSION}</span>
+            }
+          />
           <SettingRow
             label={t("common.version")}
             hint={t("settings.coresHint")}

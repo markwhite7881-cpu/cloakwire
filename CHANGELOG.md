@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.9] - 2026-10-30
+
+### English
+- Ready-made subscription profiles are checked by the selected engine before connecting on Windows, macOS and Android.
+- Connection errors now show an actionable reason and a safe report that can be copied without exposing provider configuration.
+- Invalid profiles are rejected before replacing an active connection; cancelling a check does not start the VPN.
+- Improved release validation across all platforms, including updater signatures, checksums and Android GeoIP assets.
+- Synchronized the application version displayed in the desktop and Android interfaces and diagnostic reports.
+
+### Русский
+- Добавлена проверка готовых профилей подписки выбранным ядром перед подключением на Windows, macOS и Android.
+- Ошибки подключения показывают понятную причину, дальнейшие действия и отчёт для копирования без конфигурации провайдера.
+- Некорректный профиль отклоняется до замены активного подключения; отмена проверки не запускает VPN.
+- Улучшены проверки выпуска на всех платформах, включая подписи обновлений, контрольные суммы и базы GeoIP в Android.
+- Синхронизирована версия приложения в интерфейсе Windows, macOS и Android и в диагностических отчётах.
+
+### 简体中文
+- Windows、macOS 和 Android 现在会在连接前使用所选内核检查订阅配置。
+- 连接错误会显示明确原因、处理建议和可复制的安全报告，不暴露提供商配置。
+- 无效配置会在替换当前连接前被拒绝；取消检查不会启动 VPN。
+- 改进跨平台发布验证，包括更新签名、校验和及 Android GeoIP 数据。
+- 统一桌面端、Android 界面和诊断报告显示的应用版本。
+
+---
+
+
 ## [1.4.8] - 2026-10-30
 
 ### English

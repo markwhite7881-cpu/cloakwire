@@ -119,7 +119,7 @@ $signingArguments = @(
     $inputPath
 )
 
-if ($null -ne $processStartInfo.ArgumentList) {
+if ($processStartInfo.PSObject.Properties['ArgumentList']) {
     foreach ($argument in $signingArguments) {
         $processStartInfo.ArgumentList.Add($argument)
     }

@@ -145,73 +145,16 @@ pub fn ensure_wintun_driver(_app: &AppHandle, _binary_path: &Path) -> AppResult<
     Ok(())
 }
 
-pub fn prepare_validation_config(config_path: &Path) -> std::io::Result<Option<PathBuf>> {
-    let content = std::fs::read_to_string(config_path)?;
-    let mut value: serde_json::Value = match serde_json::from_str(&content) {
-        Ok(v) => v,
-        Err(_) => return Ok(None),
-    };
-
-    let has_tun = value
-        .get("inbounds")
-        .and_then(serde_json::Value::as_array)
-        .map(|arr| {
-            arr.iter()
-                .any(|i| i.get("protocol").and_then(serde_json::Value::as_str) == Some("tun"))
-        })
-        .unwrap_or(false);
-
-    if !has_tun {
-        return Ok(None);
-    }
-
-    if let Some(inbounds) = value.get_mut("inbounds").and_then(serde_json::Value::as_array_mut) {
-        inbounds.retain(|i| i.get("protocol").and_then(serde_json::Value::as_str) != Some("tun"));
-    }
-
-    let nonce = format!("val-{}.json", uuid::Uuid::new_v4());
-    let temp_path = config_path.with_file_name(nonce);
-    let bytes = serde_json::to_vec(&value)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    std::fs::write(&temp_path, bytes)?;
-    Ok(Some(temp_path))
-}
-
 pub async fn validate_config(
     binary: &Path,
     config_path: &Path,
     env: &[(std::ffi::OsString, std::ffi::OsString)],
 ) -> AppResult<()> {
-    let validation_path = match prepare_validation_config(config_path) {
-        Ok(Some(temp_path)) => temp_path,
-        _ => config_path.to_path_buf(),
-    };
-
+    let checked = crate::config::preflight::CheckConfig::new(config_path, true)?;
     let mut command = Command::new(binary);
-    command.args(validation_args(&validation_path));
+    command.args(validation_args(checked.path()));
     command.envs(env.iter().map(|(key, value)| (key, value)));
-    #[cfg(windows)]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-    let output = command
-        .output()
-        .await
-        .map_err(|_| AppError::Spawn("Xray config validation could not start".into()))?;
-
-    if validation_path != config_path {
-        let _ = std::fs::remove_file(&validation_path);
-    }
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        log::warn!("Xray config validation failed: stdout={stdout}, stderr={stderr}");
-        Err(AppError::Validation("Xray config validation failed".into()))
-    }
+    crate::config::preflight::run_check(command).await
 }
 
 pub fn validation_args(config_path: &Path) -> [std::ffi::OsString; 4] {
@@ -285,50 +228,36 @@ mod tests {
         assert_eq!(args, vec!["run", "-config", "runtime.json"]);
     }
 
+    #[cfg(any(
+        all(target_os = "windows", target_arch = "x86_64"),
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64")
+    ))]
     #[test]
-    fn resolver_has_targeted_sidecar_names_and_integrity_metadata() {
+    fn resolver_has_targeted_sidecar_names_and_platform_integrity_metadata() {
         let metadata = packaged_binary_metadata().expect("supported desktop target");
         let names = candidate_names();
         assert_eq!(names[0], metadata.name);
-        assert!(metadata.name.starts_with("xray-"));
-        assert_eq!(metadata.sha256.len(), 64);
-        assert!(metadata.size > 1_000_000);
-    }
+        assert_eq!(names[1], if cfg!(windows) { "xray.exe" } else { "xray" });
 
-    #[test]
-    fn prepare_validation_config_strips_tun_inbound() {
-        let temp = tempfile::tempdir().unwrap();
-        let config_path = temp.path().join("config.json");
-        let content = serde_json::json!({
-            "inbounds": [
-                {"protocol": "tun", "tag": "cloakwire-managed-tun"},
-                {"protocol": "http", "port": 10808}
-            ],
-            "outbounds": [{"protocol": "freedom", "tag": "direct"}]
-        });
-        std::fs::write(&config_path, serde_json::to_vec(&content).unwrap()).unwrap();
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(metadata.name, "xray-x86_64-pc-windows-msvc.exe");
+            assert_eq!(metadata.sha256.len(), 64);
+            assert!(metadata.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()));
+            assert!(metadata.size > 1_000_000);
+        }
 
-        let val_path = prepare_validation_config(&config_path).unwrap().expect("creates val path");
-        assert!(val_path.exists());
-        let val_content: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(&val_path).unwrap()).unwrap();
-        let inbounds = val_content["inbounds"].as_array().unwrap();
-        assert_eq!(inbounds.len(), 1);
-        assert_eq!(inbounds[0]["protocol"], "http");
-        let _ = std::fs::remove_file(val_path);
-    }
-
-    #[test]
-    fn prepare_validation_config_returns_none_when_no_tun() {
-        let temp = tempfile::tempdir().unwrap();
-        let config_path = temp.path().join("config.json");
-        let content = serde_json::json!({
-            "inbounds": [
-                {"protocol": "http", "port": 10808}
-            ]
-        });
-        std::fs::write(&config_path, serde_json::to_vec(&content).unwrap()).unwrap();
-
-        assert!(prepare_validation_config(&config_path).unwrap().is_none());
+        #[cfg(target_os = "macos")]
+        {
+            #[cfg(target_arch = "aarch64")]
+            assert_eq!(metadata.name, "xray-aarch64-apple-darwin");
+            #[cfg(target_arch = "x86_64")]
+            assert_eq!(metadata.name, "xray-x86_64-apple-darwin");
+            // Signing changes the macOS binary, so its pre-signing digest and
+            // size are intentionally absent from the runtime metadata.
+            assert!(metadata.sha256.is_empty());
+            assert_eq!(metadata.size, 0);
+        }
     }
 }

@@ -17,6 +17,8 @@ export interface VpnStatus {
   state: VpnState;
   message: string | null;
   since: number | null;
+  /** Actual running profile name, when supplied by the native service. */
+  profile_name?: string | null;
   /** Active engine name reported by the Kotlin service; empty when stopped. */
   engine: "sing-box" | "xray" | "";
 }
@@ -145,4 +147,3 @@ export const vpnReadClipboard = async (): Promise<string> => {
     return "";
   }
 };
-

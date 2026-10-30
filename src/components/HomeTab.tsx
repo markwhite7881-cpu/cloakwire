@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity,
   ChevronDown,
   Clock,
   Globe,
@@ -17,7 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/Button";
-import { Card, CardContent } from "@/components/Card";
+import { ConnectionErrorCard } from "@/components/ConnectionErrorCard";
+import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
 import { FlagIcon } from "@/components/FlagIcon";
 import { useTrafficStream } from "@/hooks/useTrafficStream";
@@ -40,6 +40,7 @@ export interface HomeTabProps {
   statusLabel: Status;
   busy: boolean;
   error: string | null;
+  onDismissError?: () => void;
   canStart: boolean;
   configName: string | null;
   profiles: ConnectionProfile[];
@@ -74,6 +75,7 @@ export function HomeTab({
   statusLabel,
   busy,
   error,
+  onDismissError,
   canStart,
   configName: _configName,
   profiles,
@@ -177,9 +179,9 @@ export function HomeTab({
           geoipByIp,
         })
       : null;
-  const activeName = activeIsAuto
+  const activeName = status.profile_name || (activeIsAuto
     ? "Auto (urltest)"
-    : activeOutbound ?? null;
+    : activeOutbound ?? null);
 
   const selectedTag = selected?.kind === "manual" && isSupported(selected.outbound)
     ? selected.outbound.tag
@@ -496,14 +498,7 @@ export function HomeTab({
 
       </div>
 
-      {error && (
-        <Card className="border-destructive/30 bg-destructive/10">
-          <CardContent className="flex items-start gap-2 p-3 text-xs text-destructive">
-            <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="break-words">{error}</span>
-          </CardContent>
-        </Card>
-      )}
+      {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} />}
 
       {/* All-servers strip — quick visual switcher. */}
       {profiles.length > 0 && (

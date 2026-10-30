@@ -1,65 +1,30 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$ManifestPath,
-
-    [Parameter(Mandatory = $true)]
-    [string]$DistPath,
-
-    [Parameter(Mandatory = $true)]
-    [string]$Version,
-
-    [Parameter(Mandatory = $true)]
-    [string[]]$RequiredPlatforms
+    [Parameter(Mandatory = $true)][string]$ManifestPath,
+    [Parameter(Mandatory = $true)][string]$DistPath,
+    [Parameter(Mandatory = $true)][string]$Version,
+    [string[]]$RequiredPlatforms = @('windows-x86_64', 'android-arm64-v8a', 'darwin-aarch64', 'darwin-x86_64'),
+    [switch]$FullRelease,
+    [string]$VerifierPath,
+    [string]$ProjectRoot,
+    [string]$PublicKeyPath
 )
-
 $ErrorActionPreference = 'Stop'
-
-$manifest = Get-Content -Raw -Encoding UTF8 -Path $ManifestPath | ConvertFrom-Json
-if ($manifest.version -ne $Version) {
-    throw "Manifest version '$($manifest.version)' does not match requested version '$Version'."
+if (-not $ProjectRoot) { $ProjectRoot = Split-Path -Parent $PSScriptRoot }
+$arguments = @('--version', $Version, '--dist', (Resolve-Path -LiteralPath $DistPath).ProviderPath,
+    '--manifest', (Resolve-Path -LiteralPath $ManifestPath).ProviderPath,
+    '--project-root', (Resolve-Path -LiteralPath $ProjectRoot).ProviderPath)
+if ($RequiredPlatforms.Count -eq 0) { throw 'RequiredPlatforms must not be empty.' }
+foreach ($platform in $RequiredPlatforms) { $arguments += @('--required-platform', $platform) }
+if ($FullRelease) { $arguments += '--full-release' }
+if ($PublicKeyPath) { $arguments += @('--public-key-file', (Resolve-Path -LiteralPath $PublicKeyPath).ProviderPath) }
+if ($VerifierPath) {
+    if (-not (Test-Path -LiteralPath $VerifierPath -PathType Leaf)) { throw "Release verifier is missing: $VerifierPath" }
+    & (Resolve-Path -LiteralPath $VerifierPath).ProviderPath @arguments
+} else {
+    $cargo = Get-Command cargo -ErrorAction Stop
+    $crate = Join-Path $ProjectRoot 'src-tauri/crates/release-verify/Cargo.toml'
+    # Keep helper build output outside both the checkout and the application's target tree.
+    $targetDir = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path ([IO.Path]::GetTempPath()) 'cloakwire-release-verify-target' }
+    & $cargo.Source run --quiet --locked --offline --manifest-path $crate --target-dir $targetDir -- @arguments
 }
-
-foreach ($platform in $RequiredPlatforms) {
-    $entry = $manifest.platforms.$platform
-    if ($null -eq $entry) {
-        throw "Manifest is missing required platform '$platform'."
-    }
-
-    $uri = $null
-    if (-not [Uri]::TryCreate([string]$entry.url, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https') {
-        throw "Platform '$platform' has a non-HTTPS artifact URL '$($entry.url)'."
-    }
-
-    $fileName = [IO.Path]::GetFileName($uri.AbsolutePath)
-    if ([string]::IsNullOrWhiteSpace($fileName)) {
-        throw "Platform '$platform' URL does not name an artifact."
-    }
-    $expectedFileName = "Cloakwire_$Version`_x64-setup.exe"
-    if ($fileName -cne $expectedFileName) {
-        throw "Artifact '$fileName' for platform '$platform' does not have the required version token/name '$expectedFileName'."
-    }
-
-    $artifactPath = Join-Path $DistPath $fileName
-    if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) {
-        throw "Staged artifact is missing for platform '$platform': $artifactPath"
-    }
-    $signaturePath = "$artifactPath.sig"
-    if (-not (Test-Path -LiteralPath $signaturePath -PathType Leaf)) {
-        throw "Signature sidecar is missing for platform '$platform': $signaturePath"
-    }
-    if ([string]::IsNullOrWhiteSpace([string]$entry.signature)) {
-        throw "Manifest signature is empty for platform '$platform'."
-    }
-
-    try {
-        $manifestSignature = [Text.UTF8Encoding]::new($false).GetString([Convert]::FromBase64String([string]$entry.signature))
-    } catch {
-        throw "Manifest signature is not valid Base64 for platform '$platform'."
-    }
-    $sidecarSignature = Get-Content -Raw -Encoding UTF8 -LiteralPath $signaturePath
-    if ($manifestSignature -cne $sidecarSignature) {
-        throw "Manifest signature does not match staged sidecar for platform '$platform'."
-    }
-}
-
-Write-Output "Release manifest '$ManifestPath' is valid for version '$Version'."
+if ($LASTEXITCODE -ne 0) { throw "Release verifier failed with exit code $LASTEXITCODE." }

@@ -25,6 +25,7 @@ import app.tauri.plugin.Plugin
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.File
 import kotlin.concurrent.thread
 
 @InvokeArg
@@ -141,6 +142,7 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
 
   @Command
   fun start(invoke: Invoke) {
+    val request = AndroidProfilePreflight.starts.begin()
     thread(name = "vpn-plugin-start") {
       try {
         if (VpnService.prepare(activity) != null) {
@@ -149,47 +151,61 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
         }
         val args = invoke.parseArgs(StartArgs::class.java)
 
-        // The full engine config must arrive pre-built (Rust side).
-        if (args.config.isBlank()) {
-          invoke.reject("nothing to start: config is empty")
-          return@thread
-        }
-        // Validate before handing off: the service must never see a
-        // non-JSON body.
         val engine = if (args.engine == "xray") {
           CloakwireVpnService.ENGINE_XRAY
         } else {
           CloakwireVpnService.ENGINE_SINGBOX
         }
-        val engineConfig = args.config
-        JSONObject(engineConfig).getJSONArray("outbounds")
-
-        val file = CloakwireVpnService.configFile(activity)
-        file.writeText(engineConfig)
-
         val appsMode = if (args.appsMode == "include") "include" else "exclude"
-        val intent = Intent(activity, CloakwireVpnService::class.java)
-          .setAction(CloakwireVpnService.ACTION_START)
-          .putExtra(CloakwireVpnService.EXTRA_CONFIG_PATH, file.absolutePath)
-          .putExtra(CloakwireVpnService.EXTRA_ENGINE, engine)
-          .putExtra(CloakwireVpnService.EXTRA_APPS, args.apps)
-          .putExtra(CloakwireVpnService.EXTRA_APPS_MODE, appsMode)
-          .putExtra(CloakwireVpnService.EXTRA_SERVER_NAME, args.name)
-          .putExtra(CloakwireVpnService.EXTRA_KILL_SWITCH, args.killSwitch)
-          .putExtra(CloakwireVpnService.EXTRA_BLOCK_IPV6, args.blockIpv6)
-        activity.startForegroundService(intent)
+        ProfilePreflight.run(
+          prepare = { AndroidProfilePreflight.prepare(activity, args.config, engine, args.apps, appsMode) },
+          check = { AndroidProfilePreflight.check(activity, it, engine) },
+          handoff = { config ->
+            AndroidProfilePreflight.starts.handoff(request) {
+              // Unique checked snapshots prevent overlapping starts from replacing
+              // each other's config, and leave the last session untouched on rejection.
+              val file = File.createTempFile("vpn-checked-", ".json", activity.cacheDir)
+              try {
+                file.writeText(config)
+                val intent = Intent(activity, CloakwireVpnService::class.java)
+                  .setAction(CloakwireVpnService.ACTION_START)
+                  .putExtra(CloakwireVpnService.EXTRA_CONFIG_PATH, file.absolutePath)
+                  .putExtra(CloakwireVpnService.EXTRA_PREFLIGHTED, true)
+                  .putExtra(CloakwireVpnService.EXTRA_ENGINE, engine)
+                  .putExtra(CloakwireVpnService.EXTRA_APPS, args.apps)
+                  .putExtra(CloakwireVpnService.EXTRA_APPS_MODE, appsMode)
+                  .putExtra(CloakwireVpnService.EXTRA_SERVER_NAME, args.name)
+                  .putExtra(CloakwireVpnService.EXTRA_KILL_SWITCH, args.killSwitch)
+                  .putExtra(CloakwireVpnService.EXTRA_BLOCK_IPV6, args.blockIpv6)
+                activity.startForegroundService(intent)
+              } catch (error: Exception) {
+                file.delete()
+                throw error
+              }
+            }
+          },
+        )
         invoke.resolve()
-      } catch (e: Exception) {
-        invoke.reject(e.message ?: e.toString())
+      } catch (error: Exception) {
+        if (AndroidProfilePreflight.starts.isCurrent(request)) {
+          invoke.reject(ProfilePreflight.failure(error).message ?: ProfileCheckKind.FAILED.token)
+        } else {
+          invoke.reject(ProfileCheckKind.CANCELLED.token)
+        }
+      } catch (_: LinkageError) {
+        if (AndroidProfilePreflight.starts.isCurrent(request)) invoke.reject(ProfileCheckKind.UNAVAILABLE.token)
+        else invoke.reject(ProfileCheckKind.CANCELLED.token)
       }
     }
   }
 
   @Command
   fun stop(invoke: Invoke) {
+    AndroidProfilePreflight.starts.cancel()
     try {
       val intent = Intent(activity, CloakwireVpnService::class.java)
         .setAction(CloakwireVpnService.ACTION_STOP)
+        .putExtra(CloakwireVpnService.EXTRA_PENDING_START_CANCELLED, true)
       activity.startService(intent)
       invoke.resolve()
     } catch (e: Exception) {

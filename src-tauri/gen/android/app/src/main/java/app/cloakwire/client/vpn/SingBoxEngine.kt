@@ -1,4 +1,4 @@
-﻿package app.cloakwire.client.vpn
+package app.cloakwire.client.vpn
 
 import android.content.Context
 import android.util.Log
@@ -43,6 +43,11 @@ class SingBoxEngine(
       }
       Libbox.setup(options)
       libboxReady = true
+    }
+
+    internal fun checkConfig(context: Context, config: String) {
+      setupOnce(context)
+      Libbox.checkConfig(config)
     }
 
     fun version(context: Context): String = try {

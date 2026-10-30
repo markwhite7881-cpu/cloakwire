@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/lib/appVersion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Gauge,
@@ -25,6 +26,7 @@ import { RoutingTab } from "@/components/routing/RoutingTab";
 import { UpdateModal } from "@/components/UpdateModal";
 import { useI18n } from "@/lib/i18n";
 import { TauriCommandError, api } from "@/lib/api";
+import { humanError, isProfileCheckCancelled } from "@/lib/profileCheck";
 import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { GEOIP_RU_URL, migrateRuleSetPresets } from "@/lib/presets";
 import { loadManualProfiles, saveManualProfiles } from "@/lib/manualProfiles";
@@ -33,6 +35,7 @@ import {
   buildConnectionProfiles,
   canStartManagedSelection,
   managedSelectionForProfile,
+  reconnectManagedProfile,
   selectedManualOutbound,
 } from "@/lib/connectionProfiles";
 import {
@@ -330,7 +333,7 @@ function loadSettings(): GeneratorSettings {
 
 export default function App() {
   const { t } = useI18n();
-  const [appVersion, setAppVersion] = useState("1.4.7");
+  const [appVersion, setAppVersion] = useState(APP_VERSION);
   const [binary, setBinary] = useState<BinaryInfo | null>(null);
   const [version, setVersion] = useState<SingboxVersion | null>(null);
   const [xrayVersion, setXrayVersion] = useState<string | null>(null);
@@ -706,16 +709,18 @@ export default function App() {
     };
   }, [status.status, refresh]);
 
-  const onStart = useCallback(async (overrideSettings?: GeneratorSettings): Promise<boolean> => {
+  const startCancelledRef = useRef(false);
+  const onStart = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex): Promise<boolean> => {
+    startCancelledRef.current = false;
     if (!inTauri) {
       setError("Preview mode — start the Tauri shell to actually run sing-box.");
       return false;
     }
-    if (!canStartManagedSelection(profiles, selectedIndex)) {
+    if (!canStartManagedSelection(profiles, requestedIndex)) {
       setError("Selected subscription configuration is not executable yet.");
       return false;
     }
-    const selection = managedSelectionForProfile(manualProfiles, profiles, selectedIndex);
+    const selection = managedSelectionForProfile(manualProfiles, profiles, requestedIndex);
     if (!selection) {
       setError("Selected subscription configuration is not executable yet.");
       return false;
@@ -774,7 +779,8 @@ export default function App() {
       setReconnectFailed(false);
       return true;
     } catch (e) {
-      setError(humanError(e));
+      startCancelledRef.current = isProfileCheckCancelled(e);
+      if (!startCancelledRef.current) setError(humanError(e));
       return false;
     } finally {
       setBusy(false);
@@ -789,36 +795,40 @@ export default function App() {
     onStartRef.current = onStart;
   }, [onStart]);
 
-  const reconnectCurrentProfile = useCallback(async (overrideSettings?: GeneratorSettings): Promise<boolean> => {
+  const reconnectCurrentProfile = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex): Promise<boolean> => {
     if (!inTauri) return false;
     setReconnectInProgress(true);
     setBusy(true);
     setError(null);
     try {
-      try {
-        await api.clearSystemProxy();
-      } catch {
-        // best-effort; the process stop/start remains authoritative
-      }
-      const next = await api.stop();
-      setStatus(next);
-      const started = await onStartRef.current(overrideSettings);
+      const started = await reconnectManagedProfile(profiles, requestedIndex, {
+        stop: async () => {
+          try {
+            await api.clearSystemProxy();
+          } catch {
+            // best-effort; the process stop/start remains authoritative
+          }
+          setStatus(await api.stop());
+        },
+        start: (index) => onStartRef.current(overrideSettings, index),
+      });
       if (started) {
         setReconnectRequired(false);
         setReconnectFailed(false);
       } else {
-        setReconnectFailed(true);
+        setReconnectFailed(!startCancelledRef.current);
       }
       return started;
     } catch (e) {
-      setReconnectFailed(true);
-      setError(humanError(e));
+      const wasCancelled = isProfileCheckCancelled(e);
+      setReconnectFailed(!wasCancelled);
+      if (!wasCancelled) setError(humanError(e));
       return false;
     } finally {
       setBusy(false);
       setReconnectInProgress(false);
     }
-  }, []);
+  }, [profiles, selectedIndex]);
 
   const onStop = useCallback(async () => {
     if (!inTauri) return;
@@ -1053,20 +1063,14 @@ export default function App() {
           : selected?.kind === "subscription"
             ? selected.label
             : null;
+      const nextSettings = { ...settings, default_outbound: pickedTag };
       setSelectedIndex(index);
-      setSettings((prev) => ({
-        ...prev,
-        // null → urltest, anything else → pinned default in the
-        // generated config so the first request after the next
-        // Connect goes straight through the picked server.
-        default_outbound: pickedTag,
-      }));
+      setSettings(nextSettings);
       if (shouldReconnectAfterProfileSelection(status.status)) {
-        await Promise.resolve();
-        await reconnectCurrentProfile();
+        await reconnectCurrentProfile(nextSettings, index);
       }
     },
-    [profiles, status.status, reconnectCurrentProfile],
+    [profiles, settings, status.status, reconnectCurrentProfile],
   );
 
   const onRemoveProfile = useCallback((idx: number) => {
@@ -1099,6 +1103,7 @@ export default function App() {
             statusLabel={status.status}
             busy={busy}
             error={error}
+            onDismissError={() => setError(null)}
             canStart={canStartManagedSelection(profiles, selectedIndex)}
             configName={configPath ? basename(configPath) : null}
             profiles={profiles}
@@ -1369,14 +1374,6 @@ export default function App() {
       />
     </div>
   );
-}
-
-function humanError(e: unknown): string {
-  if (e instanceof TauriCommandError) {
-    return `${e.kind}: ${e.message}`;
-  }
-  if (e instanceof Error) return e.message;
-  return String(e);
 }
 
 function demoProfiles(): Outbound[] {

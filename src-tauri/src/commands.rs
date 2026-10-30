@@ -209,12 +209,14 @@ pub async fn start_ready_profile(
     subscriptions: State<'_, Arc<SubscriptionService>>,
     input: ReadyProfileInput,
 ) -> AppResult<ReadyProfileResult> {
-    let result = start_ready_profile_inner(app, pm.clone(), subscriptions, input).await;
-    if result.is_err() {
-        let _ = crate::process::clear_system_proxy();
-        pm.reset().await;
+    let ticket = pm.begin_ready_profile_check();
+    let result =
+        start_ready_profile_inner(app, pm.clone(), subscriptions, input, Some(ticket)).await;
+    if pm.is_ready_profile_check_current(ticket) {
+        result
+    } else {
+        Err(config::preflight::ProfileCheckIssue::Cancelled.into())
     }
-    result
 }
 
 async fn start_ready_profile_inner(
@@ -222,7 +224,9 @@ async fn start_ready_profile_inner(
     pm: State<'_, Arc<ProcessManager>>,
     subscriptions: State<'_, Arc<SubscriptionService>>,
     input: ReadyProfileInput,
+    ticket: Option<u64>,
 ) -> AppResult<ReadyProfileResult> {
+    let check_ticket = ticket.unwrap_or_else(|| pm.begin_ready_profile_check());
     let profile = subscriptions
         .resolve_child_profile(&input.subscription_id, &input.child_key)
         .await?;
@@ -233,9 +237,12 @@ async fn start_ready_profile_inner(
                 profile.config,
                 &input.routing,
                 allocate_loopback_port,
-            )?;
-            let binary = xray::locate_binary(&app)?;
-            let geodata = xray::geodata::ensure(&app).await?;
+            )
+            .map_err(config::preflight::preparation_error)?;
+            let binary = xray::locate_binary(&app).map_err(config::preflight::preparation_error)?;
+            let geodata = xray::geodata::ensure(&app)
+                .await
+                .map_err(|_| config::preflight::ProfileCheckIssue::RuleSet)?;
             let proxy = (
                 prepared.proxy_host.clone(),
                 prepared.proxy_port,
@@ -251,51 +258,34 @@ async fn start_ready_profile_inner(
             )
         }
         EngineKind::Singbox => {
-            return start_resolved_singbox_profile(app, pm, profile, &input.routing).await;
+            return start_resolved_singbox_profile(app, pm, profile, &input.routing, check_ticket)
+                .await;
         }
     };
 
-    let path = write_runtime_config(&app, &value)?;
-    if let Err(error) = xray::validate_config(&binary, &path, &env).await {
-        let _ = crate::process::clear_system_proxy();
-        pm.reset().await;
-        return Err(error);
-    }
-
-    if pm.is_running().await {
-        if let Err(error) = pm.stop().await {
-            let _ = crate::process::clear_system_proxy();
-            pm.reset().await;
-            return Err(error);
-        }
-    }
-    let status = match pm
-        .start_spec_with_app(
-            Some(&app),
-            LaunchSpec {
-                engine: EngineKind::Xray,
-                binary,
-                args: xray::run_args(&path).to_vec(),
-                env,
-                config_path: path,
-                controller_url: None,
-                profile_key: Some(profile.key),
-                profile_name: Some(profile.name),
-                xray_stats,
-            },
-        )
-        .await
-    {
-        Ok(status) => status,
-        Err(error) => {
-            let _ = crate::process::clear_system_proxy();
-            pm.reset().await;
-            return Err(error);
-        }
-    };
+    let path = write_runtime_config(&app, &value).map_err(config::preflight::preparation_error)?;
+    let status = start_checked_ready_profile(
+        Some(&app),
+        &pm,
+        LaunchSpec {
+            engine: EngineKind::Xray,
+            binary,
+            args: xray::run_args(&path).to_vec(),
+            env,
+            config_path: path.clone(),
+            controller_url: None,
+            profile_key: Some(profile.key),
+            profile_name: Some(profile.name),
+            xray_stats,
+        },
+        check_ticket,
+    )
+    .await?;
 
     if let Some((host, http_port, socks_port)) = proxy {
-        if let Err(error) = crate::process::apply_system_proxy_with_socks(&host, http_port, socks_port) {
+        if let Err(error) =
+            crate::process::apply_system_proxy_with_socks(&host, http_port, socks_port)
+        {
             let _ = pm.stop().await;
             let _ = crate::process::clear_system_proxy();
             return Err(error);
@@ -311,7 +301,10 @@ fn prepare_ready_singbox_config(
     let mut config_value = config::ready::merge_ready_routing(profile.config.clone(), routing)?;
     crate::subscriptions::classify::sanitize_bundle_config(&mut config_value);
     #[cfg(target_os = "macos")]
-    if let Some(inbounds) = config_value.get_mut("inbounds").and_then(|i| i.as_array_mut()) {
+    if let Some(inbounds) = config_value
+        .get_mut("inbounds")
+        .and_then(|i| i.as_array_mut())
+    {
         for inbound in inbounds {
             if inbound.get("type").and_then(|t| t.as_str()) == Some("tun") {
                 if let Some(obj) = inbound.as_object_mut() {
@@ -332,32 +325,30 @@ async fn start_resolved_singbox_profile(
     pm: State<'_, Arc<ProcessManager>>,
     profile: crate::subscriptions::ResolvedChildProfile,
     routing: &config::RoutingOptions,
+    check_ticket: u64,
 ) -> AppResult<ReadyProfileResult> {
-    let config_value = prepare_ready_singbox_config(&profile, routing)?;
-    let path = write_runtime_config(&app, &config_value)?;
-    if pm.is_running().await {
-        if let Err(error) = pm.stop().await {
-            let _ = crate::process::clear_system_proxy();
-            pm.reset().await;
-            return Err(error);
-        }
-    }
-    let status = pm
-        .start_spec_with_app(
-            Some(&app),
-            LaunchSpec {
-                engine: EngineKind::Singbox,
-                binary: singbox::locate_binary(&app)?,
-                args: singbox::run_args(&path).to_vec(),
-                env: Vec::new(),
-                config_path: path,
-                controller_url: None,
-                profile_key: Some(profile.key),
-                profile_name: Some(profile.name),
-                xray_stats: None,
-            },
-        )
-        .await?;
+    let config_value = prepare_ready_singbox_config(&profile, routing)
+        .map_err(config::preflight::preparation_error)?;
+    let binary = singbox::locate_binary(&app).map_err(config::preflight::preparation_error)?;
+    let path =
+        write_runtime_config(&app, &config_value).map_err(config::preflight::preparation_error)?;
+    let status = start_checked_ready_profile(
+        Some(&app),
+        &pm,
+        LaunchSpec {
+            engine: EngineKind::Singbox,
+            binary,
+            args: singbox::run_args(&path).to_vec(),
+            env: Vec::new(),
+            config_path: path.clone(),
+            controller_url: None,
+            profile_key: Some(profile.key),
+            profile_name: Some(profile.name),
+            xray_stats: None,
+        },
+        check_ticket,
+    )
+    .await?;
     Ok(ReadyProfileResult {
         status,
         routing: crate::xray::RoutingApplicability::default(),
@@ -409,12 +400,21 @@ fn write_secure_runtime_file(path: &Path, data: &[u8]) -> std::io::Result<()> {
 
 pub fn cleanup_runtime_configs(app: &AppHandle, keep: Option<&Path>) {
     let dir = runtime_config_dir(app);
+    // Lock before observing active paths: a finishing request cannot release
+    // its lease between the active snapshot and the directory sweep.
+    let pending = config::preflight::leased_config_paths()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let mut in_use = Vec::new();
     if let Some(keep_path) = keep {
         in_use.push(keep_path.to_path_buf());
     }
     #[cfg(not(target_os = "android"))]
     if let Some(pm) = app.try_state::<Arc<ProcessManager>>() {
+        // A busy active-path mutex must never make a running config sweepable.
+        if pm.active_run_id() != 0 {
+            return;
+        }
         if let Some(active_cfg) = pm.active_config_path() {
             in_use.push(active_cfg);
         }
@@ -423,11 +423,19 @@ pub fn cleanup_runtime_configs(app: &AppHandle, keep: Option<&Path>) {
         }
     }
 
-    if let Ok(entries) = std::fs::read_dir(&dir) {
+    cleanup_runtime_files(&dir, &in_use, &pending);
+}
+
+fn cleanup_runtime_files(
+    dir: &Path,
+    in_use: &[PathBuf],
+    pending: &std::collections::HashSet<PathBuf>,
+) {
+    if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
-                if in_use.iter().any(|keep_path| keep_path == &path) {
+                if pending.contains(&path) || in_use.iter().any(|keep_path| keep_path == &path) {
                     continue;
                 }
                 let _ = std::fs::remove_file(path);
@@ -436,12 +444,15 @@ pub fn cleanup_runtime_configs(app: &AppHandle, keep: Option<&Path>) {
     }
 }
 
-fn write_runtime_config(app: &AppHandle, value: &serde_json::Value) -> AppResult<PathBuf> {
+fn write_runtime_config(
+    app: &AppHandle,
+    value: &serde_json::Value,
+) -> AppResult<config::preflight::ConfigLease> {
     let dir = runtime_config_dir(app);
     create_secure_runtime_dir(&dir).map_err(AppError::Io)?;
-    let path = dir.join(format!("{}.json", Uuid::new_v4()));
+    let path = config::preflight::ConfigLease::new(dir.join(format!("{}.json", Uuid::new_v4())));
     let body = serde_json::to_vec_pretty(value).map_err(AppError::Serde)?;
-    write_secure_runtime_file(&path, &body).map_err(AppError::Io)?;
+    write_secure_runtime_file(path.as_path(), &body).map_err(AppError::Io)?;
     cleanup_runtime_configs(app, Some(&path));
     Ok(path)
 }
@@ -473,44 +484,47 @@ pub async fn start_managed_singbox(
     input: ManagedLaunchInput,
 ) -> AppResult<ManagedLaunchResult> {
     if let Some(profile_ref) = input.profile {
-        let profile = subscriptions
-            .resolve_child_profile(&profile_ref.subscription_id, &profile_ref.child_key)
-            .await?;
-        if profile.engine == EngineKind::Xray {
-            let ready = start_ready_profile_inner(
-                app,
-                pm.clone(),
-                subscriptions,
-                ReadyProfileInput {
-                    subscription_id: profile_ref.subscription_id,
-                    child_key: profile_ref.child_key,
-                    routing: input.settings.routing,
-                    tunnel_mode: Some(input.settings.tunnel_mode),
-                },
-            )
-            .await;
-            return match ready {
-                Ok(ready) => Ok(ManagedLaunchResult {
-                    status: ready.status,
-                    config_path: String::new(),
-                    profile_count: 1,
-                    routing: ready.routing,
-                }),
-                Err(error) => {
-                    let _ = crate::process::clear_system_proxy();
-                    pm.reset().await;
-                    Err(error)
-                }
-            };
-        }
-        let config_value = prepare_ready_singbox_config(&profile, &input.settings.routing)?;
-        let path = write_runtime_config(&app, &config_value)?;
-        let status = pm
-            .start_spec_with_app(
+        let check_ticket = pm.begin_ready_profile_check();
+        let result = async {
+            let profile = subscriptions
+                .resolve_child_profile(&profile_ref.subscription_id, &profile_ref.child_key)
+                .await?;
+            if profile.engine == EngineKind::Xray {
+                let ready = start_ready_profile_inner(
+                    app,
+                    pm.clone(),
+                    subscriptions,
+                    ReadyProfileInput {
+                        subscription_id: profile_ref.subscription_id,
+                        child_key: profile_ref.child_key,
+                        routing: input.settings.routing,
+                        tunnel_mode: Some(input.settings.tunnel_mode),
+                    },
+                    Some(check_ticket),
+                )
+                .await;
+                return match ready {
+                    Ok(ready) => Ok(ManagedLaunchResult {
+                        status: ready.status,
+                        config_path: String::new(),
+                        profile_count: 1,
+                        routing: ready.routing,
+                    }),
+                    Err(error) => Err(error),
+                };
+            }
+            let config_value = prepare_ready_singbox_config(&profile, &input.settings.routing)
+                .map_err(config::preflight::preparation_error)?;
+            let binary =
+                singbox::locate_binary(&app).map_err(config::preflight::preparation_error)?;
+            let path = write_runtime_config(&app, &config_value)
+                .map_err(config::preflight::preparation_error)?;
+            let status = start_checked_ready_profile(
                 Some(&app),
+                &pm,
                 LaunchSpec {
                     engine: EngineKind::Singbox,
-                    binary: singbox::locate_binary(&app)?,
+                    binary,
                     args: singbox::run_args(&path).to_vec(),
                     env: Vec::new(),
                     config_path: path.clone(),
@@ -522,14 +536,22 @@ pub async fn start_managed_singbox(
                     profile_name: Some(profile.name),
                     xray_stats: None,
                 },
+                check_ticket,
             )
             .await?;
-        return Ok(ManagedLaunchResult {
-            status,
-            config_path: path.display().to_string(),
-            profile_count: 1,
-            routing: crate::xray::RoutingApplicability::default(),
-        });
+            return Ok(ManagedLaunchResult {
+                status,
+                config_path: path.display().to_string(),
+                profile_count: 1,
+                routing: crate::xray::RoutingApplicability::default(),
+            });
+        }
+        .await;
+        return if pm.is_ready_profile_check_current(check_ticket) {
+            result
+        } else {
+            Err(config::preflight::ProfileCheckIssue::Cancelled.into())
+        };
     }
 
     let mut outbounds = input.manual_outbounds;
@@ -1393,9 +1415,13 @@ mod managed_launch_tests {
             ..RoutingOptions::default()
         };
         let prepared = prepare_ready_singbox_config(&profile, &routing).unwrap();
-        assert!(prepared["route"]["rules"].as_array().unwrap().iter().any(|rule| {
-            rule["process_name"] == json!(["chat.exe"]) && rule["outbound"] == "proxy"
-        }));
+        assert!(prepared["route"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|rule| {
+                rule["process_name"] == json!(["chat.exe"]) && rule["outbound"] == "proxy"
+            }));
         assert_eq!(profile.config, original);
     }
 
@@ -1599,9 +1625,18 @@ pub async fn check_leak_status() -> AppResult<LeakStatusReport> {
         Ok(res) => {
             if let Ok(json) = res.json::<serde_json::Value>().await {
                 (
-                    json.get("query").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
-                    json.get("country").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
-                    json.get("isp").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
+                    json.get("query")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("—")
+                        .to_string(),
+                    json.get("country")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("—")
+                        .to_string(),
+                    json.get("isp")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("—")
+                        .to_string(),
                 )
             } else {
                 ("—".to_string(), "—".to_string(), "—".to_string())
@@ -1682,5 +1717,158 @@ pub async fn request_macos_elevation(app: AppHandle) -> AppResult<()> {
     Ok(())
 }
 
+/// Keep the current engine and proxy intact until its replacement passes.
+async fn start_checked_ready_profile(
+    app: Option<&AppHandle>,
+    pm: &Arc<ProcessManager>,
+    spec: LaunchSpec,
+    check_ticket: u64,
+) -> AppResult<StatusReport> {
+    if !pm.is_ready_profile_check_current(check_ticket) {
+        let _ = std::fs::remove_file(&spec.config_path);
+        return Err(config::preflight::ProfileCheckIssue::Cancelled.into());
+    }
+    let checked = match spec.engine {
+        EngineKind::Singbox => singbox::validate_config(&spec.binary, &spec.config_path).await,
+        EngineKind::Xray => xray::validate_config(&spec.binary, &spec.config_path, &spec.env).await,
+    };
+    if !pm.is_ready_profile_check_current(check_ticket) {
+        let _ = std::fs::remove_file(&spec.config_path);
+        return Err(config::preflight::ProfileCheckIssue::Cancelled.into());
+    }
+    if let Err(error) = checked {
+        let _ = std::fs::remove_file(&spec.config_path);
+        return Err(error);
+    }
+    if pm.is_running().await {
+        pm.stop_after_profile_check(check_ticket).await?;
+    }
+    if let Some(app) = app {
+        cleanup_runtime_configs(app, Some(&spec.config_path));
+    }
+    let result = pm
+        .start_profile_checked_with_app(app, spec, check_ticket)
+        .await;
+    if result.is_err() {
+        pm.reset_after_profile_check(check_ticket).await;
+    }
+    result
+}
 
+#[cfg(test)]
+mod ready_preflight_tests {
+    use super::*;
+    use crate::config::preflight::ProfileCheckIssue;
 
+    #[tokio::test]
+    async fn rejected_profile_preserves_the_running_engine() {
+        let pm = Arc::new(ProcessManager::new());
+        pm.install_test_child(EngineKind::Singbox).await;
+        let before = pm.snapshot_status().await;
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("candidate.json");
+        std::fs::write(&config_path, b"{\"outbounds\":[]}").unwrap();
+        let spec = LaunchSpec {
+            engine: EngineKind::Singbox,
+            binary: PathBuf::from("cloakwire-no-such-core-413782"),
+            args: Vec::new(),
+            env: Vec::new(),
+            config_path,
+            controller_url: None,
+            profile_key: Some("candidate".into()),
+            profile_name: None,
+            xray_stats: None,
+        };
+        let check_ticket = pm.begin_ready_profile_check();
+        let result = start_checked_ready_profile(None, &pm, spec, check_ticket).await;
+        let after = pm.snapshot_status().await;
+        let still_running = pm.is_running().await;
+        pm.terminate_test_child().await;
+        assert!(matches!(
+            result,
+            Err(AppError::ProfileCheck(ProfileCheckIssue::Unavailable))
+        ));
+        assert!(still_running);
+        assert_eq!(after.pid, before.pid);
+        assert_eq!(after.engine, before.engine);
+    }
+}
+
+#[cfg(test)]
+mod preflight_cancellation_tests {
+    use super::*;
+    #[tokio::test]
+    async fn stop_and_newer_requests_invalidate_pending_checks() {
+        let pm = Arc::new(ProcessManager::new());
+        let first = pm.begin_ready_profile_check();
+        let second = pm.begin_ready_profile_check();
+        assert!(!pm.is_ready_profile_check_current(first));
+        assert!(pm.is_ready_profile_check_current(second));
+        let _ = pm.stop().await; // No child: no system proxy or network changes.
+        assert!(!pm.is_ready_profile_check_current(second));
+    }
+    #[tokio::test]
+    async fn cancelled_checked_launch_cannot_spawn_late() {
+        let pm = Arc::new(ProcessManager::new());
+        let ticket = pm.begin_ready_profile_check();
+        let _ = pm.stop().await;
+        let spec = LaunchSpec {
+            engine: EngineKind::Singbox,
+            binary: PathBuf::from("cloakwire-no-such-core-413782"),
+            args: Vec::new(),
+            env: Vec::new(),
+            config_path: PathBuf::from("unused.json"),
+            controller_url: None,
+            profile_key: Some("candidate".into()),
+            profile_name: None,
+            xray_stats: None,
+        };
+        let result = pm.start_profile_checked_with_app(None, spec, ticket).await;
+        assert!(matches!(
+            result,
+            Err(AppError::ProfileCheck(
+                config::preflight::ProfileCheckIssue::Cancelled
+            ))
+        ));
+        assert!(!pm.is_running().await);
+    }
+}
+
+#[cfg(test)]
+mod preflight_ownership_tests {
+    use super::*;
+    use crate::config::preflight::{leased_config_paths, CheckConfig, ConfigLease};
+    #[tokio::test]
+    async fn stale_failure_cleanup_cannot_cancel_a_newer_request() {
+        let pm = Arc::new(ProcessManager::new());
+        let stale = pm.begin_ready_profile_check();
+        let current = pm.begin_ready_profile_check();
+        pm.reset_after_profile_check(stale).await;
+        assert!(pm.is_ready_profile_check_current(current));
+    }
+    #[test]
+    fn sweep_preserves_all_pending_candidates_and_checker_copies() {
+        let dir = tempfile::tempdir().unwrap();
+        let candidate = ConfigLease::new(dir.path().join("candidate.json"));
+        std::fs::write(candidate.as_path(), b"{}").unwrap();
+        let check = CheckConfig::new(candidate.as_path(), false).unwrap();
+        let orphan = dir.path().join("old.json");
+        std::fs::write(&orphan, b"{}").unwrap();
+        let pending = leased_config_paths()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        cleanup_runtime_files(dir.path(), &[], &pending);
+        assert!(candidate.exists());
+        assert!(check.path().exists());
+        assert!(!orphan.exists());
+        drop(pending);
+        let candidate_path = candidate.to_path_buf();
+        drop(candidate);
+        let pending = leased_config_paths()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        cleanup_runtime_files(dir.path(), &[], &pending);
+        assert!(!candidate_path.exists());
+        assert!(check.path().exists());
+    }
+}

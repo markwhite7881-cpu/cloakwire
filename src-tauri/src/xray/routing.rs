@@ -757,34 +757,48 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn translates_custom_process_name_and_path_matchers() {
+    fn reports_custom_process_name_and_path_matchers_as_unavailable_in_system_proxy_mode() {
         let provider = json!({"outbounds":[{"tag":"proxy","protocol":"vless"}]});
         let mut routing = RoutingOptions::default();
-        routing.rules = vec![json!({
-            "id": "browser-only",
-            "label": "Browser only",
-            "enabled": true,
-            "matchers": {
-                "process_name": ["chrome.exe"],
-                "process_path": ["C:/Program Files/Browser/browser.exe"]
-            },
-            "action": {"kind": "route", "outbound": "proxy"}
-        })];
+        routing.rules = vec![
+            json!({
+                "id": "browser-name",
+                "label": "Browser name",
+                "enabled": true,
+                "matchers": {"process_name": ["chrome.exe"]},
+                "action": {"kind": "route", "outbound": "proxy"}
+            }),
+            json!({
+                "id": "browser-path",
+                "label": "Browser path",
+                "enabled": true,
+                "matchers": {"process_path": ["C:/Users/private/browser.exe"]},
+                "action": {"kind": "route", "outbound": "proxy"}
+            }),
+        ];
 
         let prepared = merge_routing(provider, &routing).unwrap();
 
+        assert_eq!(prepared.value.get("routing"), None);
+        assert!(prepared.applicability.applied_rule_ids.is_empty());
         assert_eq!(
-            prepared.value["routing"]["rules"][0],
-            json!({
-                "process": ["chrome.exe", "C:/Program Files/Browser/browser.exe"],
-                "outboundTag": "proxy"
-            })
+            prepared.applicability.unavailable,
+            vec![
+                super::UnavailableRule {
+                    rule_id: "browser-name".into(),
+                    label: "Browser name".into(),
+                    reason: super::UnavailableReason::ProcessMatcher,
+                },
+                super::UnavailableRule {
+                    rule_id: "browser-path".into(),
+                    label: "Browser path".into(),
+                    reason: super::UnavailableReason::ProcessMatcher,
+                },
+            ]
         );
-        assert_eq!(
-            prepared.applicability.applied_rule_ids,
-            vec!["browser-only"]
-        );
-        assert!(prepared.applicability.unavailable.is_empty());
+        let rendered = format!("{:?}", prepared.applicability);
+        assert!(!rendered.contains("chrome.exe"));
+        assert!(!rendered.contains("C:/Users/private"));
     }
 
     #[test]

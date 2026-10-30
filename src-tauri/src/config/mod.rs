@@ -21,6 +21,7 @@ use serde_json::{json, Map, Value};
 use crate::parser::Outbound;
 
 pub mod ready;
+pub mod preflight;
 
 /// How the client should intercept system traffic.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -1772,5 +1773,3 @@ mod tests {
         }));
     }
 }
-
-

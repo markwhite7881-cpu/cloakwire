@@ -1,0 +1,9 @@
+[
+  { "suffix": "x64-setup.exe", "platform": "windows-x86_64", "updater": true },
+  { "suffix": "x64_en-US.msi", "platform": "windows-x86_64", "updater": false },
+  { "suffix": "arm64-v8a.apk", "platform": "android-arm64-v8a", "updater": true },
+  { "suffix": "aarch64.dmg", "platform": "darwin-aarch64", "updater": true },
+  { "suffix": "aarch64.app.zip", "platform": "darwin-aarch64", "updater": false },
+  { "suffix": "x64.dmg", "platform": "darwin-x86_64", "updater": true },
+  { "suffix": "x64.app.zip", "platform": "darwin-x86_64", "updater": false }
+]

@@ -79,6 +79,48 @@ class XrayEngine(
       return path.absolutePath
     }
 
+    internal fun checkConfig(context: Context, config: String, timeoutMs: Long) {
+      val binary: String
+      val assets: String
+      try {
+        binary = resolveBinary(context)
+        assets = ensureGeodataDir(context)
+      } catch (_: Exception) {
+        throw ProfileCheckException(ProfileCheckKind.UNAVAILABLE)
+      }
+      ProcessProfileCheck.check(config, context.cacheDir, timeoutMs) { file ->
+        val builder = ProcessBuilder(binary, "run", "-test", "-config", file.absolutePath)
+          .redirectErrorStream(true)
+        builder.environment()[ENV_ASSET_DIR] = assets
+        builder.start()
+      }
+    }
+
+    /**
+     * xray needs geoip.dat / geosite.dat on a real filesystem path —
+     * APK assets are not readable by a spawned process. Copy them from
+     * assets to filesDir/xray-assets once (marker file guards repeats);
+     * the directory is what XRAY_LOCATION_ASSET points at.
+     */
+    @Synchronized
+    private fun ensureGeodataDir(context: Context): String {
+      val dir = File(context.filesDir, "xray-assets")
+      val marker = File(dir, ".copied")
+      val missing = listOf("geoip.dat", "geosite.dat").any { !File(dir, it).exists() }
+      if (!marker.exists() || missing) {
+        dir.mkdirs()
+        for (name in listOf("geoip.dat", "geosite.dat")) {
+          context.assets.open(name).use { input ->
+            File(dir, name).outputStream().use { output -> input.copyTo(output) }
+          }
+        }
+        marker.writeText("v1")
+        Log.i(TAG, "geodata staged into ${dir.absolutePath}")
+      }
+      return dir.absolutePath
+    }
+
+
     /**
      * Terminate any lingering libxray.so processes belonging to our app.
      * Scans /proc for non-self processes executing libxray.so or referencing
@@ -213,29 +255,6 @@ class XrayEngine(
   }
 
   private val logBuffer = ArrayDeque<String>()
-
-  /**
-   * xray needs geoip.dat / geosite.dat on a real filesystem path —
-   * APK assets are not readable by a spawned process. Copy them from
-   * assets to filesDir/xray-assets once (marker file guards repeats);
-   * the directory is what XRAY_LOCATION_ASSET points at.
-   */
-  private fun ensureGeodataDir(context: Context): String {
-    val dir = File(context.filesDir, "xray-assets")
-    val marker = File(dir, ".copied")
-    val missing = listOf("geoip.dat", "geosite.dat").any { !File(dir, it).exists() }
-    if (!marker.exists() || missing) {
-      dir.mkdirs()
-      for (name in listOf("geoip.dat", "geosite.dat")) {
-        context.assets.open(name).use { input ->
-          File(dir, name).outputStream().use { output -> input.copyTo(output) }
-        }
-      }
-      marker.writeText("v1")
-      Log.i(TAG, "geodata staged into ${dir.absolutePath}")
-    }
-    return dir.absolutePath
-  }
 
   @Synchronized
   private fun appendRedacted(raw: String) {

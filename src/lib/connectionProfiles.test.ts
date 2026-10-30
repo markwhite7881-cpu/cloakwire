@@ -106,3 +106,27 @@ describe("legacy subscription migration", () => {
     expect(storage.removeItem).toHaveBeenCalledWith(LEGACY_SUBSCRIPTIONS_KEY);
   });
 });
+
+describe("reconnect requested profile", () => {
+  it.each(["singbox", "xray"] as const)("validates a newly picked %s ready profile before stopping the current manual connection", async (engine) => {
+    const { reconnectManagedProfile } = await import("./connectionProfiles");
+    const profiles: import("./connectionProfiles").ConnectionProfile[] = [
+      { kind: "manual", outbound: manual[0] },
+      { kind: "ready_config", subscriptionId: "new-sub", key: "new-child", name: "New profile", engine },
+    ];
+    const launches: unknown[] = [];
+    const result = await reconnectManagedProfile(profiles, 1, {
+      stop: async () => { throw new Error("The existing connection must survive a rejected candidate"); },
+      start: async (requestedIndex) => {
+        launches.push(managedSelectionForProfile(manual, profiles, requestedIndex));
+        return false;
+      },
+    });
+    expect(result).toBe(false);
+    expect(launches).toEqual([{
+      manualOutbounds: manual,
+      selectAllSubscriptionLinks: false,
+      profile: { subscription_id: "new-sub", child_key: "new-child" },
+    }]);
+  });
+});

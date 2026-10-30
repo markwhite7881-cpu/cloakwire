@@ -56,6 +56,40 @@ export const zhCN: TranslationSchema = {
     system: "系统",
     ready: "就绪",
   },
+  profileCheck: {
+    "title": "配置检查失败",
+    "nextStep": "建议操作",
+    "copyReport": "复制安全报告",
+    "copyUnavailable": "无法访问剪贴板。您可以手动复制上方显示的原因。",
+    "dns": {
+      "reason": "配置引用了不存在或无效的 DNS 解析器。",
+      "action": "请刷新订阅。如果问题仍然存在，请联系提供商修正 DNS 设置。"
+    },
+    "ruleset": {
+      "reason": "无法验证此配置中的路由规则或规则集。",
+      "action": "请刷新订阅。如果问题仍然存在，请联系提供商修正路由规则和规则集。"
+    },
+    "unsupported": {
+      "reason": "配置使用了当前内核版本不支持的选项。",
+      "action": "请更新 Cloakwire 并刷新订阅。如果问题仍然存在，请向提供商索取兼容的配置。"
+    },
+    "invalid": {
+      "reason": "此配置无效或不完整。",
+      "action": "请刷新订阅或选择其他配置。如果问题仍然存在，请联系提供商修正此配置。"
+    },
+    "unavailable": {
+      "reason": "检查此配置所需的内核不可用或无法运行。",
+      "action": "请重启 Cloakwire。如果问题仍然存在，请更新或重新安装应用以恢复内置内核。"
+    },
+    "timeout": {
+      "reason": "内核检查此配置的时间过长。",
+      "action": "请尝试重新连接。如果检查持续超时，请刷新订阅或联系提供商。"
+    },
+    "failed": {
+      "reason": "内核无法验证此配置。",
+      "action": "请刷新订阅或选择其他配置。联系支持时，请附上此安全报告。"
+    }
+  },
   nav: {
     home: "首页",
     servers: "节点",

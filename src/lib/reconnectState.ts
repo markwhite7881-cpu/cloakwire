@@ -32,3 +32,17 @@ export function shouldShowReconnectNotice({
     (reconnectFailed && (status === "stopped" || status === "crashed"))
   );
 }
+
+/** Ready profiles are checked and replaced atomically by their native start path. */
+export async function reconnectSelectedProfile<T>({
+  readyProfile,
+  stop,
+  start,
+}: {
+  readyProfile: boolean;
+  stop: () => Promise<void>;
+  start: () => Promise<T>;
+}): Promise<T> {
+  if (!readyProfile) await stop();
+  return start();
+}

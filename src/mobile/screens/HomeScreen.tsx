@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { formatDuration } from "@/hooks/useSessionTimer";
 import { FlagIcon } from "@/components/FlagIcon";
+import { ConnectionErrorCard } from "@/components/ConnectionErrorCard";
 import { useTrafficStream } from "@/hooks/useTrafficStream";
 import { useServerLatency } from "@/hooks/useServerLatency";
 import { api } from "@/lib/api";
@@ -85,6 +86,7 @@ export function HomeScreen({
   const [serverPickerOpen, setServerPickerOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
 
+  const connectionError = vpn.error ?? (vpn.state === "error" ? vpn.message : null);
   const isRunning = vpn.state === "running";
   const isTransition = vpn.state === "starting";
   const traffic = useTrafficStream(isRunning || !inTauri, profiles.length);
@@ -170,6 +172,9 @@ export function HomeScreen({
     : !selectedSupported
       ? "Auto (best latency)"
       : profileLabel(selectedSupported);
+
+  const connectedName = vpn.profileName?.trim() || (vpn.engine === "xray" ? "Xray" : "sing-box");
+  const connectedFlag = serverLine === connectedName ? flag : null;
 
   const routingSummary = summarizeRoutingPolicy(
     settings.routing.final_outbound,
@@ -353,8 +358,8 @@ export function HomeScreen({
               {isRunning ? (
                 <>
                   <span>via</span>
-                  {flag && <FlagIcon code={flag.code} size={14} className="self-center" />}
-                  <span className="font-medium text-foreground">{serverLine}</span>
+                  {connectedFlag && <FlagIcon code={connectedFlag.code} size={14} className="self-center" />}
+                  <span className="font-medium text-foreground">{connectedName}</span>
                 </>
               ) : profiles.length === 0 ? (
                 <span>{t("servers.noServers")}</span>
@@ -376,11 +381,6 @@ export function HomeScreen({
               </div>
             )}
 
-            {vpn.state === "error" && (vpn.message || vpn.error) && (
-              <p className="max-w-[280px] pt-1 text-xs text-destructive">
-                {vpn.message || vpn.error}
-              </p>
-            )}
           </div>
         </div>
 
@@ -390,6 +390,8 @@ export function HomeScreen({
           <span>{vpn.engine === "xray" ? "Xray Core" : "sing-box Core"}</span>
         </div>
       </div>
+
+      {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} />}
 
       {/* ─── Bento 2: Live Traffic & 60 FPS Speed Wave ────────────── */}
       <div className="bento-card flex flex-col justify-between rounded-3xl p-4 shadow-xl">
@@ -984,4 +986,3 @@ function LatencyBadge({ ms }: { ms: number | undefined }) {
     </span>
   );
 }
-

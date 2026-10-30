@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { humanError, isProfileCheckCancelled } from "@/lib/profileCheck";
 import {
   onVpnStatus,
   vpnPrepare,
@@ -34,6 +35,13 @@ export interface VpnConnection {
   busy: boolean;
   /** Human-readable failure of the last action, if any. */
   error: string | null;
+  /** A Stop cancelled validation; this is not a failed connection attempt. */
+  cancelled?: boolean;
+  /** Last accepted connection name; never derived from a failed candidate. */
+  profileName?: string | null;
+  /** Surface a failed ready-profile lookup without replacing the running VPN. */
+  reportError: (error: unknown) => void;
+  clearError: () => void;
   /**
    * Start the VPN. Pass `override` to feed a pre-built engine config
    * straight into the Kotlin service — used by the bundle child picker
@@ -60,11 +68,6 @@ export interface BundleChildOverride {
   name?: string;
 }
 
-function humanError(e: unknown): string {
-  if (e instanceof Error) return e.message;
-  return String(e);
-}
-
 /**
  * Mobile connect flow — mirrors the desktop engine selection while the
  * Kotlin VpnService owns each engine's Android lifecycle:
@@ -89,6 +92,22 @@ export function useVpnConnection(
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cancelled, setCancelled] = useState(false);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const reportError = useCallback((cause: unknown) => {
+    const wasCancelled = isProfileCheckCancelled(cause);
+    setCancelled(wasCancelled);
+    setError(wasCancelled ? null : humanError(cause));
+  }, []);
+  const clearError = useCallback(() => {
+    setError(null);
+    setCancelled(false);
+    // A previous service error must not keep a dismissed card mounted while
+    // a retry validates. The same error code can then create a fresh card.
+    setStatus((previous) => previous.state === "error" && previous.message
+      ? { ...previous, message: null }
+      : previous);
+  }, []);
   // Latest profiles/settings for the async connect closure.
   const profilesRef = useRef(profiles);
   const settingsRef = useRef(settings);
@@ -111,19 +130,23 @@ export function useVpnConnection(
         const s = await vpnStatus();
         if (!cancelled) setStatus(s);
       } catch (e) {
-        if (!cancelled) setError(humanError(e));
+        if (!cancelled) reportError(e);
       } finally {
         if (!cancelled) setReady(true);
       }
       try {
-        const l = await onVpnStatus((s) => setStatus(s));
+        const l = await onVpnStatus((s) => {
+          setStatus(s);
+          if (s.state === "error") setError(null);
+          if (s.state === "stopped" || s.state === "error") setProfileName(null);
+        });
         if (cancelled) {
           void l.unregister();
         } else {
           listener = l;
         }
       } catch (e) {
-        if (!cancelled) setError(humanError(e));
+        if (!cancelled) reportError(e);
       }
     })();
     return () => {
@@ -133,7 +156,7 @@ export function useVpnConnection(
   }, []);
 
   const connect = useCallback(async (override?: BundleChildOverride, name?: string) => {
-    setError(null);
+    clearError();
     // Browser preview (?mobile=1 outside Tauri): fake the state so
     // the UI is demoable.
     if (!inTauri) {
@@ -141,6 +164,7 @@ export function useVpnConnection(
       setStatus({ state: "starting", message: null, since: Date.now(), engine: "sing-box" });
       await new Promise((r) => setTimeout(r, 600));
       setStatus({ state: "running", message: null, since: Date.now(), engine: "sing-box" });
+      setProfileName(name || override?.name || null);
       setBusy(false);
       return;
     }
@@ -208,17 +232,18 @@ export function useVpnConnection(
         killSwitch: settingsRef.current.kill_switch,
         blockIpv6: settingsRef.current.block_ipv6,
       });
+      setProfileName(resolvedName || null);
       // No shared Clash API traffic stream on Android; byte counters
       // come from the VpnService notification instead.
     } catch (e) {
-      setError(humanError(e));
+      reportError(e);
     } finally {
       setBusy(false);
     }
   }, []);
 
   const disconnect = useCallback(async () => {
-    setError(null);
+    clearError();
     if (!inTauri) {
       setStatus({ state: "stopped", message: null, since: Date.now(), engine: "" });
       return;
@@ -227,7 +252,7 @@ export function useVpnConnection(
     try {
       await vpnStop();
     } catch (e) {
-      setError(humanError(e));
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -241,6 +266,10 @@ export function useVpnConnection(
     ready,
     busy,
     error,
+    cancelled,
+    profileName: status.state === "running" ? status.profile_name || profileName : null,
+    reportError,
+    clearError,
     connect,
     disconnect,
   };

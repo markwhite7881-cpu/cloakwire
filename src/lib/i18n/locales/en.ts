@@ -54,6 +54,40 @@ export const en = {
     system: "System",
     ready: "Ready",
   },
+  profileCheck: {
+    "title": "Profile check failed",
+    "nextStep": "What to do",
+    "copyReport": "Copy safe report",
+    "copyUnavailable": "Clipboard access is unavailable. You can copy the reason shown above.",
+    "dns": {
+      "reason": "The profile refers to a DNS resolver that is missing or invalid.",
+      "action": "Refresh the subscription. If it still fails, ask the provider to fix its DNS settings."
+    },
+    "ruleset": {
+      "reason": "A routing rule or rule-set in this profile could not be validated.",
+      "action": "Refresh the subscription. If it still fails, ask the provider to fix the routing rules and rule-sets."
+    },
+    "unsupported": {
+      "reason": "The profile uses an option that this engine version does not support.",
+      "action": "Update Cloakwire, then refresh the subscription. Ask the provider for a compatible profile if it still fails."
+    },
+    "invalid": {
+      "reason": "The profile contains an invalid or incomplete configuration.",
+      "action": "Refresh the subscription or select another profile. Ask the provider to correct this profile if it still fails."
+    },
+    "unavailable": {
+      "reason": "The engine needed to check this profile is unavailable or could not run.",
+      "action": "Restart Cloakwire. If the problem continues, update or reinstall the app to restore its bundled engines."
+    },
+    "timeout": {
+      "reason": "The engine took too long to check this profile.",
+      "action": "Try connecting again. If the check keeps timing out, refresh the subscription or contact the provider."
+    },
+    "failed": {
+      "reason": "The engine could not validate this profile.",
+      "action": "Refresh the subscription or select another profile. Copy this safe report when contacting support."
+    }
+  },
   nav: {
     home: "Home",
     servers: "Servers",

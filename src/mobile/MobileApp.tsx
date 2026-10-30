@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 import cloakwireLogo from "@/assets/cloakwire-logo.png";
 import { api } from "@/lib/api";
+import { humanError, isProfileCheckCancelled, profileCheckDetails } from "@/lib/profileCheck";
+import { reconnectSelectedProfile } from "@/lib/reconnectState";
+import { connectSelectedProfile } from "./lib/connectWithSelection";
 import { useGeoIp } from "@/hooks/useGeoIp";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { loadManualProfiles, saveManualProfiles } from "@/lib/manualProfiles";
@@ -43,21 +46,6 @@ type TouchStart = {
   target: EventTarget | null;
 };
 
-/** Best-effort string extraction for an unknown thrown value —
- *  used by the reconnect banner to render the failure reason.
- *  Mirrors the `humanError` helper that lives in `useVpnConnection.ts`
- *  and `App.tsx`. 2026-08-21. */
-function humanError(e: unknown): string {
-  if (e instanceof Error) return e.message || e.name || String(e);
-  if (
-    e &&
-    typeof e === "object" &&
-    typeof (e as { message?: unknown }).message === "string"
-  ) {
-    return (e as { message: string }).message;
-  }
-  return String(e);
-}
 const TABS = [
   { id: "home", label: "Home", icon: Home },
   { id: "servers", label: "Servers", icon: Link2 },
@@ -260,7 +248,9 @@ export default function MobileApp() {
     ];
   }, [profiles, selectedIndex]);
 
-  const vpn = useVpnConnection(connectionProfiles, settings);
+  const connection = useVpnConnection(connectionProfiles, settings);
+  const [selectionBusy, setSelectionBusy] = useState(false);
+  const vpn = { ...connection, busy: connection.busy || selectionBusy };
 
   const markConnectionDirty = () => {
     setReconnectRequired((previous) => nextReconnectRequired(previous, vpn.state));
@@ -403,18 +393,28 @@ export default function MobileApp() {
     setReconnectFailed(false);
     setReconnectError(null);
     try {
-      if (vpn.state === "running") {
-        reconnectPhase.current = "disconnecting";
-        await vpn.disconnect();
-        await new Promise((resolve) => window.setTimeout(resolve, 50));
-      }
-      reconnectPhase.current = "connecting";
-      // Reconnect honours the current active selection — bundle
-      // child picks survive reconnects. 2026-08-20.
-      await connectWithSelection();
+      await reconnectSelectedProfile({
+        readyProfile: !!activeBundle,
+        stop: async () => {
+          if (vpn.state === "running") {
+            reconnectPhase.current = "disconnecting";
+            await vpn.disconnect();
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+          }
+        },
+        start: async () => {
+          reconnectPhase.current = "connecting";
+          await connectWithSelection();
+        },
+      });
     } catch (e) {
       reconnectPhase.current = "idle";
       setReconnectInProgress(false);
+      if (isProfileCheckCancelled(e)) {
+        setReconnectFailed(false);
+        setReconnectError(null);
+        return;
+      }
       setReconnectFailed(true);
       // `e` may be an Error, a TauriCommandError-like object with
       // `{ message }`, or anything else thrown by the IPC layer.
@@ -425,22 +425,24 @@ export default function MobileApp() {
 
   useEffect(() => {
     if (reconnectPhase.current !== "connecting") return;
-    if (vpn.state === "running") {
+    if (vpn.cancelled) {
+      reconnectPhase.current = "idle";
+      setReconnectInProgress(false);
+      setReconnectFailed(false);
+      setReconnectError(null);
+    } else if (vpn.error || (vpn.state === "error" && vpn.message && !vpn.busy)) {
+      reconnectPhase.current = "idle";
+      setReconnectInProgress(false);
+      setReconnectFailed(true);
+      setReconnectError(vpn.error ?? "VPN failed to start.");
+    } else if (vpn.state === "running" && !vpn.busy) {
       reconnectPhase.current = "idle";
       setReconnectInProgress(false);
       setReconnectRequired(false);
       setReconnectFailed(false);
       setReconnectError(null);
-    } else if (vpn.state === "error" || vpn.error) {
-      reconnectPhase.current = "idle";
-      setReconnectInProgress(false);
-      setReconnectFailed(true);
-      // Surface whatever the VPN service reported as the failure
-      // reason; fall back to the existing `vpn.error` if the
-      // exception didn't carry a message.
-      setReconnectError(vpn.error ?? "VPN failed to start.");
     }
-  }, [vpn.error, vpn.state]);
+  }, [vpn.error, vpn.message, vpn.state, vpn.busy, vpn.cancelled]);
 
   const changeTab = (nextTab: TabId, direction?: "previous" | "next") => {
     if (nextTab === activeTab) return;
@@ -572,46 +574,18 @@ export default function MobileApp() {
     setMobileSettings({ ...settings, default_outbound: null });
   };
 
-  // Wrapped connect: if a bundle child is selected, fetch its full
-  // engine config from Rust and hand it to the Kotlin service
-  // (bypassing the global engine and the share-link generator).
-  // Otherwise fall through to the normal share-link flow. 2026-08-20.
   const connectWithSelection = async () => {
-    if (activeBundle) {
-      try {
-        const child = await api.getActiveChildConfig(activeBundle.subscriptionId, settings.routing);
-        if (child.child_key !== activeBundle.childKey) {
-          // Stale — Rust doesn't have the same active child any
-          // more. Drop our cached selection and reconnect via
-          // the share-link path instead.
-          setActiveBundle(null);
-          await vpn.connect();
-          return;
-        }
-        await vpn.connect(
-          {
-            // Rust `EngineKind` wire value: "singbox" | "xray".
-            // Each child starts with the engine declared by its provider.
-            engine: child.engine,
-            config: child.config,
-            // Friendly child name — surfaces in the Quick Settings
-            // tile instead of a generic config tag ("proxy", ...).
-            name: activeBundle.childName,
-          },
-          activeBundle.childName,
-        );
-      } catch (e) {
-        // Rust rejected the lookup (no active child, bundle no
-        // longer present, etc.). Fall back to the share-link
-        // path and clear our cached selection.
-        setActiveBundle(null);
-        await vpn.connect();
-      }
-    } else {
-      // Share-link path. `vpn.connect` derives the name from the
-      // first supported profile (mirrors what the Home headline
-      // would show), so the tile label matches the UI.
-      await vpn.connect();
+    if (vpn.busy) return;
+    vpn.clearError();
+    setSelectionBusy(true);
+    try {
+      await connectSelectedProfile(activeBundle, {
+        loadChild: (id) => api.getActiveChildConfig(id, settings.routing),
+        connect: vpn.connect,
+        reportError: vpn.reportError,
+      });
+    } finally {
+      setSelectionBusy(false);
     }
   };
 
@@ -676,9 +650,9 @@ export default function MobileApp() {
               {reconnectFailed && reconnectError && (
                 <span
                   className="ml-2 block text-[11px] text-destructive/90"
-                  title={reconnectError}
+                  title={profileCheckDetails(reconnectError, t)?.reason ?? reconnectError}
                 >
-                  {reconnectError}
+                  {profileCheckDetails(reconnectError, t)?.reason ?? reconnectError}
                 </span>
               )}
             </span>

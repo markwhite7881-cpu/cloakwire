@@ -1,3 +1,4 @@
+import { reconnectSelectedProfile } from "./reconnectState";
 import type {
   EngineKind,
   Outbound,
@@ -151,4 +152,17 @@ export async function migrateLegacySubscriptions<T>(
   const result = await migrate(entries);
   storage.removeItem(LEGACY_SUBSCRIPTIONS_KEY);
   return result;
+}
+
+/** Carry the requested index through reconnect without waiting for a React render. */
+export function reconnectManagedProfile<T>(
+  profiles: ConnectionProfile[],
+  requestedIndex: number,
+  actions: { stop: () => Promise<void>; start: (requestedIndex: number) => Promise<T> },
+): Promise<T> {
+  return reconnectSelectedProfile({
+    readyProfile: profiles[requestedIndex]?.kind === "ready_config",
+    stop: actions.stop,
+    start: () => actions.start(requestedIndex),
+  });
 }

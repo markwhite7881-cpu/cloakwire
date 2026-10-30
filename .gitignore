@@ -132,3 +132,9 @@ NUL
 # staged into jniLibs so xray can read it from nativeLibraryDir.
 /src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/*.dat
 /src-tauri/gen/android/app/src/main/assets/geo*.dat
+
+# Local release configuration, run outputs, and verifier build cache.
+/release.local.psd1
+/.release-work/
+/release-staging/
+/src-tauri/crates/release-verify/target/

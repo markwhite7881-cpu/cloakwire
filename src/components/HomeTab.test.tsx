@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
-import { connectionProfileDisplay, groupHomeProfiles, powerButtonClasses, subscriptionGroupLabel } from "./HomeTab";
+import { HomeTab, connectionProfileDisplay, groupHomeProfiles, powerButtonClasses, subscriptionGroupLabel } from "./HomeTab";
 
 describe("HomeTab presentation helpers", () => {
   const readyXrayProfile: ConnectionProfile = {
@@ -135,4 +135,59 @@ describe("HomeTab presentation helpers", () => {
     expect(powerButtonClasses("starting")).not.toContain("bg-success");
     expect(powerButtonClasses("stopping")).not.toContain("bg-success");
   });
+});
+
+import { renderToStaticMarkup } from "react-dom/server";
+
+describe("HomeTab profile validation feedback", () => {
+  it("shows a safe actionable card while the previous connection is still running", () => {
+    const html = renderToStaticMarkup(
+      <HomeTab
+        status={{ status: "running", pid: 1, uptime_secs: 5, last_exit_code: null, last_error: null }}
+        statusLabel="running"
+        busy={false}
+        error="profile_check_dns: provider-secret-config"
+        canStart
+        configName={null}
+        profiles={[]}
+        selectedIndex={-1}
+        activeOutbound={null}
+        readyProfileMetadata={new Map()}
+        subscriptionNames={new Map()}
+        geoipByIp={{}}
+        onSelect={() => {}}
+        onConnect={() => {}}
+        onDisconnect={() => {}}
+      />,
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Profile check failed");
+    expect(html).toContain("DNS");
+    expect(html).toContain("Refresh");
+    expect(html).not.toContain("provider-secret-config");
+  });
+});
+
+it("uses the actual running ready profile name after another candidate fails", () => {
+  const html = renderToStaticMarkup(
+    <HomeTab
+      status={{ status: "running", pid: 1, uptime_secs: 5, last_exit_code: null, last_error: null, engine: "singbox", profile_name: "Current ready profile" }}
+      statusLabel="running"
+      busy={false}
+      error="profile_check_invalid"
+      canStart
+      configName={null}
+      profiles={[{ kind: "ready_config", subscriptionId: "sub", key: "new", name: "New candidate", engine: "singbox" }]}
+      selectedIndex={0}
+      activeOutbound="proxy"
+      readyProfileMetadata={new Map()}
+      subscriptionNames={new Map()}
+      geoipByIp={{}}
+      onSelect={() => {}}
+      onConnect={() => {}}
+      onDisconnect={() => {}}
+    />,
+  );
+  expect(html).toContain("Current ready profile");
+  expect(html).toContain("New candidate");
 });

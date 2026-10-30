@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { Check, Copy, Terminal } from "lucide-react";
@@ -12,7 +13,7 @@ export function LogsTab({ logs, onClear }: { logs: LogLine[]; onClear: () => voi
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState("unknown");
+  const [appVersion, setAppVersion] = useState(APP_VERSION);
 
   useEffect(() => {
     let active = true;
@@ -21,7 +22,7 @@ export function LogsTab({ logs, onClear }: { logs: LogLine[]; onClear: () => voi
         if (active) setAppVersion(version);
       })
       .catch(() => {
-        if (active) setAppVersion("unknown");
+        if (active) setAppVersion(APP_VERSION);
       });
     return () => {
       active = false;

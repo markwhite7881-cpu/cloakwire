@@ -123,6 +123,8 @@ pub struct ProcessManager {
     controller_url: Mutex<Option<String>>,
     /// Monotonically increasing ID for each launch attempt.
     next_run_id: AtomicU64,
+    /// Invalidates pending profile checks on Stop or a newer connection request.
+    ready_check_epoch: AtomicU64,
     /// ID currently allowed to mutate runtime state; zero means no active run.
     active_run_id: Arc<AtomicU64>,
     /// Run generation currently owning Xray telemetry, or zero when idle.
@@ -158,6 +160,7 @@ impl Default for ProcessManager {
             aux_config: Mutex::new(None),
             controller_url: Mutex::new(None),
             next_run_id: AtomicU64::new(0),
+            ready_check_epoch: AtomicU64::new(0),
             active_run_id: Arc::new(AtomicU64::new(0)),
             xray_stats_run_id: AtomicU64::new(0),
             transition: Arc::new(Semaphore::new(1)),
@@ -175,6 +178,13 @@ impl Default for ProcessManager {
 impl ProcessManager {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn begin_ready_profile_check(&self) -> u64 {
+        self.ready_check_epoch.fetch_add(1, Ordering::AcqRel) + 1
+    }
+    pub fn is_ready_profile_check_current(&self, ticket: u64) -> bool {
+        self.ready_check_epoch.load(Ordering::Acquire) == ticket
     }
 
     pub async fn set_kill_switch_mode(&self, mode: crate::config::KillSwitchMode) {
@@ -252,7 +262,9 @@ impl ProcessManager {
                 let mut lines = BufReader::new(stdout).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
                     if let Some(line) = frontend_log_line(EngineKind::Singbox, &line) {
-                        manager.push_log(LogStream::Stdout, format!("[TUN] {line}")).await;
+                        manager
+                            .push_log(LogStream::Stdout, format!("[TUN] {line}"))
+                            .await;
                     }
                 }
             });
@@ -267,7 +279,9 @@ impl ProcessManager {
                 let mut lines = BufReader::new(stderr).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
                     if let Some(line) = frontend_log_line(EngineKind::Singbox, &line) {
-                        manager.push_log(LogStream::Stderr, format!("[TUN] {line}")).await;
+                        manager
+                            .push_log(LogStream::Stderr, format!("[TUN] {line}"))
+                            .await;
                     }
                 }
             });
@@ -322,6 +336,13 @@ impl ProcessManager {
     }
 
     #[cfg(test)]
+    pub async fn terminate_test_child(&self) {
+        if let Some(ChildSlot { mut child, .. }) = self.child.lock().await.take() {
+            let _ = child.kill().await;
+        }
+    }
+
+    #[cfg(test)]
     async fn await_stdio_readers(&self) {
         let readers = std::mem::take(&mut *self.stdio_readers.lock().await);
         for reader in readers {
@@ -350,7 +371,28 @@ impl ProcessManager {
         app: Option<&AppHandle>,
         spec: LaunchSpec,
     ) -> AppResult<StatusReport> {
+        self.start_spec_with_check(app, spec, None).await
+    }
+
+    pub async fn start_profile_checked_with_app(
+        self: &Arc<Self>,
+        app: Option<&AppHandle>,
+        spec: LaunchSpec,
+        ticket: u64,
+    ) -> AppResult<StatusReport> {
+        self.start_spec_with_check(app, spec, Some(ticket)).await
+    }
+
+    async fn start_spec_with_check(
+        self: &Arc<Self>,
+        app: Option<&AppHandle>,
+        spec: LaunchSpec,
+        ticket: Option<u64>,
+    ) -> AppResult<StatusReport> {
         let _clash_transition = self.acquire_transition().await;
+        if ticket.is_some_and(|ticket| !self.is_ready_profile_check_current(ticket)) {
+            return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+        }
         {
             let mut status = self.status.lock().await;
             if matches!(
@@ -518,7 +560,22 @@ impl ProcessManager {
     /// Stop the running sing-box. Graceful: send SIGTERM/taskkill, then
     /// escalate to SIGKILL after `DEFAULT_TERMINATE_TIMEOUT`.
     pub async fn stop(self: &Arc<Self>) -> AppResult<StatusReport> {
+        self.ready_check_epoch.fetch_add(1, Ordering::AcqRel);
+        self.stop_with_check(None).await
+    }
+
+    pub async fn stop_after_profile_check(
+        self: &Arc<Self>,
+        ticket: u64,
+    ) -> AppResult<StatusReport> {
+        self.stop_with_check(Some(ticket)).await
+    }
+
+    async fn stop_with_check(self: &Arc<Self>, ticket: Option<u64>) -> AppResult<StatusReport> {
         let _clash_transition = self.acquire_transition().await;
+        if ticket.is_some_and(|ticket| !self.is_ready_profile_check_current(ticket)) {
+            return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+        }
         let ChildSlot { run_id, mut child } =
             self.child.lock().await.take().ok_or(AppError::NotRunning)?;
 
@@ -798,10 +855,22 @@ impl ProcessManager {
             .await;
     }
 
-    /// Force-clear the manager state. Used by the `reset_state` command
+    /// Cleanup belongs to the failed request, and cannot reset a newer engine.
+    pub async fn reset_after_profile_check(&self, ticket: u64) {
+        let _clash_transition = self.acquire_transition().await;
+        if !self.is_ready_profile_check_current(ticket) {
+            return;
+        }
+        // Keep a newer pending check valid if it begins during cleanup. Its
+        // engine cannot start until this transition permit is released.
+        self.reset_with_proxy_cleanup(clear_system_proxy).await;
+    }
+
+    /// Force-clear the manager state. Used by the reset_state command
     /// for manual recovery; the spawned child (if any) is dropped, which
     /// triggers `kill_on_drop` on the underlying Command.
     pub async fn reset(&self) {
+        self.ready_check_epoch.fetch_add(1, Ordering::AcqRel);
         let _clash_transition = self.acquire_transition().await;
         self.reset_with_proxy_cleanup(clear_system_proxy).await;
     }
@@ -1023,7 +1092,11 @@ pub fn apply_system_proxy(_host: &str, _port: u16) -> AppResult<()> {
 }
 
 #[cfg(target_os = "android")]
-pub fn apply_system_proxy_with_socks(_host: &str, _http_port: u16, _socks_port: u16) -> AppResult<()> {
+pub fn apply_system_proxy_with_socks(
+    _host: &str,
+    _http_port: u16,
+    _socks_port: u16,
+) -> AppResult<()> {
     Ok(())
 }
 
@@ -1087,7 +1160,8 @@ pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16
     use winreg::enums::*;
     use winreg::RegKey;
 
-    let proxy = format!("http={host}:{http_port};https={host}:{http_port};socks={host}:{socks_port}");
+    let proxy =
+        format!("http={host}:{http_port};https={host}:{http_port};socks={host}:{socks_port}");
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let settings = hkcu
         .open_subkey_with_flags(
@@ -1208,9 +1282,24 @@ pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16
     let socks_port_str = socks_port.to_string();
     for service in &services {
         log::info!("macos-proxy: applying to {service} (http:{http_port}, socks:{socks_port})");
-        run_networksetup(&["-setwebproxy", service.as_str(), host, http_port_str.as_str()]);
-        run_networksetup(&["-setsecurewebproxy", service.as_str(), host, http_port_str.as_str()]);
-        run_networksetup(&["-setsocksfirewallproxy", service.as_str(), host, socks_port_str.as_str()]);
+        run_networksetup(&[
+            "-setwebproxy",
+            service.as_str(),
+            host,
+            http_port_str.as_str(),
+        ]);
+        run_networksetup(&[
+            "-setsecurewebproxy",
+            service.as_str(),
+            host,
+            http_port_str.as_str(),
+        ]);
+        run_networksetup(&[
+            "-setsocksfirewallproxy",
+            service.as_str(),
+            host,
+            socks_port_str.as_str(),
+        ]);
         run_networksetup(&["-setwebproxystate", service.as_str(), "on"]);
         run_networksetup(&["-setsecurewebproxystate", service.as_str(), "on"]);
         run_networksetup(&["-setsocksfirewallproxystate", service.as_str(), "on"]);
@@ -1634,7 +1723,8 @@ mod engine_runtime_tests {
             status.profile_key = Some("newer".into());
         }
 
-        pm.finalize_exit(1, Some(-1), Some("old stop".into()), true).await;
+        pm.finalize_exit(1, Some(-1), Some("old stop".into()), true)
+            .await;
 
         let status = pm.snapshot_status().await;
         assert_eq!(status.status, Status::Running);
@@ -1790,7 +1880,8 @@ mod engine_runtime_tests {
     #[tokio::test]
     async fn kill_switch_disarms_on_intentional_stop_and_holds_on_crash() {
         let pm = ProcessManager::new();
-        pm.set_kill_switch_mode(crate::config::KillSwitchMode::Off).await;
+        pm.set_kill_switch_mode(crate::config::KillSwitchMode::Off)
+            .await;
 
         // 1. Intentional stop: disarms
         pm.active_run_id.store(1, Ordering::Release);
@@ -1799,7 +1890,8 @@ mod engine_runtime_tests {
 
         // 2. Unexpected exit (crash): cleanly disarms without locking firewall
         pm.active_run_id.store(2, Ordering::Release);
-        pm.finalize_exit(2, Some(-1), Some("unexpected crash".into()), false).await;
+        pm.finalize_exit(2, Some(-1), Some("unexpected crash".into()), false)
+            .await;
         assert!(!crate::killswitch::is_kill_switch_armed());
     }
 
@@ -1845,7 +1937,9 @@ mod tests {
             vec![OsString::from("-c"), OsString::from("sleep 60")],
         );
 
-        pm.start_aux_child(run_id, bin, args, Vec::new()).await.unwrap();
+        pm.start_aux_child(run_id, bin, args, Vec::new())
+            .await
+            .unwrap();
         assert!(pm.aux_child.lock().await.is_some());
 
         pm.stop().await.unwrap();
@@ -1874,7 +1968,9 @@ mod tests {
             vec![OsString::from("-c"), OsString::from("sleep 60")],
         );
 
-        pm.start_aux_child(run_id, bin, args, Vec::new()).await.unwrap();
+        pm.start_aux_child(run_id, bin, args, Vec::new())
+            .await
+            .unwrap();
         assert!(pm.aux_child.lock().await.is_some());
 
         pm.reset().await;
