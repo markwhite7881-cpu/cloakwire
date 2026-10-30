@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.8] - 2026-10-30
+
+### English
+- Fixed startup of ready-made sing-box subscription profiles when applying local routing, including GeoIP / Bypass RU, on Windows, macOS and Android.
+- Preserved the provider's DNS settings when its profile does not contain a DNS server named `local`, preventing `default domain resolver not found: local`.
+- Preserved provider routing rules and added regression checks for the merged configuration.
+
+### Русский
+- Исправлен запуск готовых профилей подписки sing-box с локальными правилами маршрутизации, включая GeoIP / Bypass RU, на Windows, macOS и Android.
+- Сохраняются настройки DNS провайдера, если в профиле нет DNS-сервера с именем `local`. Это устраняет ошибку `default domain resolver not found: local`.
+- Сохранены правила маршрутизации провайдера и добавлены проверки итоговой конфигурации.
+
+### 简体中文
+- 修复 Windows、macOS 和 Android 上导入的 sing-box 订阅配置在应用本地路由规则（包括 GeoIP / Bypass RU）时无法启动的问题。
+- 当订阅配置中没有名为 `local` 的 DNS 服务器时，保留提供商的 DNS 设置，避免出现 `default domain resolver not found: local` 错误。
+- 保留提供商的路由规则，并增加合并配置的回归测试。
+
+---
+
 ## [1.4.7] - 2026-10-26
 
 ### English

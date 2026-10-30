@@ -9,9 +9,9 @@ use crate::error::{AppError, AppResult};
 /// Local rules run first; provider rules and unrelated provider sections keep
 /// their original content and relative order.
 pub fn merge_ready_routing(mut provider: Value, routing: &RoutingOptions) -> AppResult<Value> {
-    let root = provider.as_object_mut().ok_or_else(|| {
-        AppError::UnsafeConfig("ready sing-box config must be an object".into())
-    })?;
+    let root = provider
+        .as_object_mut()
+        .ok_or_else(|| AppError::UnsafeConfig("ready sing-box config must be an object".into()))?;
     let tags = outbound_tags(root)?;
     let provider_final = root
         .get("route")
@@ -19,10 +19,28 @@ pub fn merge_ready_routing(mut provider: Value, routing: &RoutingOptions) -> App
         .and_then(Value::as_str)
         .map(str::to_owned);
     let proxy_target = resolve_proxy_target(&tags, provider_final.as_deref())?;
-    let generated = build_route(&GeneratorSettings {
+    // build_route returns only the route section; merge helpers consume a document.
+    let mut generated = serde_json::json!({"route": build_route(&GeneratorSettings {
         routing: routing.clone(),
         ..GeneratorSettings::default()
-    });
+    })});
+    // "local" is the generated-config default, not a DNS tag guaranteed to
+    // exist in a provider profile. In that case preserve the provider's
+    // explicit resolver (including object-form options) or its implicit DNS.
+    let has_local_resolver = root
+        .get("dns")
+        .and_then(|dns| dns.get("servers"))
+        .and_then(Value::as_array)
+        .is_some_and(|servers| {
+            servers
+                .iter()
+                .any(|server| server.get("tag").and_then(Value::as_str) == Some("local"))
+        });
+    if routing.default_domain_resolver == "local" && !has_local_resolver {
+        if let Some(route) = generated.get_mut("route").and_then(Value::as_object_mut) {
+            route.remove("default_domain_resolver");
+        }
+    }
     let generated = rewrite_proxy_aliases(generated, &proxy_target, &tags);
     validate_local_targets(&generated, &tags)?;
     ensure_standard_outbounds(root, &generated)?;
@@ -51,10 +69,7 @@ fn outbound_tags(root: &Map<String, Value>) -> AppResult<HashSet<String>> {
     Ok(tags)
 }
 
-fn resolve_proxy_target(
-    tags: &HashSet<String>,
-    provider_final: Option<&str>,
-) -> AppResult<String> {
+fn resolve_proxy_target(tags: &HashSet<String>, provider_final: Option<&str>) -> AppResult<String> {
     if tags.contains("proxy") {
         return Ok("proxy".into());
     }
@@ -235,9 +250,9 @@ fn ensure_rule_set_fetcher(root: &mut Map<String, Value>) -> AppResult<()> {
         .or_insert_with(|| Value::Array(Vec::new()))
         .as_array_mut()
         .ok_or_else(|| AppError::UnsafeConfig("sing-box http_clients must be an array".into()))?;
-    let exists = clients.iter().any(|client| {
-        client.get("tag").and_then(Value::as_str) == Some("rule-set-fetcher")
-    });
+    let exists = clients
+        .iter()
+        .any(|client| client.get("tag").and_then(Value::as_str) == Some("rule-set-fetcher"));
     if !exists {
         clients.push(serde_json::json!({"tag": "rule-set-fetcher"}));
     }
@@ -286,8 +301,13 @@ mod tests {
         let merged = merge_ready_routing(original.clone(), &routing).unwrap();
         let rules = merged["route"]["rules"].as_array().unwrap();
         assert_eq!(rules[0]["action"], json!("hijack-dns"));
-        assert!(rules.iter().any(|rule| rule["process_name"] == json!(["bank.exe"]) && rule["outbound"] == "direct"));
-        assert!(rules.iter().any(|rule| rule["process_name"] == json!(["chat.exe"]) && rule["outbound"] == "providerProxy"));
+        assert!(rules.iter().any(
+            |rule| rule["process_name"] == json!(["bank.exe"]) && rule["outbound"] == "direct"
+        ));
+        assert!(rules
+            .iter()
+            .any(|rule| rule["process_name"] == json!(["chat.exe"])
+                && rule["outbound"] == "providerProxy"));
         assert_eq!(rules[rules.len() - 2], provider_rules[0]);
         assert_eq!(rules[rules.len() - 1], provider_rules[1]);
         assert_eq!(merged["dns"], original["dns"]);
@@ -316,9 +336,111 @@ mod tests {
     }
 
     #[test]
+    fn bypass_ru_settings_fixture_merges_into_ready_profile() {
+        let settings: GeneratorSettings =
+            serde_json::from_str(include_str!("fixtures/bypass-ru-settings.json")).unwrap();
+        let original = provider();
+        let merged = merge_ready_routing(original.clone(), &settings.routing).unwrap();
+        assert_eq!(merged["route"]["final"], "providerProxy");
+        assert_eq!(merged["dns"], original["dns"]);
+        let sets = merged["route"]["rule_set"].as_array().unwrap();
+        assert_eq!(sets.len(), 1);
+        assert_eq!(sets[0]["tag"], "geoip-ru");
+        assert_eq!(
+            sets[0]["url"],
+            "https://raw.githubusercontent.com/Loyalsoldier/geoip/release/srs/ru.srs"
+        );
+        assert!(sets[0].get("enabled").is_none());
+        assert!(merged["route"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|rule| {
+                rule["rule_set"] == json!(["geoip-ru"])
+                    && rule["action"] == "route"
+                    && rule["outbound"] == "direct"
+            }));
+        assert_eq!(merged["http_clients"][0]["tag"], "rule-set-fetcher");
+    }
+
+    #[test]
+    fn ready_profile_preserves_provider_resolver_when_local_alias_is_absent() {
+        let mut original = provider();
+        original["route"]["default_domain_resolver"] =
+            json!({"server": "provider-dns", "strategy": "ipv4_only"});
+        let merged = merge_ready_routing(original.clone(), &RoutingOptions::default()).unwrap();
+        assert_eq!(
+            merged["route"]["default_domain_resolver"],
+            original["route"]["default_domain_resolver"]
+        );
+        assert_eq!(merged["dns"], original["dns"]);
+    }
+
+    #[test]
+    fn ready_profile_keeps_implicit_dns_when_local_alias_is_absent() {
+        let original = provider();
+        let merged = merge_ready_routing(original.clone(), &RoutingOptions::default()).unwrap();
+        assert!(merged["route"].get("default_domain_resolver").is_none());
+        assert_eq!(merged["dns"], original["dns"]);
+    }
+
+    #[test]
+    fn ready_profile_applies_resolver_available_in_provider() {
+        for resolver in ["local", "provider-dns"] {
+            let mut original = provider();
+            original["dns"]["servers"] = json!([{"type": "local", "tag": resolver}]);
+            let routing = RoutingOptions {
+                default_domain_resolver: resolver.into(),
+                ..RoutingOptions::default()
+            };
+            let merged = merge_ready_routing(original, &routing).unwrap();
+            assert_eq!(merged["route"]["default_domain_resolver"], resolver);
+        }
+    }
+
+    #[cfg(any(windows, target_os = "macos"))]
+    #[test]
+    #[ignore = "requires the bundled desktop sing-box executable"]
+    fn ready_geoip_config_passes_bundled_desktop_core_check() {
+        let settings: GeneratorSettings =
+            serde_json::from_str(include_str!("fixtures/bypass-ru-settings.json")).unwrap();
+        let original = json!({
+            "dns": {"servers": [{"type": "local", "tag": "provider-dns"}]},
+            "inbounds": [{"type": "mixed", "tag": "probe", "listen": "127.0.0.1", "listen_port": 0}],
+            "outbounds": [{"type": "direct", "tag": "providerProxy"}],
+            "route": {"final": "providerProxy", "default_domain_resolver": "provider-dns"}
+        });
+        let merged = merge_ready_routing(original, &settings.routing).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("ready-geoip.json");
+        std::fs::write(&path, serde_json::to_vec_pretty(&merged).unwrap()).unwrap();
+        let binary_name = match (std::env::consts::OS, std::env::consts::ARCH) {
+            ("windows", "x86_64") => "sing-box-x86_64-pc-windows-msvc.exe",
+            ("macos", "aarch64") => "sing-box-aarch64-apple-darwin",
+            ("macos", "x86_64") => "sing-box-x86_64-apple-darwin",
+            platform => panic!("no bundled sing-box for {platform:?}"),
+        };
+        let binary = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("binaries")
+            .join(binary_name);
+        let output = std::process::Command::new(binary)
+            .args(["check", "-c"])
+            .arg(&path)
+            .output()
+            .expect("run bundled desktop sing-box");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
     fn rule_sets_are_merged_and_duplicate_tags_are_rejected() {
         let routing = RoutingOptions {
-            rule_sets: vec![json!({"tag": "local-set", "type": "remote", "format": "binary", "url": "https://example.test/local.srs"})],
+            rule_sets: vec![
+                json!({"tag": "local-set", "type": "remote", "format": "binary", "url": "https://example.test/local.srs"}),
+            ],
             ..RoutingOptions::default()
         };
         let mut base = provider();
