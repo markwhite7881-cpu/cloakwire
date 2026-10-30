@@ -40,7 +40,7 @@ for arch in aarch64 x86_64; do
   app="$CARGO_TARGET_DIR/$target/release/bundle/macos/Cloakwire.app"
   test -d "$app"
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "$version"
-  lipo -verify_arch "${arch/aarch64/arm64}" "$app/Contents/MacOS/cloakwire"
+  lipo "$app/Contents/MacOS/cloakwire" -verify_arch "${arch/aarch64/arm64}"
   codesign --force --deep --sign - "$app"
   codesign --verify --deep --strict "$app"
   ditto -c -k --keepParent "$app" "release-output/Cloakwire_${version}_$label.app.zip"
