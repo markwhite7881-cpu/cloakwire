@@ -27,125 +27,150 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ Downloads (v1.4.7)
+## ⚡ Downloads (v1.4.9)
 
-| Platform | Recommended | Alternative | Architecture |
+| Platform | Installer | Alternative | Architecture |
 |---|---|---|---|
-| 🪟 **Windows** | [⬇️ **Download .exe** (Installer)](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.7/Cloakwire_1.4.7_x64-setup.exe) | [⬇️ **Download .msi**](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.7/Cloakwire_1.4.7_x64_en-US.msi) | x64 (Intel / AMD) |
-| 🍏 **macOS Apple Silicon** | [⬇️ **Download .dmg**](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.7/Cloakwire_1.4.7_aarch64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.7/Cloakwire_1.4.7_aarch64.app.zip) | M1 / M2 / M3 / M4 |
-| 🍏 **macOS Intel** | [⬇️ **Download .dmg**](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.7/Cloakwire_1.4.7_x64.dmg) | [⬇️ **Download .app.zip**](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.7/Cloakwire_1.4.7_x64.app.zip) | x86_64 |
-| 🤖 **Android** | [⬇️ **Download .apk**](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.7/Cloakwire_1.4.7_arm64-v8a.apk) | — | arm64-v8a |
+| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_x64_en-US.msi) | x64 (Intel / AMD) |
+| **macOS Apple Silicon** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_aarch64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_aarch64.app.zip) | arm64 (Apple Silicon) |
+| **macOS Intel** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_x64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_x64.app.zip) | x86_64 |
+| **Android** | [Download .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 All desktop binaries are cryptographically signed with **Minisign** (`.sig`). Checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.7/SHA256SUMS.txt).
+> 🔒 All seven release packages, including Android, have **Minisign** `.sig` files. SHA-256 checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/SHA256SUMS.txt).
 
----
+## 🚀 What's new in 1.4.9
 
-## 🚀 Quick Start
+- Ready-made subscription profiles are checked by their engine before connecting on Windows, macOS and Android.
+- Profile errors show a clear reason, a suggested next step and a safe report that can be copied without provider configuration.
+- A rejected profile keeps the active connection intact; cancelling a check does not start the VPN.
+- Release checks cover all packages, updater signatures, checksums and required Android GeoIP assets.
+- The desktop and Android interfaces and diagnostic reports use the synchronized application version.
 
-1. **Install**: Download and install the release package for your operating system.
-2. **Add Profile or Node**: Click **Add Server** or paste any supported link (`vless://`, `vmess://`, `ss://`, `trojan://`, `hy2://`, `tuic://`, `wireguard://`, or Base64 / Clash subscription URLs). Links in clipboard are detected automatically.
-3. **Connect**: Click the connect button. Cloakwire selects the working route, performs latency checks, and routes traffic through the encrypted tunnel.
+[Full history](CHANGELOG.md) · [v1.4.9](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.4.9)
 
----
+## Quick start
 
-## 🌟 Key Features
+Cloakwire is a client. You need your own server or a subscription from a provider.
 
-### 🧩 Dual-Engine Architecture
-- **sing-box (Default)**: Low memory footprint (~35 MB idle), fast packet processing, system TUN routing, and direct per-app filtering.
-- **Xray Core (Automatic Fallback)**: Automatically activates when loading profiles requiring Xray-specific dialers or routing rules without manual toggling.
+1. Download and install the package for your operating system from the table above.
+2. Add a server or subscription. Share links, Base64 link lists, Clash subscriptions and ready-made sing-box/Xray profiles are supported.
+3. Select a server or profile and connect. A ready-made profile is validated before an active connection is replaced; if validation fails, follow the error card's instructions.
 
-### 🍏 macOS TUN Mode with One-Time Elevation
-- **Native Prompt**: When starting TUN mode on macOS, the system requests administrator approval once via Touch ID or password (`osascript` sets root SUID on the `sing-box` binary).
-- **Silent Reconnections**: All subsequent connections, reconnections, and server switches launch instantly without prompting again.
-- **Proxy Mode**: Connections using standard SOCKS5/HTTP mode run unprivileged without triggering any prompt.
+## 🌟 Key features
 
-### 🎨 Themes & Custom Accents
-- **Adaptive Modes**: Support for **System** (follows OS theme), **Light**, **Dark**, and pure-black **OLED** mode (for AMOLED screens and dark environments).
-- **Accent Palettes**: 5 customizable accent themes (*Emerald, Cyan, Violet, Amber, Rose*) tinting buttons, badges, and glows.
+### Dual engines and subscriptions
 
-### 🌐 Full Multilingual Support
-- Built-in localization in **English**, **Russian** (Русский), and **Simplified Chinese** (简体中文).
-- Language can be switched at any time in Settings.
+- **sing-box** is the default engine; **Xray** handles compatible Xray profiles.
+- Ready-made configurations use their declared engine. Validation errors are shown before connection.
+- Import individual links, manage subscriptions and refresh provider profiles.
 
-### 🎯 Split Tunneling & Routing Modes
-- **Apps via VPN**: Direct specific programs (browsers, messengers) through the encrypted tunnel while leaving local traffic direct.
-- **Apps Direct**: Route all system traffic through the tunnel while bypassing selected local services (e.g. banking, LAN).
-- **TUN vs System Proxy**: Choose between full network virtual adapter (TUN) or standard system proxy.
+### Routing and connection modes
 
-### 📱 Android Companion & Home Screen Widgets
-- Full mobile client with background service integration and low battery consumption.
-- **Interactive Home Screen Widget**: 1-tap VPN toggle showing live status and synchronized accent colors.
-- **Minimal 1×1 Widget**: Compact power-button-only layout for dense home screens.
-- **Clipboard Helper**: One-tap import from clipboard on the main screen.
+- TUN and desktop system proxy modes; application and domain/IP rules, including GeoIP / Bypass RU.
+- Ready-made sing-box profiles retain provider DNS and routing settings when local GeoIP / Bypass RU rules are applied.
+- Route selected applications through VPN or directly. Availability depends on platform and engine; unsupported Xray application rules produce a warning.
+- On macOS, TUN requests administrator approval when needed. Prepared binaries can reuse granted permissions; replacing a binary may require approval again.
 
-### ⚡ Desktop System Tray & Session Timer
-- Background minimization to system tray with quick connect/disconnect menu and connection indicator.
-- Live session duration timer and throughput counters (KB/s, MB).
+### Desktop and Android
 
----
+- Desktop system tray, quick connection controls, session timer and traffic statistics.
+- Android VPN service, home screen widgets with connection status, and clipboard import.
+- Built-in speed test and desktop connection notifications.
 
-## 🛡️ Privacy & Security
+### Appearance and languages
 
-- **Zero Telemetry**: No trackers, no external analytics, no telemetry endpoints, no crash reporters.
-- **Local Profile Processing**: Subscriptions and credentials are parsed and stored locally in the secure app data directory.
-- **DNS Protection**: Built-in DNS routing through encrypted upstream resolvers inside the proxy tunnel prevents ISP sniffing and DNS hijacking.
+- System, Light, Dark and OLED themes; Emerald, Cyan, Violet, Amber and Rose accents.
+- English, Russian and Simplified Chinese; switch languages in Settings.
 
-### Security Warnings on Windows & macOS
+## 🛡️ Privacy and release verification
 
-Cloakwire is **free and open-source software**. We do not buy commercial enterprise certificates ($400+/year for Microsoft EV Authenticode and $99/year for Apple Developer):
-- **Windows SmartScreen**: Click **"More info"** → **"Run anyway"**.
-- **macOS Gatekeeper**: Right-click `Cloakwire.app` → select **"Open"** (or allow under *System Settings → Privacy & Security*).
+- No built-in telemetry, analytics or automatic crash-report uploads.
+- Profiles, subscriptions and credentials are processed and stored in the local application data directory.
+- DNS behavior depends on the selected settings and provider profile. Ready-made profiles preserve provider DNS configuration.
+- The updater checks release signatures using the public key embedded in the application.
 
-Verify any installer using SHA-256 before running:
+Minisign protects updater downloads. Windows packages are distributed without Authenticode signing; macOS apps use ad hoc signing and are not Apple-notarized. Operating-system security prompts may therefore appear. Verify the download against the published checksums before installing.
+
+Example: check the Windows installer and compare the result with `SHA256SUMS.txt`:
+
 ```powershell
-# PowerShell checksum verification:
-(Get-FileHash Cloakwire_1.4.7_x64-setup.exe -Algorithm SHA256).Hash.ToLower()
+(Get-FileHash Cloakwire_1.4.9_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
----
+## 🔧 Share-link formats
 
-## 🔧 Supported Protocols
-
-| Protocol | Transports & Features | Core |
+| Protocol | Link schemes | Compatible engine |
 |---|---|---|
-| **VLESS** | Reality, XTLS-Vision, WebSocket, gRPC, HTTPUpgrade, Splithttp | `sing-box` / `Xray` |
-| **VMess** | TCP, WebSocket, gRPC, TLS | `sing-box` / `Xray` |
-| **Trojan** | TLS, WebSocket, gRPC | `sing-box` / `Xray` |
-| **Shadowsocks** | AEAD, 2022 (blake3, chacha20, aes-gcm) | `sing-box` / `Xray` |
-| **Hysteria 2** | Port-hopping, Salamander obfuscation, BBR | `sing-box` |
-| **TUIC** | QUIC, 0-RTT handshake, BBR congestion control | `sing-box` |
-| **WireGuard / AWG** | Encrypted UDP tunnel | `sing-box` |
+| VLESS | `vless://` | sing-box / Xray |
+| VMess | `vmess://` | sing-box / Xray |
+| Trojan | `trojan://` | sing-box / Xray |
+| Shadowsocks | `ss://` | sing-box / Xray |
+| Hysteria 2 | `hy2://` / `hysteria2://` | sing-box |
+| TUIC | `tuic://` | sing-box |
 
----
+Transport and routing support depends on the engine and profile. Ready-made profiles are checked in the engine's native format before connection.
 
-## 🛠️ Building from Source
+## 🛠️ Building from source
 
-### Prerequisites
-- Node.js 20+ and npm
-- Rust 1.80+ (`cargo`)
-- Build toolchains:
-  - **Windows**: Visual Studio C++ Build Tools, NSIS, WiX Toolset
-  - **macOS**: Xcode Command Line Tools
-  - **Android**: Android SDK, NDK r25+
+### Toolchains
+
+- Node.js and npm; the 1.4.9 release was built with Node.js 24 on Windows and 22 on macOS.
+- Rust stable with the target for the platform being built.
+- Windows: Visual Studio C++ Build Tools and the WebView2 runtime; Tauri packages releases with NSIS/WiX.
+- macOS: Xcode Command Line Tools; install both `aarch64-apple-darwin` and `x86_64-apple-darwin` Rust targets to build both architectures.
+- Android: JDK 17, Android SDK platform 36 and build-tools, NDK `28.0.13004108`, and Rust target `aarch64-linux-android`. Use the checked-in Gradle wrapper.
+
+### Binary inputs
+
+A clean clone does not include the large engine binaries, Android libraries or geodata. Stage these before building the native app:
+
+- `src-tauri/binaries/`: target-specific `sing-box` and `xray` executables; the current bundle configuration also requires `wintun.dll`.
+- Android: `app/libs/libbox.aar` and `app/src/main/jniLibs/arm64-v8a/libxray.so`, `libhev-socks5-tunnel.so` under `src-tauri/gen/android/`.
+- Android: `geoip.dat` and `geosite.dat` in `src-tauri/gen/android/app/src/main/assets/`. The Rust library is compiled from source by the release driver.
+
+For engine preparation, see the [Xray helper](scripts/prepare-xray-sidecar.ps1), [Android build workflow](.github/workflows/release-android.yml) and [macOS build workflow](.github/workflows/release-macos.yml).
+
+The checked-in `src-tauri/.cargo/config.toml` contains host-specific Windows paths. Adjust or override them for your machine; the cross-platform release driver configures the paths from a local settings file and removes this Windows-specific configuration on the Mac build host.
+
+### Frontend checks
+
+These commands check and build the interface without compiling the native application:
 
 ```bash
-# Clone the repository
 git clone https://github.com/markwhite7881-cpu/cloakwire.git
 cd cloakwire
-
-# Install web dependencies
-npm install
-
-# Run desktop dev environment
-npm run tauri:dev
-
-# Build desktop release package
-npm run tauri:build
+npm ci
+npm test
+npm run build
 ```
 
----
+With the toolchains and native inputs prepared, use `npm run tauri:dev` for desktop development and `npm run tauri:build` for a desktop release package.
+
+### Full cross-platform release
+
+The complete release driver runs on Windows and builds macOS remotely over SSH. Copy `scripts/release.local.example.psd1` to the ignored `release.local.psd1` and set your toolchain, engine, signing and Mac-host paths. Use an ASCII-only `BuildRoot`; keep private keys and passwords out of Git.
+
+The canonical version is in `src-tauri/tauri.conf.json`. Use `npm run release:version -- set <version>` to synchronize package, Rust and Android metadata before committing a new release.
+
+Build the standalone signing tool, then set `SignerPath` to `.release-work/tools/release/tauri-signer.exe`:
+
+```powershell
+cargo build --release --manifest-path src-tauri/crates/tauri-signer/Cargo.toml --target-dir .release-work/tools
+```
+
+```powershell
+Copy-Item scripts/release.local.example.psd1 release.local.psd1
+# Set local paths in release.local.psd1 before continuing.
+npm run release:check
+npm run release:test
+npm run release:build -- -CheckOnly
+npm run release:build
+```
+
+Commit the reviewed source and release notes before `release:build`: all platforms are built from one clean HEAD archive. Every run gets separate source, target, artifact and log directories. The seven packages are signed and validated; publication first creates a draft and checks all 18 uploaded asset digests. `npm run release:publish -- -DistPath <artifacts> -Publish` explicitly promotes the verified draft after the matching Git tag has been pushed.
+
+[Detailed release guide (Russian)](docs/RELEASE_WORKFLOW.md)
 
 ## 📄 License
 
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.  
-Core engines (`sing-box`, `Xray-core`) are licensed by their respective authors under GPL-3.0 / MPL-2.0.
+Cloakwire application source is distributed under the **MIT License**; see [LICENSE](LICENSE). Bundled engines and third-party libraries retain their respective licenses.
