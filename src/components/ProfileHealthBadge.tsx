@@ -10,7 +10,7 @@ export function ProfileHealthBadge({profileRef,profileIndex}:{profileRef?:Profil
  const source=profileRef?sources.find(s=>s&&sameProfileRef(s.profile_ref,profileRef))??null:profileIndex!=null?sources[profileIndex]??null:null;
  const badge=badgeForProfile(source,attempt&&sameSource(source,attempt.source)?attempt:evidence,Math.max(now,Date.now()));
  const time=badge.time&&Number.isFinite(badge.time)?new Intl.DateTimeFormat(locale,{hour:"2-digit",minute:"2-digit"}).format(new Date(badge.time)):null;
- return <span data-testid="profile-health" className={"mt-1 block whitespace-normal text-xs leading-snug "+(badge.state==="healthy"?"text-emerald-500":badge.state==="failed"?"text-amber-500":"text-muted-foreground")}>
-  {t("profileEvidence."+badge.state)}{time?" · "+time:""}{badge.state==="healthy"&&badge.latency!=null?" · "+badge.latency+" ms":""}
+ return <span data-testid="profile-health" className={"mt-1 block whitespace-normal text-xs leading-snug "+((badge.state==="healthy"||badge.state==="profileHealthy")?"text-emerald-500":badge.state==="failed"?"text-amber-500":"text-muted-foreground")}>
+  {t("profileEvidence."+badge.state)}{time?" · "+time:""}{(badge.state==="healthy"||badge.state==="profileHealthy")&&badge.latency!=null?" · "+badge.latency+" ms":""}
  </span>;
 }

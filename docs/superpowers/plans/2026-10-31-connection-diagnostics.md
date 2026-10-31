@@ -10,7 +10,7 @@
 
 **Spec:** ../specs/2026-10-31-connection-reliability-and-ux-design.md
 
-**Status:** D2 active-session, D4/D5 для Windows/macOS реализованы в текущем checkpoint; Android отложен пользователем. Desktop independent probe остаётся внутренним, isolated Xray закрыт через unsupported_probe. Системная матрица и полное завершение D2–D5 остаются открытыми. [Текущий этап](../../testing/desktop-active-health-2026-10-31.md).
+**Status:** Desktop active-session и Android selected-profile checkpoints реализованы; Android больше не отложен. Полная системная матрица, Android active-session health/recovery и завершение D2–D5 открыты. Отчёты: [desktop](../../testing/desktop-active-health-2026-10-31.md), [Android profile probe](../../testing/android-profile-probe-2026-10-31.md).
 
 ## Global Constraints
 
@@ -81,6 +81,8 @@ Checkpoint 2026-10-31: private process/config owner, cancellation/deadline clean
 - [ ] Native suites + core matrix; коммит feat: add isolated desktop profile probes.
 
 ### D3. Android probes с сохранением активного VPN
+
+Checkpoint 2026-10-31: продуктовая проверка выбранного профиля, private :profile_diagnostics service, trusted preparation, UI и invalidation реализованы. Итоговый APK: 4 сочетания active/probe ядер × 12 PASS; manual/UI 2 × 13 PASS; DNS edit 4 PASS и Wi-Fi invalidation PASS. JVM63, frontend168, safe diagnostics54 PASS. [Подробный отчёт и сохранённые ограничения](../../testing/android-profile-probe-2026-10-31.md). Общие пункты D3 не закрываются частичной матрицей: active-session checks, older Android/lockdown, Hysteria2/TUIC и все lifecycle-сценарии ещё не завершены.
 
 **Files:** изменить LatencyTester.kt, SingBoxEngine.kt, VpnPlugin.kt, AndroidManifest.xml в src-tauri/gen/android/app/src/main; создать vpn/{ConnectionProbeService.kt,ProbePlatform.kt,ProbeCoordinator.kt,ProbeConfig.kt,OwnedCoreProcess.kt}; tests в соответствующих src/test и src/androidTest; src/lib/vpn.ts.
 **Interfaces:** plugin:vpn|probe(target) -> operation_id; plugin:vpn|cancelProbe(operation_id); health event/snapshot совпадают с D1. Rust готовит secret-bearing config внутри существующего trusted path; IPC service не exported.

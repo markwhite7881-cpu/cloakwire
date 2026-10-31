@@ -695,6 +695,7 @@ class CloakwireVpnService : VpnService() {
 
   @Synchronized
   fun stopVpn(cancelPendingStart: Boolean = true) {
+    ProbeCoordinator.invalidate()
     if (cancelPendingStart) AndroidProfilePreflight.starts.cancel()
     preflightGeneration++
     sessionGeneration.begin()
@@ -740,6 +741,7 @@ class CloakwireVpnService : VpnService() {
   }
 
   override fun onDestroy() {
+    ProbeCoordinator.invalidate()
     // The system can kill the service without ACTION_STOP (revoke,
     // always-on change, task removal) — make sure everything goes down.
     preflightGeneration++

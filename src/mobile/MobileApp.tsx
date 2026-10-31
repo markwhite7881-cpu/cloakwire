@@ -1,3 +1,5 @@
+import {useProfileProbe} from "./useProfileProbe";
+import {ProfileProbeCard} from "./components/ProfileProbeCard";
 import {profilePreparation} from "@/lib/profilePreparations";
 import {vpnBeginPreparation} from "@/lib/vpn";
 import {ProfileHealthContext} from "@/components/ProfileHealthBadge";
@@ -273,6 +275,8 @@ export default function MobileApp() {
   }, [profiles, selectedIndex]);
 
   const connection = useVpnConnection(connectionProfiles, settings);
+  const probeSource=(selectionNeedsChoice||selectionMissing)?null:activeBundle?readySources.find(source=>source.profile_ref.kind==="ready"&&source.profile_ref.subscription_id===activeBundle.subscriptionId&&source.profile_ref.child_key===activeBundle.childKey)??null:profileSources[selectedIndex]??null;
+  const profileProbe=useProfileProbe(probeSource,activeBundle?null:profiles[selectedIndex]??null,settings);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const vpn = { ...connection, busy: connection.busy || selectionBusy };
 
@@ -660,7 +664,7 @@ export default function MobileApp() {
       </header>
 
       {/* Content */}
-      <ProfileHealthContext.Provider value={{sources:allSources,evidence:vpn.profileCheck??null}}>
+      <ProfileHealthContext.Provider value={{sources:allSources,evidence:vpn.profileCheck??null,attempt:profileProbe.evidence}}>
       <main
         ref={contentRef}
         className="min-h-0 flex-1 overflow-y-auto"
@@ -719,6 +723,7 @@ export default function MobileApp() {
             <HomeScreen
               vpn={vpn}
               errorActions={<ProfileErrorActions {...cardActions}/>}
+              probeCard={<ProfileProbeCard probe={profileProbe} source={probeSource} disabled={vpn.busy||manualStore.blocked}/>}
               profiles={profiles}
               groups={serverGroups}
               selectedIndex={selectedIndex}

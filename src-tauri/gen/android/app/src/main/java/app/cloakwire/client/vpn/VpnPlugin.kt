@@ -34,6 +34,9 @@ class SetAccentArgs {
 }
 
 @InvokeArg
+class ProbeArgs { var source:String="";var operationId:String="";var engine:String="";var config:String="";var tag:String="";var issue:String="" }
+
+@InvokeArg
 class StartArgs {
   var preparationId: String = ""
   var source: String = ""
@@ -107,10 +110,31 @@ class SubscriptionFetchUrlArgs {
 class VpnPlugin(private val activity: Activity) : Plugin(activity) {
   override fun load(webView: WebView) {
     VpnEvents.emitter = { event, payload -> trigger(event, payload) }
+    ProbeCoordinator.initialize(activity)
+    ProbeCoordinator.emitter = { trigger("probe",it) }
   }
 
   override fun onDestroy() {
     VpnEvents.emitter = null
+    ProbeCoordinator.emitter = null
+  }
+
+  @Command fun probe(invoke:Invoke) {
+    try{val args=invoke.parseArgs(ProbeArgs::class.java);val source=ProfileSource.parse(args.source)?:error("unsupported_probe")
+      val health=ProbeCoordinator.begin(source);invoke.resolve(JSObject().put("operation_id",health.operationId) as JSObject)
+    }catch(_:Exception){invoke.reject("unsupported_probe")}
+  }
+  @Command fun cancelProbe(invoke:Invoke){val args=invoke.parseArgs(ProbeArgs::class.java);ProbeCoordinator.cancel(args.operationId);invoke.resolve()}
+  @Command fun probeSnapshot(invoke:Invoke){invoke.resolve(ProbeCoordinator.snapshot())}
+  // Not in the WebView capability: only the trusted Rust source preparer calls this command.
+  @Command fun runProbe(invoke:Invoke){
+    try{val args=invoke.parseArgs(ProbeArgs::class.java);val source=ProfileSource.parse(args.source)?:error("unsupported_probe")
+      ProbeCoordinator.submit(args.operationId,source,args.engine,args.config,args.tag);invoke.resolve()
+    }catch(_:Exception){invoke.reject("profile_check_cancelled")}
+  }
+  @Command fun failProbe(invoke:Invoke){
+    val args=invoke.parseArgs(ProbeArgs::class.java)
+    ProbeCoordinator.fail(args.operationId,HealthIssue.UNSUPPORTED_PROBE);invoke.resolve()
   }
 
   // ---- prepare ------------------------------------------------------
@@ -145,6 +169,7 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
 
   @Command
   fun start(invoke: Invoke) {
+    ProbeCoordinator.invalidate()
     thread(name = "vpn-plugin-start") {
       var request=-1L
       var errorContext="stopped"
@@ -218,14 +243,17 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   @Command fun beginProfilePreparation(invoke:Invoke) {
+    ProbeCoordinator.invalidate()
     val result=JSObject();result.put("request",AndroidProfilePreflight.starts.begin().toString());invoke.resolve(result)
   }
   @Command fun invalidateProfileStarts(invoke:Invoke) {
+    ProbeCoordinator.invalidate()
     AndroidProfilePreflight.starts.cancel()
     invoke.resolve(JSObject())
   }
   @Command
   fun stop(invoke: Invoke) {
+    ProbeCoordinator.invalidate()
     AndroidProfilePreflight.starts.cancel()
     try {
       val intent = Intent(activity, CloakwireVpnService::class.java)

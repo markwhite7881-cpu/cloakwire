@@ -58,6 +58,8 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 }
 
 export const api = {
+  runAndroidProfileProbe:(operationId:string,source:import("./profileEvidence").ProfileSource,outbound:Outbound|null,settings:GeneratorSettings)=>
+    call<void>("run_android_profile_probe",{operationId,profileRef:source.profile_ref,sourceRevision:source.source_revision,outbound,settings}),
   profileCatalogEpoch:()=>call<string>("profile_catalog_epoch"),
   invalidateProfilePreparations:()=>call<void>("invalidate_profile_preparations"),
   validateSubscriptionSource:(source:{profile_ref:import("./connectionHealth").ProfileRef;source_revision:string})=>call<void>("validate_subscription_source",{profileRef:source.profile_ref,sourceRevision:source.source_revision}),

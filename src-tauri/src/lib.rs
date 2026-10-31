@@ -231,6 +231,7 @@ pub fn run() {
     #[cfg(target_os = "android")]
     builder
         .invoke_handler(tauri::generate_handler![
+            diagnostics::android_probe::run_android_profile_probe,
             diagnostics::sources::profile_source_revisions,
             diagnostics::sources::profile_catalog_epoch,
             diagnostics::sources::invalidate_profile_preparations,

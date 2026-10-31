@@ -158,3 +158,8 @@ export const vpnReadClipboard = async (): Promise<string> => {
     return "";
   }
 };
+
+export const vpnProbe=(source:ProfileSource)=>invoke<{operation_id:string}>("plugin:vpn|probe",{source:JSON.stringify(source)});
+export const vpnCancelProbe=(operationId:string)=>invoke<void>("plugin:vpn|cancelProbe",{operationId});
+export const vpnProbeSnapshot=()=>invoke<import("./connectionHealth").HealthSnapshot>("plugin:vpn|probeSnapshot");
+export const onVpnProbe=(callback:(value:import("./connectionHealth").HealthSnapshot)=>void)=>addPluginListener("vpn","probe",callback);

@@ -9,3 +9,8 @@ describe("profile evidence ownership",()=>{
  it("expired and future results are never green",()=>{const evidence={source:a,kind:"preflight" as const,outcome:"passed" as const,checked_at:100};expect(badgeForProfile(a,evidence,60100).state).toBe("stale");expect(badgeForProfile(a,evidence,99).state).toBe("stale")});
  it("coalesces repeated actions and releases after failure",async()=>{let finish!:()=>void,calls=0;const run=singleAction();const first=run(async()=>{calls++;await new Promise<void>(r=>finish=r)});await run(async()=>{calls++});expect(calls).toBe(1);finish();await first;await expect(run(async()=>{throw Error("fail")})).rejects.toThrow();await run(async()=>{calls++});expect(calls).toBe(2)});
 });
+
+it("an isolated successful profile must not claim that the active VPN was verified",()=>{
+ const evidence={source:a,kind:"access" as const,scope:"selected_profile" as const,outcome:"passed" as const,checked_at:100};
+ expect(badgeForProfile(a,evidence,120).state).toBe("profileHealthy");
+});

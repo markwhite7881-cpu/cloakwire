@@ -2,6 +2,7 @@ import type { TranslationSchema } from "./en";
 
 export const zhCN: TranslationSchema = {
   profileEvidence: {
+    profileHealthy: "访问已验证 · 所选服务器",
   "unknown": "未检查",
   "stale": "检查已过期",
   "healthy": "连接已验证 · 当前 VPN",
@@ -14,6 +15,13 @@ export const zhCN: TranslationSchema = {
   "changed": "配置或连接已更改，请重新选择服务器。",
   "refreshed": "订阅已更新，请确认服务器后再连接。",
   "refreshFailed": "无法更新订阅，当前连接保持不变。"
+},
+  profileProbe: {
+  "title": "检查所选服务器",
+  "check": "检查服务器",
+  "hint": "检查会保留当前 VPN 连接。结果仅适用于所选服务器。",
+  "choose": "请选择要检查的具体服务器。",
+  "cancel": "取消检查"
 },
   health: {
   "title": "连接检查",

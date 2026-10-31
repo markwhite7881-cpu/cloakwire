@@ -38,7 +38,7 @@ const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export function HomeScreen({
-  vpn,errorActions,
+  vpn,errorActions,probeCard,
   profiles,
   groups,
   selectedIndex,
@@ -56,6 +56,7 @@ export function HomeScreen({
 }: {
   vpn: VpnConnection;
   errorActions?:ReactNode;
+  probeCard?:ReactNode;
   profiles: Outbound[];
   groups: ServerGroup[];
   selectedIndex: number;
@@ -393,6 +394,8 @@ export function HomeScreen({
           <span>{vpn.engine === "xray" ? "Xray Core" : "sing-box Core"}</span>
         </div>
       </div>
+
+      {probeCard}
 
       {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
 

@@ -90,3 +90,5 @@ pub fn retry_active_probe(
 
 #[cfg(not(target_os = "android"))]
 pub mod network_events;
+
+pub mod android_probe;

@@ -47,7 +47,7 @@
 
 ## Текущее выполнение
 
-Первый безопасный этап реализован в локальной ветке: данные/импорт/режимы и базовые контракты. Нативные probes, health UI, recovery и выпуск не завершены. [Подробный статус и проверки](../../testing/implementation-stage-2026-10-31.md).
+В локальной ветке реализованы данные/импорт/режимы, desktop active-session health, карточки действий и Android selected-profile проверка. Полные платформенные матрицы, Android active-session health, recovery и выпуск не завершены. Последний checkpoint: [Android profile probe](../../testing/android-profile-probe-2026-10-31.md); исходный этап: [baseline](../../testing/implementation-stage-2026-10-31.md).
 
 ## Порядок работ и контрольные точки
 
@@ -113,4 +113,4 @@ Android D3 состоит из двух частей: сначала scoped proc
 Оценка риска: этапы 2 и 5 самые сложные из-за native lifecycle и сетевой изоляции. Их следует проверять отдельно от визуальных изменений. Срок обещается после D0 и Android feasibility, когда известна фактическая совместимость собранного libbox.
 
 
-Контрольная точка 2026-10-31: результаты в строках серверов и owner-specific refresh/reconnect реализованы на desktop/Android. Подробности и свежие проверки: [отчёт B4](../../testing/profile-actions-2026-10-31.md). Android показывает preflight; D3, автоматическое восстановление и полный roadmap остаются незавершёнными.
+Контрольная точка 2026-10-31: результаты в строках серверов и owner-specific refresh/reconnect реализованы на desktop/Android. Подробности и свежие проверки: [отчёт B4](../../testing/profile-actions-2026-10-31.md). На этапе B4 Android показывал preflight. Теперь добавлена отдельная [проверка доступа выбранным профилем](../../testing/android-profile-probe-2026-10-31.md), подтверждённая с sing-box/Xray на телефоне. Полная D3, автоматическое восстановление и полный roadmap остаются незавершёнными.

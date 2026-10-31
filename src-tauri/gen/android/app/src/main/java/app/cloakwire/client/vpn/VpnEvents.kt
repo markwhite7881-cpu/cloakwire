@@ -39,6 +39,7 @@ object VpnEvents {
     emit()
   }
   @Synchronized internal fun acceptSource(source:ProfileSource?,name:String) {
+    ProbeCoordinator.invalidate()
     acceptedSource=source;profileName=name;runId=java.util.UUID.randomUUID().toString()
   }
   @Synchronized internal fun currentRun():String=runId?:"stopped"
