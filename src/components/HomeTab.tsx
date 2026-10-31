@@ -65,7 +65,7 @@ export interface HomeTabProps {
   onDisconnect: () => void;
   routingOptions?: RoutingOptions;
   onNavigateTab?: (tab: string) => void;
-  onAddLinks?: (text: string) => void;
+  onAddLinks?: (text: string) => Promise<boolean>;
   settings?: GeneratorSettings;
   onSettingsChange?: (settings: GeneratorSettings) => void;
   onReconnect?: (overrideSettings?: GeneratorSettings) => Promise<boolean>;
@@ -588,9 +588,9 @@ export function HomeTab({
               <Button
                 size="sm"
                 disabled={!quickAddText.trim()}
-                onClick={() => {
+                onClick={async () => {
                   if (quickAddText.trim()) {
-                    onAddLinks?.(quickAddText.trim());
+                    if (!await onAddLinks?.(quickAddText.trim())) return;
                     setQuickAddText("");
                     setQuickAddOpen(false);
                   }

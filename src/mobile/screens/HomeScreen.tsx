@@ -80,7 +80,7 @@ export function HomeScreen({
   /** Connect handler */
   onConnect: () => Promise<void> | void;
   onAddSub?: (input: { name?: string; url: string }) => Promise<void>;
-  onAddLinks?: (outbounds: Outbound[]) => void;
+  onAddLinks?: (outbounds: Outbound[]) => Promise<boolean>;
 }) {
   const { t } = useI18n();
   const [serverPickerOpen, setServerPickerOpen] = useState(false);

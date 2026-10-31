@@ -1,4 +1,27 @@
 export const en = {
+  profileImport: {
+  "title": "Compare imported profiles",
+  "description": "The address matches a saved profile. Choose which record to update or add a separate profile. A running connection keeps its current settings until you reconnect.",
+  "update": "Update",
+  "duplicate": "Same connection settings; skipped by default.",
+  "add_separately": "Add separately",
+  "skip": "Skip",
+  "apply": "Apply choices",
+  "unsupported": "Unsupported profile",
+  "missing": "Removed profile",
+  "needs_choice": "Choose an action for each matching profile.",
+  "stale": "A profile changed while this dialog was open. Cancel and import again.",
+  "conflict": "Two updates target the same profile. Keep one update or add separately.",
+  "partial": "Some lines could not be imported. Valid profiles have been kept; check the remaining input.",
+  "fields": {
+    "user": "User credentials",
+    "key": "Key",
+    "endpoint": "Server / port",
+    "transport": "Transport",
+    "tls": "TLS",
+    "other": "Other connection settings"
+  }
+},
   profileStorage: {
   "title": "Profile storage",
   "ready": "",

@@ -1,3 +1,5 @@
+import { useProfileImport } from "@/hooks/useProfileImport";
+import { ProfileImportDialog } from "@/components/ProfileImportDialog";
 import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import {
   Home,
@@ -377,6 +379,8 @@ export default function MobileApp() {
   // ----------------------------------------------------------------------
 
   // IDs remain stable even when duplicate labels are disambiguated for the core.
+  const profileImport = useProfileImport(manualStore, markConnectionDirty);
+
   const removeManualProfile = (id: string) => {
     if (manualStore.saveRecords(manualRecords.filter(r => r.id !== id))) markConnectionDirty();
   };
@@ -637,7 +641,8 @@ export default function MobileApp() {
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
+        <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} mobile onApply={profileImport.apply} onCancel={profileImport.cancel} />
+      <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
         {selectionNeedsChoice && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {shouldShowReconnectNotice({
             reconnectInProgress,
@@ -708,10 +713,7 @@ export default function MobileApp() {
                   markConnectionDirty();
                 }
               }}
-              onAddLinks={(obs) => {
-                if (!setManualProfiles((prev) => [...obs, ...prev])) throw new Error(t("profileStorage.write_failed"));
-                markConnectionDirty();
-              }}
+              onAddLinks={profileImport.request}
             />
           )}
           {activeTab === "servers" && (
@@ -732,10 +734,7 @@ export default function MobileApp() {
                   markConnectionDirty();
                 }
               }}
-              onAddLinks={(obs) => {
-                if (!setManualProfiles((prev) => [...obs, ...prev])) throw new Error(t("profileStorage.write_failed"));
-                markConnectionDirty();
-              }}
+              onAddLinks={profileImport.request}
               onRemoveSub={(id) => {
                 subs.remove(id);
                 markConnectionDirty();

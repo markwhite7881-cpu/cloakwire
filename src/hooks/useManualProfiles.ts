@@ -20,7 +20,7 @@ export function useManualProfiles() {
   const blocked = state.status === "legacy_conflict" || state.status === "corrupt" || state.status === "write_failed";
   const saveRecords = useCallback((records: ManualProfileRecord[]): boolean => {
     const prior = current.current;
-    if (prior.status === "legacy_conflict" || prior.status === "corrupt" || prior.status === "write_failed") return false;
+    if (prior.status === "legacy_conflict" || prior.status === "corrupt") return false;
     let saved;
     try { saved = saveManualProfileStore(storage(), records); } catch { saved = { status: "failed" as const }; }
     if (saved.status === "failed") { publish({ ...prior, status: "write_failed" }); return false; }

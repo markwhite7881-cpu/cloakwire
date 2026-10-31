@@ -25,7 +25,7 @@ export function AddSubscriptionSheet({
   // sheet's own error display instead of becoming an unhandled
   // promise rejection in the WebView. 2026-08-20.
   onAdd: (input: { name?: string; url: string }) => Promise<void>;
-  onAddLinks: (outbounds: Outbound[]) => void;
+  onAddLinks: (outbounds: Outbound[]) => Promise<boolean>;
 }) {
   const { t } = useI18n();
   const [source, setSource] = useState("");
@@ -120,7 +120,7 @@ export function AddSubscriptionSheet({
         return;
       }
 
-      if (result.outbounds.length > 0) onAddLinks(result.outbounds);
+      if (result.outbounds.length > 0 && !await onAddLinks(result.outbounds)) { setBusy(false); return; }
       // Await each subscription add so a Rust error (e.g. network
       // failure, classification error) surfaces here as a visible
       // error pill instead of an unhandled promise rejection. 2026-08-20.
@@ -130,6 +130,7 @@ export function AddSubscriptionSheet({
         await onAdd({ url });
       }
 
+      if (result.failures.length) { setError(t("profileImport.partial")); setBusy(false); return; }
       reset();
       onClose();
     } catch (e) {

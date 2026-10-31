@@ -57,7 +57,7 @@ export function ServersScreen({
   /** Active engine name; used for the header badge. */
   engine: "sing-box" | "xray" | "";
   onAddSub: (input: { name?: string; url: string }) => Promise<void>;
-  onAddLinks: (outbounds: Outbound[]) => void;
+  onAddLinks: (outbounds: Outbound[]) => Promise<boolean>;
   onRemoveSub: (id: string) => void;
   onRefreshSub: (id: string) => void;
   /** Currently selected bundle child (or null). The Servers screen

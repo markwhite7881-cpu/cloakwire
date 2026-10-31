@@ -1,3 +1,5 @@
+import { useProfileImport } from "@/hooks/useProfileImport";
+import { ProfileImportDialog } from "@/components/ProfileImportDialog";
 import { APP_VERSION } from "@/lib/appVersion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -980,10 +982,10 @@ export default function App() {
   }, []);
 
   // Link / subscription parser (auto-detect).
-  const onImportText = useCallback((rawText: string) => {
-    void (async () => {
+  const profileImport = useProfileImport(manualStore, () => setReconnectRequired(previous => nextReconnectRequired(previous, status.status === "running")));
+  const onImportText = useCallback(async (rawText: string): Promise<boolean> => {
       const text = rawText.trim();
-      if (!text) return;
+      if (!text) return false;
       setParsing(true);
       setError(null);
       setParseErrors([]);
@@ -997,7 +999,7 @@ export default function App() {
             .filter((l) => l && !l.startsWith("#"));
           if (lines.length === 0) {
             setError("No entries found in input.");
-            return;
+            return false;
           }
           const linkLines = lines.filter((l) => !/^https?:\/\//i.test(l));
           const urlLines = lines.filter((l) => /^https?:\/\//i.test(l));
@@ -1018,17 +1020,17 @@ export default function App() {
                 allow_insecure: false,
               },
             }));
-            if (!setManualProfiles((prev) => [...mocks, ...prev])) return;
+            if (!await profileImport.request(mocks)) return false;
           }
           for (const u of urlLines) {
             subs.add({ url: u });
           }
           setPendingLinks("");
-          return;
+          return true;
         }
         const result = await api.parseInput(text);
-        if (result.outbounds.length && !setManualProfiles((prev) => [...result.outbounds, ...prev])) return;
         setParseErrors(result.failures);
+        if (result.outbounds.length && !await profileImport.request(result.outbounds)) return false;
         // Promote detected subscription URLs.
         for (const u of result.subscriptions) {
           try {
@@ -1043,13 +1045,14 @@ export default function App() {
         ) {
           setPendingLinks("");
         }
+        return true;
       } catch (e) {
         setError(humanError(e));
+        return false;
       } finally {
         setParsing(false);
       }
-    })();
-  }, [inTauri, subs]);
+  }, [inTauri, subs, profileImport.request]);
 
   const onParseLinks = useCallback(() => {
     onImportText(pendingLinks);
@@ -1365,7 +1368,8 @@ export default function App() {
 
       {/* Body — fills the rest of the viewport with the active tab. */}
       <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
+        <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} onApply={profileImport.apply} onCancel={profileImport.cancel} />
+      <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
         {selectionNeedsChoice && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {tabs.find((t) => t.id === activeTab)?.content}
       </main>

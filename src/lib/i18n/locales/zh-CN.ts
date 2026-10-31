@@ -1,6 +1,29 @@
 import type { TranslationSchema } from "./en";
 
 export const zhCN: TranslationSchema = {
+  profileImport: {
+  "title": "比较导入的配置",
+  "description": "地址与已保存的配置相同。请选择要更新的记录，或单独添加。当前连接会保留原设置，直到重新连接。",
+  "update": "更新",
+  "duplicate": "连接设置相同；默认跳过。",
+  "add_separately": "单独添加",
+  "skip": "跳过",
+  "apply": "应用选择",
+  "unsupported": "不支持的配置",
+  "missing": "已删除的配置",
+  "needs_choice": "请为每个匹配的配置选择操作。",
+  "stale": "此对话框打开期间配置已更改。请取消后重新导入。",
+  "conflict": "两项更新指向同一配置。请保留一项更新，或单独添加。",
+  "partial": "部分行无法导入。有效配置已保留；请检查剩余输入。",
+  "fields": {
+    "user": "用户凭据",
+    "key": "密钥",
+    "endpoint": "服务器 / 端口",
+    "transport": "传输",
+    "tls": "TLS",
+    "other": "其他连接设置"
+  }
+},
   profileStorage: {
   "title": "配置存储",
   "ready": "",
