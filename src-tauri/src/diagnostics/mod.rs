@@ -18,3 +18,7 @@ pub fn cancel_profile_probe(
 ) -> bool {
     coordinator.cancel(&operation_id)
 }
+
+pub mod probe_config;
+#[cfg(test)]
+mod probe_config_tests;
