@@ -18,7 +18,8 @@
     "release:test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-release-tooling.ps1",
     "release:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-all-platforms.ps1",
     "release:publish": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
-    "test:connections": "node scripts/test-connection-matrix.mjs"
+    "test:connections": "node scripts/test-connection-matrix.mjs",
+    "pretest:ui": "npm run build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

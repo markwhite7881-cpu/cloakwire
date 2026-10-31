@@ -1,0 +1,36 @@
+import {test,expect} from "playwright/test";
+import assert from "node:assert/strict";
+import {openFixture} from "./fixtures";
+test("explicit policy preserves custom final and restores inactive drafts",async({page},info)=>{
+ const {mobile,verify}=await openFixture(page,info,{tab:"routing",customRouting:true});
+    const settingsKey='singbox-client.settings.v2';
+    await page.getByText('Application routing:',{exact:false}).first().waitFor();
+    const read=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),settingsKey);
+    const before=await read();
+    assert.equal(before.routing.final_outbound,mobile?'proxy':'direct','opening must preserve custom final');
+    await page.getByRole('button',{name:'Only selected',exact:true}).click();
+    await page.getByRole('button',{name:'Apply routing',exact:true}).click();
+    await page.getByRole('alert').filter({hasText:'Select at least one'}).waitFor();
+    assert.deepEqual((await read()).routing,before.routing);
+    await page.getByRole('button',{name:mobile?'No apps selected':'Pick from running processes…',exact:true}).click();
+    await page.getByRole('button',{name:mobile?/Fixture app/:/fixture.exe/}).click();
+    await page.getByRole('button',{name:'Apply routing',exact:true}).click();
+    await page.getByRole('button',{name:'Apply routing',exact:true}).waitFor({state:'hidden'});
+    const included=await read();
+    assert.deepEqual(mobile?included.routing.tun_app_list:included.routing.vpn_processes,[mobile?'fixture.app':'fixture.exe']);
+    assert.equal(mobile?included.routing.tun_app_mode:included.routing.final_outbound,mobile?'include':'direct');
+    await page.getByRole('button',{name:mobile?'All apps':'All applications',exact:true}).click();
+    assert.deepEqual((await read()).routing,included.routing,'draft must not execute');
+    await page.getByRole('button',{name:'Apply routing',exact:true}).click();
+    await page.getByRole('button',{name:'Apply routing',exact:true}).waitFor({state:'hidden'});
+    const all=await read();
+    assert.deepEqual(mobile?all.routing.tun_app_list:all.routing.vpn_processes,[]);
+    await page.getByRole('button',{name:'Only selected',exact:true}).click();
+    await page.getByRole('button',{name:'Apply routing',exact:true}).click();
+    await page.getByRole('button',{name:'Apply routing',exact:true}).waitFor({state:'hidden'});
+    assert.deepEqual((await read()).routing,included.routing);
+    assert.equal((await page.evaluate(()=>window.nativeCalls)).some(x=>x==='start_managed_singbox'||x==='plugin:vpn|start'),false);
+    await expect(page.getByText("Loading apps…",{exact:true})).toBeHidden();
+    await verify();
+
+});
