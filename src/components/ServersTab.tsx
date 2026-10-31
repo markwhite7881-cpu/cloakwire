@@ -239,7 +239,7 @@ export function ServersTab({
             <div className="space-y-2">
               {manualProfiles.map(({ profile, index }) => (
                 <ProfileCard
-                  key={`manual-${index}`}
+                  key={profile.id ?? `manual-${index}`}
                   outbound={profile.outbound}
                   geoipByIp={geoipByIp}
                   onRemove={() => {

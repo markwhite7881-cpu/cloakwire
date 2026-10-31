@@ -13,7 +13,9 @@ import { reconnectSelectedProfile } from "@/lib/reconnectState";
 import { connectSelectedProfile } from "./lib/connectWithSelection";
 import { useGeoIp } from "@/hooks/useGeoIp";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
-import { loadManualProfiles, saveManualProfiles } from "@/lib/manualProfiles";
+import { useManualProfiles } from "@/hooks/useManualProfiles";
+import { useProfileSelection } from "@/hooks/useProfileSelection";
+import { ManualProfileStorageNotice } from "@/components/ManualProfileStorageNotice";
 import { isSupported } from "@/lib/outbound";
 import { isValidProfileSelection } from "@/lib/profileSelection";
 import { cn } from "@/lib/utils";
@@ -90,10 +92,9 @@ export default function MobileApp() {
   );
   const [settings, setSettings] = useState<GeneratorSettings>(loadSettings);
   const [autoConnect, setAutoConnect] = useState<boolean>(loadAutoConnect);
-  const [manualProfiles, setManualProfiles] = useState<Outbound[]>(() =>
-    loadManualProfiles(),
-  );
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const manualStore = useManualProfiles();
+  const { outbounds: manualProfiles, setOutbounds: setManualProfiles, records: manualRecords } = manualStore;
+  const [selectionNeedsChoice, setSelectionNeedsChoice] = useState(false);
   // Bundle subscription selection. null when the user has no
   // bundle child picked (or the only subscriptions are link-list).
   // Mutually exclusive with `selectedIndex` — picking a bundle
@@ -120,7 +121,6 @@ export default function MobileApp() {
 
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveAutoConnect(autoConnect), [autoConnect]);
-  useEffect(() => saveManualProfiles(manualProfiles), [manualProfiles]);
   useEffect(() => {
     try {
       window.localStorage.setItem(TAB_KEY, activeTab);
@@ -228,10 +228,18 @@ export default function MobileApp() {
   );
 
   const { profiles, groups: serverGroups } = useMemo(
-    () => buildGroupedServerProfiles(manualProfiles, subs.subs, effectiveLastResult),
-    [manualProfiles, subs.subs, effectiveLastResult],
+    () => buildGroupedServerProfiles(manualProfiles, subs.subs, effectiveLastResult, manualRecords.map(r => r.id)),
+    [manualProfiles, subs.subs, effectiveLastResult, manualRecords],
   );
 
+  const profileKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const group of serverGroups) for (const entry of group.entries) {
+      keys[entry.profileIndex] = entry.manualId ? `manual:${entry.manualId}` : `subscription:${group.subscriptionId}:${entry.profileIndex - (group.entries[0]?.profileIndex ?? 0)}`;
+    }
+    return keys;
+  }, [serverGroups]);
+  const [selectedIndex, setSelectedIndex] = useProfileSelection(profileKeys, 0);
   const geoip = useGeoIp(profiles);
 
   // xray sends unmatched traffic to the FIRST outbound, so the list
@@ -294,7 +302,9 @@ export default function MobileApp() {
     }
     const picked = profilesRef.current[index];
     if (picked && isSupported(picked)) {
-      saveLastServer({ kind: "profile", tag: tagOf(picked) });
+      const key = profileKeys[index];
+      if (key?.startsWith("manual:")) saveLastServer({ kind: "manual", id: key.slice(7) });
+      else saveLastServer({ kind: "profile", tag: tagOf(picked) });
     }
   }, [vpn.state]);
 
@@ -338,7 +348,16 @@ export default function MobileApp() {
       }
       return;
     }
-    const index = profiles.findIndex((p) => tagOf(p) === pick.tag);
+    const matches = pick.kind === "manual"
+      ? profileKeys.map((key, index) => key === `manual:${pick.id}` ? index : -1).filter(index => index >= 0)
+      : profiles.map((p, index) => {
+          const key = profileKeys[index];
+          const original = key?.startsWith("manual:") ? manualRecords.find(r => r.id === key.slice(7))?.outbound : undefined;
+          return tagOf(p) === pick.tag || (original && tagOf(original) === pick.tag) ? index : -1;
+        }).filter(index => index >= 0);
+    if (matches.length > 1) { setSelectedIndex(-1); setSelectionNeedsChoice(true); finish(); return; }
+    if (pick.kind === "manual" && !matches.length) { setSelectedIndex(-1); setSelectionNeedsChoice(true); finish(); return; }
+    const index = matches[0] ?? -1;
     if (index >= 0) {
       setSelectedIndex(index);
       setActiveBundle(null);
@@ -349,6 +368,7 @@ export default function MobileApp() {
     const t = window.setTimeout(() => {
       if (!restoreAttempted.current) {
         restoreAttempted.current = true;
+        if (restorePick && restorePick.kind !== "auto") { setSelectedIndex(-1); setSelectionNeedsChoice(true); }
         setRestoreSettled(true);
       }
     }, 5000);
@@ -356,39 +376,17 @@ export default function MobileApp() {
   }, []);
   // ----------------------------------------------------------------------
 
-  // Remove a manual profile by tag (tags are unique in the built
-  // list - duplicates get an `@endpoint` suffix). Selection follows
-  // the same profile by tag across the rebuild.
-  const removeManualProfile = (tag: string) => {
-    const selectedTag =
-      selectedIndex >= 0 && selectedIndex < profiles.length
-        ? tagOf(profiles[selectedIndex])
-        : null;
-    const nextManual = manualProfiles.filter((p) => tagOf(p) !== tag);
-    setManualProfiles(nextManual);
-    if (selectedTag === tag) {
-      setSelectedIndex(-1);
-    } else if (selectedTag != null) {
-      const rebuilt = buildGroupedServerProfiles(
-        nextManual,
-        subs.subs,
-        effectiveLastResult,
-      );
-      const nextIndex = rebuilt.profiles.findIndex(
-        (p) => ("tag" in p ? p.tag : p.raw) === selectedTag,
-      );
-      setSelectedIndex(nextIndex);
-    }
-    markConnectionDirty();
+  // IDs remain stable even when duplicate labels are disambiguated for the core.
+  const removeManualProfile = (id: string) => {
+    if (manualStore.saveRecords(manualRecords.filter(r => r.id !== id))) markConnectionDirty();
   };
-
   const setMobileSettings = (next: GeneratorSettings) => {
     setSettings(next);
     markConnectionDirty();
   };
 
   const reconnect = async () => {
-    if (vpn.busy || reconnectInProgress) return;
+    if (vpn.busy || reconnectInProgress || manualStore.blocked || selectionNeedsChoice) return;
     setReconnectInProgress(true);
     setReconnectFailed(false);
     setReconnectError(null);
@@ -502,6 +500,7 @@ export default function MobileApp() {
       !activeBundle && profiles.length > 0;
     if (
       autoConnect &&
+      !manualStore.blocked && !selectionNeedsChoice &&
       restoreSettled &&
       vpn.ready &&
       !autoConnectFired.current &&
@@ -513,6 +512,8 @@ export default function MobileApp() {
     }
   }, [
     autoConnect,
+    manualStore.blocked,
+    selectionNeedsChoice,
     restoreSettled,
     vpn.ready,
     vpn.state,
@@ -543,6 +544,7 @@ export default function MobileApp() {
       if (!p || !isSupported(p)) return;
       pickedTag = p.tag;
     }
+    setSelectionNeedsChoice(false);
     setSelectedIndex(index);
     setActiveBundle(null);
     setMobileSettings({ ...settings, default_outbound: pickedTag });
@@ -566,6 +568,7 @@ export default function MobileApp() {
       // settings banner is the only place we render errors.
       console.error("setActiveChild failed", e);
     }
+    setSelectionNeedsChoice(false);
     setActiveBundle(input);
     setSelectedIndex(-1);
     // setMobileSettings already calls markConnectionDirty — the
@@ -576,6 +579,9 @@ export default function MobileApp() {
 
   const connectWithSelection = async () => {
     if (vpn.busy) return;
+    if (manualStore.blocked || selectionNeedsChoice) {
+      vpn.reportError(t(selectionNeedsChoice ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`)); return;
+    }
     vpn.clearError();
     setSelectionBusy(true);
     try {
@@ -631,6 +637,8 @@ export default function MobileApp() {
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
+        <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
+        {selectionNeedsChoice && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {shouldShowReconnectNotice({
             reconnectInProgress,
             reconnectRequired,
@@ -701,7 +709,7 @@ export default function MobileApp() {
                 }
               }}
               onAddLinks={(obs) => {
-                setManualProfiles((prev) => [...obs, ...prev]);
+                if (!setManualProfiles((prev) => [...obs, ...prev])) throw new Error(t("profileStorage.write_failed"));
                 markConnectionDirty();
               }}
             />
@@ -725,7 +733,7 @@ export default function MobileApp() {
                 }
               }}
               onAddLinks={(obs) => {
-                setManualProfiles((prev) => [...obs, ...prev]);
+                if (!setManualProfiles((prev) => [...obs, ...prev])) throw new Error(t("profileStorage.write_failed"));
                 markConnectionDirty();
               }}
               onRemoveSub={(id) => {

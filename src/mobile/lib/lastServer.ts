@@ -17,6 +17,7 @@ import type { MobileEngine } from "./settings";
 
 export type LastServerPick =
   | { kind: "profile"; tag: string }
+  | { kind: "manual"; id: string }
   | { kind: "auto" }
   | {
       kind: "bundle";
@@ -35,6 +36,7 @@ export function loadLastServer(): LastServerPick | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as LastServerPick;
     if (parsed.kind === "auto") return parsed;
+    if (parsed.kind === "manual" && typeof parsed.id === "string" && parsed.id) return parsed;
     if (parsed.kind === "profile" && typeof parsed.tag === "string") {
       return parsed;
     }

@@ -29,7 +29,9 @@ import { TauriCommandError, api } from "@/lib/api";
 import { humanError, isProfileCheckCancelled } from "@/lib/profileCheck";
 import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { GEOIP_RU_URL, migrateRuleSetPresets } from "@/lib/presets";
-import { loadManualProfiles, saveManualProfiles } from "@/lib/manualProfiles";
+import { useProfileSelection } from "@/hooks/useProfileSelection";
+import { useManualProfiles } from "@/hooks/useManualProfiles";
+import { ManualProfileStorageNotice } from "@/components/ManualProfileStorageNotice";
 import { notify } from "@/lib/notifications";
 import {
   buildConnectionProfiles,
@@ -40,6 +42,7 @@ import {
 } from "@/lib/connectionProfiles";
 import {
   connectionProfileStorageKey,
+  restoreDesktopSelection,
   loadLastServer,
   saveLastServer,
 } from "@/lib/lastServer";
@@ -359,7 +362,11 @@ export default function App() {
   // Parsed profiles — split into manual + subscription entries
   // so subscription auto-refresh only replaces the slots owned
   // by a particular subscription.
-  const [manualProfiles, setManualProfiles] = useState<Outbound[]>(() => loadManualProfiles());
+  const manualStore = useManualProfiles();
+  const { outbounds: manualProfiles, setOutbounds: setManualProfiles, records: manualRecords } = manualStore;
+  const [selectionNeedsChoice, setSelectionNeedsChoice] = useState(false);
+  const selectionNeedsChoiceRef = useRef(false);
+  const requireSelectionChoice = useCallback((needed: boolean) => { selectionNeedsChoiceRef.current = needed; setSelectionNeedsChoice(needed); }, []);
   const [pendingLinks, setPendingLinks] = useState<string>("");
   const [parseErrors, setParseErrors] = useState<ParseFailure[]>([]);
   const [parsing, setParsing] = useState(false);
@@ -380,7 +387,6 @@ export default function App() {
   );
   // Index into `profiles` (manual + subscription) for the server the
   // user has selected on the Home tab. -1 = "auto" (let urltest pick).
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [lastServerPick] = useState(() =>
     loadLastServer() ??
     (settings.default_outbound
@@ -466,16 +472,6 @@ export default function App() {
     }
   }, [settings]);
 
-  // Persist manual profiles every time they change. Subscriptions
-  // are already persisted in `useSubscriptions`; this is the
-  // matching hook for hand-pasted links (`vless://...`). Without
-  // this, the user has to re-paste every time they restart the
-  // app — which is a real UX gap for a regular user who only
-  // uses manual links.
-  useEffect(() => {
-    saveManualProfiles(manualProfiles);
-  }, [manualProfiles]);
-
   // Subscriptions.
   const subs = useSubscriptions();
 
@@ -497,13 +493,15 @@ export default function App() {
   // Manual profiles retain their existing objects; subscription profiles are
   // safe summaries carrying opaque backend references only.
   const profiles = useMemo(
-    () => buildConnectionProfiles(manualProfiles, subs.snapshot),
-    [manualProfiles, subs.snapshot],
+    () => buildConnectionProfiles(manualProfiles, subs.snapshot, manualRecords),
+    [manualProfiles, subs.snapshot, manualRecords],
   );
+  const profileKeys = useMemo(() => profiles.map(connectionProfileStorageKey), [profiles]);
+  const [selectedIndex, setSelectedIndex] = useProfileSelection(profileKeys);
   const liveSelectionRef = useRef({ profiles, selectedIndex });
   useEffect(() => {
     liveSelectionRef.current = { profiles, selectedIndex };
-  }, [profiles, selectedIndex]);
+  }, [profiles, selectedIndex, manualStore.blocked, manualStore.state.status, t]);
 
   // A subscription-owned server appears only after the Rust snapshot hydrates.
   // Keep Auto selected until that stable opaque key is available; never guess
@@ -519,15 +517,15 @@ export default function App() {
       finish();
       return;
     }
-    const restoredIndex = profiles.findIndex(
-      (profile) => connectionProfileStorageKey(profile) === lastServerPick.key,
-    );
-    if (restoredIndex >= 0) {
-      setSelectedIndex(restoredIndex);
+    const restored = restoreDesktopSelection(profiles, lastServerPick);
+    if (restored.kind === "ambiguous") { requireSelectionChoice(true); finish(); return; }
+    if (restored.kind === "selected") {
+      setSelectedIndex(restored.index);
       finish();
       return;
     }
     if (subs.loaded) {
+      if (lastServerPick.key.startsWith("manual:")) requireSelectionChoice(true);
       setSelectedIndex(-1);
       saveLastServer({ kind: "auto" });
       finish();
@@ -712,6 +710,10 @@ export default function App() {
   const startCancelledRef = useRef(false);
   const onStart = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex): Promise<boolean> => {
     startCancelledRef.current = false;
+    if (manualStore.blocked || selectionNeedsChoiceRef.current) {
+      setError(t(selectionNeedsChoiceRef.current ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`));
+      return false;
+    }
     if (!inTauri) {
       setError("Preview mode — start the Tauri shell to actually run sing-box.");
       return false;
@@ -785,7 +787,7 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }, [manualProfiles, profiles, selectedIndex, settings, refresh, t]);
+  }, [manualProfiles, profiles, selectedIndex, settings, refresh, t, manualStore.blocked, manualStore.state.status, selectionNeedsChoice]);
 
   // Latest onStart, for handlers that need to call it after they've
   // already scheduled a state update (so the new settings object
@@ -796,6 +798,9 @@ export default function App() {
   }, [onStart]);
 
   const reconnectCurrentProfile = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex): Promise<boolean> => {
+    if (manualStore.blocked || selectionNeedsChoiceRef.current) {
+      setError(t(selectionNeedsChoiceRef.current ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`)); return false;
+    }
     if (!inTauri) return false;
     setReconnectInProgress(true);
     setBusy(true);
@@ -1013,7 +1018,7 @@ export default function App() {
                 allow_insecure: false,
               },
             }));
-            setManualProfiles((prev) => [...mocks, ...prev]);
+            if (!setManualProfiles((prev) => [...mocks, ...prev])) return;
           }
           for (const u of urlLines) {
             subs.add({ url: u });
@@ -1022,7 +1027,7 @@ export default function App() {
           return;
         }
         const result = await api.parseInput(text);
-        setManualProfiles((prev) => [...result.outbounds, ...prev]);
+        if (result.outbounds.length && !setManualProfiles((prev) => [...result.outbounds, ...prev])) return;
         setParseErrors(result.failures);
         // Promote detected subscription URLs.
         for (const u of result.subscriptions) {
@@ -1064,6 +1069,7 @@ export default function App() {
             ? selected.label
             : null;
       const nextSettings = { ...settings, default_outbound: pickedTag };
+      requireSelectionChoice(false);
       setSelectedIndex(index);
       setSettings(nextSettings);
       if (shouldReconnectAfterProfileSelection(status.status)) {
@@ -1359,6 +1365,8 @@ export default function App() {
 
       {/* Body — fills the rest of the viewport with the active tab. */}
       <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
+        {selectionNeedsChoice && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {tabs.find((t) => t.id === activeTab)?.content}
       </main>
 

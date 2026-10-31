@@ -1,3 +1,4 @@
+import { connectionProfileStorageKey } from "@/lib/lastServer";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -989,7 +990,7 @@ function GroupedHomeProfileRows({
   };
 
   const renderRows = (rows: IndexedHomeProfile[]) => rows.map((row) => (
-    <li className="list-none" key={`${row.index}-${connectionProfileDisplay(row.profile, readyProfileMetadata, geoipByIp, latencyByTag).key}`}>
+    <li className="list-none" key={connectionProfileStorageKey(row.profile) ?? row.index}>
       <ProfileChoice
         row={row}
         selectedIndex={selectedIndex}
@@ -1011,7 +1012,7 @@ function GroupedHomeProfileRows({
           {mode === "grid" ? (
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
               {grouped.manual.map((row) => (
-                <ProfileChoice key={row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} />
+                <ProfileChoice key={connectionProfileStorageKey(row.profile) ?? row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} />
               ))}
             </div>
           ) : <ul className="list-none space-y-1">{renderRows(grouped.manual)}</ul>}
@@ -1039,7 +1040,7 @@ function GroupedHomeProfileRows({
             {isExpanded && (mode === "grid" ? (
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 pt-1">
                 {group.rows.map((row) => (
-                  <ProfileChoice key={row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} />
+                  <ProfileChoice key={connectionProfileStorageKey(row.profile) ?? row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} />
                 ))}
               </div>
             ) : <ul className="list-none space-y-1 pt-1">{renderRows(group.rows)}</ul>)}

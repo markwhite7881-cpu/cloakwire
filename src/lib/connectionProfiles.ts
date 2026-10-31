@@ -9,7 +9,7 @@ import type {
 export const LEGACY_SUBSCRIPTIONS_KEY = "singbox-client.subscriptions.v1";
 
 export type ConnectionProfile =
-  | { kind: "manual"; outbound: Outbound }
+  | { kind: "manual"; outbound: Outbound; id?: string; revision?: number }
   | {
       kind: "subscription";
       reference: SubscriptionLinkRef;
@@ -38,10 +38,12 @@ export type ManagedConnectionSelection = {
 export function buildConnectionProfiles(
   manualOutbounds: Outbound[],
   snapshot: SubscriptionSnapshot,
+  manualRecords?: readonly { id: string; revision: number }[],
 ): ConnectionProfile[] {
-  const profiles: ConnectionProfile[] = manualOutbounds.map((outbound) => ({
+  const profiles: ConnectionProfile[] = manualOutbounds.map((outbound, index) => ({
     kind: "manual",
     outbound,
+    ...(manualRecords?.[index] ? { id: manualRecords[index].id, revision: manualRecords[index].revision } : {}),
   }));
   const linksBySubscription = new Map(
     snapshot.link_outbounds.map((group) => [group.subscription_id, group]),

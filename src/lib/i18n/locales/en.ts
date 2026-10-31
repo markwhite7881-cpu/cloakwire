@@ -1,4 +1,17 @@
 export const en = {
+  profileStorage: {
+  "title": "Profile storage",
+  "ready": "",
+  "legacy_conflict": "Profiles were edited in an older app version. Choose which collection to use. Automatic connection is paused; both originals will be kept.",
+  "corrupt": "Saved profiles could not be read. The original data has been kept. Restore the compatible copy if available.",
+  "write_failed": "Could not save profiles. Your changes were not applied. Free some storage and try again.",
+  "mirror_failed": "Profiles are saved, but the copy for older app versions could not be updated. Retry before downgrading.",
+  "keepCurrent": "Keep current ({count})",
+  "useLegacy": "Use older-version copy ({count})",
+  "merge": "Combine both collections",
+  "retry": "Retry saving",
+  "choose": "The saved server selection could not be restored unambiguously. Choose a server before connecting."
+},
   common: {
     connect: "Connect",
     disconnect: "Disconnect",

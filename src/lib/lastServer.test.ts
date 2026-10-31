@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectionProfileStorageKey, parseLastServerPick } from "./lastServer";
+import { connectionProfileStorageKey, parseLastServerPick, restoreDesktopSelection } from "./lastServer";
 import type { ConnectionProfile } from "./connectionProfiles";
 
 const ready: ConnectionProfile = {
@@ -28,5 +28,18 @@ describe("last server persistence", () => {
     expect(parseLastServerPick("not-json")).toBeNull();
     expect(parseLastServerPick('{"kind":"profile","key":""}')).toBeNull();
     expect(parseLastServerPick('{"kind":"auto"}')).toEqual({ kind: "auto" });
+  });
+});
+
+describe("stable manual selection", () => {
+  const outbound = { protocol: "unsupported", raw: "synthetic", reason: "fixture", tag: "Same" } as const;
+  it("uses the ID independently of names and refuses ambiguous legacy names", () => {
+    const profiles: ConnectionProfile[] = [
+      { kind: "manual", id: "one", revision: 1, outbound },
+      { kind: "manual", id: "two", revision: 1, outbound },
+    ];
+    expect(connectionProfileStorageKey(profiles[1])).toBe("manual:two");
+    expect(restoreDesktopSelection(profiles, { kind: "profile", key: "manual:Same" })).toEqual({ kind: "ambiguous" });
+    expect(restoreDesktopSelection(profiles, { kind: "profile", key: "manual:two", version: 2 })).toEqual({ kind: "selected", index: 1 });
   });
 });

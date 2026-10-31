@@ -78,8 +78,8 @@ export function ServersScreen({
     engine: "singbox" | "xray";
     childName: string;
   }) => void | Promise<void>;
-  /** Delete a manual profile by tag. */
-  onRemoveManual: (tag: string) => void;
+  /** Delete the manual record with this stable ID. */
+  onRemoveManual: (id: string) => void;
 }) {
   const { t } = useI18n();
   // Auto-probe every 10 s (reused desktop hook); "Ping all" fires an
@@ -390,7 +390,7 @@ export function ServersScreen({
               )}
               {isExpanded && (
                 <ul className="divide-y divide-border">
-                  {group.entries.map(({ profile: o, profileIndex: i }) => {
+                  {group.entries.map(({ profile: o, profileIndex: i, manualId }) => {
                     const supported = isSupported(o);
                     const isSel = i === selectedIndex;
                     const ms =
@@ -402,10 +402,10 @@ export function ServersScreen({
                       server: supported ? o.server : undefined,
                       geoipByIp,
                     });
-                    const deletable = group.kind === "manual";
+                    const deletable = group.kind === "manual" && !!manualId;
                     return (
                       <li
-                        key={`srv-${i}-${supported ? profileEndpoint(o) : "x"}`}
+                        key={manualId ?? `srv-${i}-${supported ? profileEndpoint(o) : "x"}`}
                         className="flex items-center"
                       >
                         <button
@@ -448,7 +448,7 @@ export function ServersScreen({
                             onClick={() =>
                               setPendingDelete({
                                 kind: "manual",
-                                key: "tag" in o ? o.tag : o.raw,
+                                key: manualId!,
                                 label: profileLabel(o),
                               })
                             }

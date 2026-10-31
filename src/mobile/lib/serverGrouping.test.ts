@@ -124,3 +124,11 @@ test("keeps unsupported entries in their owning group without endpoint assumptio
   assert.equal(result.profiles[0], unsupported);
   assert.deepEqual(result.groups[0]?.entries.map((e) => e.profileIndex), [0]);
 });
+
+test("manual IDs retain two users at the same endpoint and give each row its owner", () => {
+  const first = profile("Same", "same.example");
+  const second = { ...profile("Same", "same.example"), uuid: "other-user" } as Outbound;
+  const result = buildGroupedServerProfiles([first, second], [], {}, ["manual-1", "manual-2"]);
+  assert.equal(result.profiles.length, 2);
+  assert.deepEqual(result.groups[0].entries.map(e => e.manualId), ["manual-1", "manual-2"]);
+});

@@ -1,6 +1,19 @@
 import type { TranslationSchema } from "./en";
 
 export const zhCN: TranslationSchema = {
+  profileStorage: {
+  "title": "配置存储",
+  "ready": "",
+  "legacy_conflict": "配置已在旧版应用中修改。请选择要使用的列表。自动连接已暂停，两个原始版本都会保留。",
+  "corrupt": "无法读取已保存的配置。原始数据已保留。如果兼容副本可用，可以恢复。",
+  "write_failed": "无法保存配置，更改未应用。请释放存储空间后重试。",
+  "mirror_failed": "配置已保存，但旧版兼容副本未能更新。降级应用前请重试保存。",
+  "keepCurrent": "保留当前列表（{count}）",
+  "useLegacy": "使用旧版副本（{count}）",
+  "merge": "合并两个列表",
+  "retry": "重试保存",
+  "choose": "无法唯一恢复已保存的服务器选择。请先选择服务器再连接。"
+},
   common: {
     connect: "连接",
     disconnect: "断开连接",

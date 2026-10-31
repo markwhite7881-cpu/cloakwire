@@ -594,7 +594,7 @@ export function HomeScreen({
                         const ep = supported ? profileEndpoint(profile) : null;
                         const latency = supported ? latencyState.byTag.get(profile.tag) : undefined;
                         return (
-                          <li key={`home-server-${entry.profileIndex}`}>
+                          <li key={entry.manualId ?? `home-server-${entry.profileIndex}`}>
                             <button
                               type="button"
                               onClick={() => {
@@ -732,7 +732,7 @@ export function HomeScreen({
                     const latency = supported ? latencyState.byTag.get(profile.tag) : undefined;
                     return (
                       <button
-                        key={`sheet-entry-${entry.profileIndex}`}
+                        key={entry.manualId ?? `sheet-entry-${entry.profileIndex}`}
                         type="button"
                         onClick={() => {
                           if (supported) {

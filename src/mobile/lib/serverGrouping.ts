@@ -8,6 +8,7 @@ export interface ServerGroupEntry {
   /** Index into the flat profile list used by VPN/configuration code. */
   profileIndex: number;
   profile: Outbound;
+  manualId?: string;
 }
 
 export interface ServerGroup {
@@ -37,6 +38,7 @@ export function buildGroupedServerProfiles(
   manualProfiles: Outbound[],
   subscriptions: Subscription[],
   lastResult: Record<string, SubscriptionResultLike>,
+  manualIds?: readonly string[],
 ): GroupedServerProfiles {
   const profiles: Outbound[] = [];
   const groups: ServerGroup[] = [];
@@ -48,26 +50,29 @@ export function buildGroupedServerProfiles(
     source: Outbound[],
   ) => {
     const entries: ServerGroupEntry[] = [];
-    for (const profile of source) {
+    for (const [sourceIndex, profile] of source.entries()) {
+      const identity = group.kind === "manual" && manualIds?.[sourceIndex] ? { manualId: manualIds[sourceIndex] } : {};
       if (profile.protocol === "unsupported") {
         const profileIndex = profiles.push(profile) - 1;
-        entries.push({ profileIndex, profile });
+        entries.push({ profileIndex, profile, ...identity });
         continue;
       }
 
       const endpoint = `${profile.server}:${profile.port}`;
-      if (seenEndpoint.has(endpoint)) continue;
+      if (seenEndpoint.has(endpoint) && !identity.manualId) continue;
 
       let displayed = profile;
       if (seenTag.has(profile.tag)) {
-        displayed = { ...profile, tag: `${profile.tag} @${endpoint}` };
-      } else {
-        seenTag.add(profile.tag);
+        const base = `${profile.tag} @${endpoint}`;
+        let tag = base, suffix = 2;
+        while (seenTag.has(tag)) tag = `${base} (${suffix++})`;
+        displayed = { ...profile, tag };
       }
+      seenTag.add(displayed.tag);
 
       seenEndpoint.add(endpoint);
       const profileIndex = profiles.push(displayed) - 1;
-      entries.push({ profileIndex, profile: displayed });
+      entries.push({ profileIndex, profile: displayed, ...identity });
     }
     groups.push({ ...group, entries });
   };
