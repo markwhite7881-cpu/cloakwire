@@ -3,6 +3,7 @@ import path from "node:path";
 import {execFileSync} from "node:child_process";
 import {chromium} from "playwright";
 import {userAppPid,sameConfig} from "./android-device-check-helpers.mjs";
+import {observeTraffic,sameActiveDiagnostic} from "./android-isolation-check-helpers.mjs";
 const args=Object.fromEntries(process.argv.slice(2).filter((_,i)=>i%2===0).map((key,i)=>[key.slice(2),process.argv.slice(2)[i*2+1]]));
 if(!args.adb||!args.serial||!args.output)throw Error("Required --adb --serial --output; authorized test device only");
 const app="app.cloakwire.client",component=app+"/.vpn.DiagnosticIsolationActivity",file="files/diagnostics-isolation-result.json";
@@ -14,15 +15,35 @@ const check=(name,pass)=>{report.cases.push({name,pass});console.log(JSON.string
 const invoke=(cmd,args={})=>page.evaluate(async({cmd,args})=>{try{return await window.__TAURI_INTERNALS__.invoke(cmd,args)}catch{throw Error("native_call_failed")}}, {cmd,args});
 const snapshot=()=>invoke("plugin:vpn|status");
 const pidOf=name=>{const rows=adb("shell","ps","-A","-o","PID,USER,NAME").split("\n").map(s=>s.trim().split(/\s+/));return rows.find(r=>r[2]===name&&/^u0_a\d+$/.test(r[1]))?.[0]};
-async function traffic(){
+async function traffic(expectedPid){
  const helper="app.cloakwire.deviceprobe";
- adb("shell","am","force-stop","--user","0",helper);
- adb("shell","run-as",helper,"rm","-f","files/result.json");
- adb("shell","am","start","--user","0","-n",helper+"/.ProbeActivity");
- const until=Date.now()+12000;
- while(Date.now()<until){
-  try{const r=JSON.parse(adb("shell","run-as",helper,"cat","files/result.json"));return r.defaultIsVpn===true&&r.https204===true&&r.networkUnchanged===true}catch{}
-  await sleep(150);
+ const evidence=await observeTraffic({
+  start:async()=>{
+   adb("shell","am","force-stop","--user","0",helper);
+   adb("shell","run-as",helper,"rm","-f","files/result.json");
+   adb("shell","am","start","--user","0","-n",helper+"/.ProbeActivity");
+  },
+  read:async()=>JSON.parse(adb("shell","run-as",helper,"cat","files/result.json")),
+  isActive:async()=>expectedPid===undefined||sameActiveDiagnostic(expectedPid,pidOf(app+":diagnostics"),JSON.parse(adb("exec-out","run-as",app,"cat",file))),
+  wait:sleep,timeoutMs:expectedPid===undefined?35000:12000
+ });
+ // Only allowlisted booleans and bounded failure codes enter the test report.
+ const r=evidence.result;
+ report.traffic??=[];
+ report.traffic.push({phase:expectedPid===undefined?"baseline_or_after":"during",
+  diagnosticActive:expectedPid===undefined?undefined:!evidence.failure,
+  defaultIsVpn:r?.defaultIsVpn===true,https204:r?.https204===true,
+  networkUnchanged:r?.networkUnchanged===true,failure:evidence.failure});
+ return !evidence.failure&&r?.defaultIsVpn===true&&r?.https204===true&&r?.networkUnchanged===true;
+}
+async function stableBaseline(){
+ // Running core status can precede Android's stable default VPN network.
+ // Record every baseline attempt before starting diagnostics; never retry a failed coexistence test.
+ let consecutive=0;
+ for(let attempt=0;attempt<4;attempt++){
+  consecutive=await traffic()?consecutive+1:0;
+  if(!await unchanged())return false;
+  if(consecutive===2)return true;
  }
  return false;
 }
@@ -37,7 +58,14 @@ async function launch(mode){
 async function result(state,timeout=18000){
  const until=Date.now()+timeout;
  while(Date.now()<until){
-  try{const r=JSON.parse(adb("exec-out","run-as",app,"cat",file));if(r.state==="failed")throw Error("isolation_failed_"+(r.stage??"unknown"));if(r.state===state)return r}catch(e){if(e.message.startsWith("isolation_failed_"))throw e}
+  try{const r=JSON.parse(adb("exec-out","run-as",app,"cat",file));if(r.state==="failed"){
+   report.physicalNetwork={active:r.physicalIsActive===true,wifi:r.physicalIsWifi===true,cellular:r.physicalIsCellular===true};
+   report.probeFailure={
+    stage:["physical_network","setup","core_start","command_channel","dns","udp","https"].includes(r.stage)?r.stage:"unknown",
+    reason:["SocketTimeoutException","UnknownHostException","ConnectException","IOException","IllegalStateException"].includes(r.reason)?r.reason:"other"
+   };
+   throw Error("isolation_failed_"+report.probeFailure.stage)
+  }if(r.state===state)return r}catch(e){if(e.message.startsWith("isolation_failed_"))throw e}
   if(!await unchanged())throw Error("active_vpn_changed");
   await sleep(150);
  }
@@ -54,12 +82,14 @@ try{
  page=browser.contexts()[0].pages()[0];
  original=await snapshot();config=adb("exec-out","run-as",app,"cat","files/xray-config.json");
  check("requires_running_vpn",original.state==="running");
+ check("ordinary_app_baseline_before_diagnostics",await stableBaseline());
  await launch("hold");
  const ready=await result("ready");
+ report.physicalNetwork={active:ready.physicalIsActive===true,wifi:ready.physicalIsWifi===true,cellular:ready.physicalIsCellular===true};
  check("separate_process_and_private_command_channel",ready.pid!==Number(pid)&&ready.commandConnected&&ready.privatePaths);
  check("physical_socket_binding_and_dns",ready.boundSockets>=2&&ready.dnsResolved&&ready.udpRelay&&ready.https204);
  check("active_session_unchanged_during_probe",await unchanged());
- check("ordinary_app_https_while_probe_active",await traffic()&&await unchanged());
+ check("ordinary_app_https_while_probe_active",await traffic(ready.pid)&&await unchanged());
  await launch("cancel");
  await result("cancelled");
  check("cancel_reaps_only_diagnostic_process",await gone(app+":diagnostics")&&await unchanged());

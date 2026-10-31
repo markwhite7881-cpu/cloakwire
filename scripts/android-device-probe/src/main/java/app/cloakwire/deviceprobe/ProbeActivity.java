@@ -55,6 +55,29 @@ public final class ProbeActivity extends Activity {
                 if (c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) break;
             }
             result.put("https204", request(null, "https://www.gstatic.com/generate_204", 204, false) != null);
+            if (getIntent().getBooleanExtra("physicalControl", false)) {
+                // Reproduce the old enumeration-first choice and compare the Wi-Fi-preferred path.
+                Network control = null;
+                for (Network n : cm.getAllNetworks()) {
+                    NetworkCapabilities c = caps(cm, n);
+                    if (c != null && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                        c.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) &&
+                        !c.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) { control = n; break; }
+                }
+                NetworkCapabilities c = caps(cm, control);
+                result.put("physicalIsWifi", c != null && c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI));
+                result.put("physicalIsCellular", c != null && c.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR));
+                result.put("physicalHttps204", control != null &&
+                    request(control, "https://www.gstatic.com/generate_204", 204, false) != null);
+                result.put("preferredPhysicalHttps204", physical != null &&
+                    request(physical, "https://www.gstatic.com/generate_204", 204, false) != null);
+                android.net.LinkProperties properties = physical == null ? null : cm.getLinkProperties(physical);
+                java.net.InetAddress localDns = properties == null || properties.getDnsServers().isEmpty() ?
+                    null : properties.getDnsServers().get(0);
+                result.put("physicalDnsUdp", physical != null && localDns != null && udpDns(physical, localDns));
+                result.put("publicDnsUdp", physical != null && udpDns(physical, java.net.InetAddress.getByName("1.1.1.1")));
+
+            }
             if (getIntent().getBooleanExtra("compareEgress", false)) {
             String routed = request(null, "https://www.cloudflare.com/cdn-cgi/trace", 200, true);
             String direct = physical == null ? null :
@@ -109,6 +132,21 @@ public final class ProbeActivity extends Activity {
             return null;
         } catch (Exception ignored) { return null; }
         finally { if (c != null) { sockets.remove(c); c.disconnect(); } }
+    }
+    private boolean udpDns(Network network, java.net.InetAddress dns) {
+        // Fixed public test question; only response validity enters the report.
+        byte[] query = {0x43,0x57,1,0,0,1,0,0,0,0,0,0,3,119,119,119,7,103,115,116,97,116,105,99,3,99,111,109,0,0,1,0,1};
+        try (java.net.DatagramSocket socket = new java.net.DatagramSocket()) {
+            network.bindSocket(socket);
+            socket.setSoTimeout(5000);
+            socket.connect(dns, 53);
+            socket.send(new java.net.DatagramPacket(query, query.length));
+            java.net.DatagramPacket reply = new java.net.DatagramPacket(new byte[4096],4096);
+            socket.receive(reply);
+            byte[] data = reply.getData();
+            return reply.getLength() >= 12 && data[0] == 0x43 && data[1] == 0x57 &&
+                (data[2] & 0x80) != 0 && (data[3] & 15) == 0;
+        } catch (Exception ignored) { return false; }
     }
     @Override public void onDestroy() {
         cancelled = true;

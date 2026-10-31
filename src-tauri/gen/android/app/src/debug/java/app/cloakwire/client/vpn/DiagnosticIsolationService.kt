@@ -28,6 +28,9 @@ class DiagnosticIsolationService:Service() {
   @Volatile private var request:java.net.HttpURLConnection?=null
   @Volatile private var stage="initial"
   private var root:File?=null
+  @Volatile private var physicalIsActive=false
+  @Volatile private var physicalIsWifi=false
+  @Volatile private var physicalIsCellular=false
   private val inbox=Messenger(Handler(Looper.getMainLooper()) { message ->
     if(message.sendingUid!=android.os.Process.myUid())return@Handler true
     when(message.data.getString("mode")){
@@ -50,6 +53,7 @@ class DiagnosticIsolationService:Service() {
 
   private fun reply(state:String,fields:JSONObject=JSONObject()) {
     fields.put("state",state).put("pid",android.os.Process.myPid()).put("boundSockets",boundSockets.get())
+      .put("physicalIsActive",physicalIsActive).put("physicalIsWifi",physicalIsWifi).put("physicalIsCellular",physicalIsCellular)
     runCatching {reply?.send(Message.obtain(null,1).apply{data=Bundle().apply{putString("result",fields.toString())}})}
   }
   private fun close(state:String?) {
@@ -69,12 +73,18 @@ class DiagnosticIsolationService:Service() {
     try {
       stage="physical_network"
       val cm=getSystemService(ConnectivityManager::class.java)
-      val network=cm.allNetworks.firstOrNull {
+      val active=cm.activeNetwork
+      val physical=cm.allNetworks.filter {
         val caps=cm.getNetworkCapabilities(it)
         caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true &&
           caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) &&
           !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
-      } ?: error("no_physical_network")
+      }
+      val network=diagnosticNetworkChoice(active,physical)?:error("no_unambiguous_physical_network")
+      val selectedCaps=cm.getNetworkCapabilities(network)?:error("network_lost")
+      physicalIsActive=network==active
+      physicalIsWifi=selectedCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+      physicalIsCellular=selectedCaps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
       val props=cm.getLinkProperties(network)?:error("no_link_properties")
       val nic=java.net.NetworkInterface.getByName(props.interfaceName)?:error("no_interface")
       val dns=props.dnsServers.firstOrNull()?.hostAddress?.substringBefore('%')?:error("no_dns")
