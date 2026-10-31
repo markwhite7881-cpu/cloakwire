@@ -1,3 +1,4 @@
+import { manualProfileHint } from "@/lib/manualProfileHint";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { defaultImportDecision, type ImportPlan, type ImportDecision, type ImportDecisions } from "@/lib/profileImport";
@@ -20,7 +21,7 @@ export function ProfileImportContent({plan,records,decisions,onDecision}:{
           <input type="radio" className="mt-1 h-4 w-4 shrink-0" name={"import-"+index}
             checked={selected?.kind==="update"&&selected.record_id===candidate.record_id}
             onChange={()=>onDecision(index,{kind:"update",record_id:candidate.record_id,expected_revision:candidate.expected_revision})}/>
-          <span className="min-w-0 break-words"><span className="font-medium">{t("profileImport.update")} — {name}</span>
+          <span className="min-w-0 break-words"><span className="font-medium">{t("profileImport.update")} — {name} <span className="font-mono text-xs">{manualProfileHint(candidate.record_id,records.map(r=>r.id))}</span></span>
             <span className="mt-1 block text-muted-foreground">{candidate.exact_duplicate?t("profileImport.duplicate"):candidate.changed_fields.map(field=>t("profileImport.fields."+field)).join(", ")}</span>
           </span>
         </label>;

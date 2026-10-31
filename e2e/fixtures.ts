@@ -1,7 +1,7 @@
 import {expect,type Page,type TestInfo} from "playwright/test";
 export const v1="singbox-client.manual-profiles.v1",v2="singbox-client.manual-profiles.v2";
 export const settingsKey="singbox-client.settings.v2";
-export async function openFixture(page:Page,testInfo:TestInfo,options:{tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
+export async function openFixture(page:Page,testInfo:TestInfo,options:{running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
   const mobile=testInfo.project.name==="mobile";
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text());});
@@ -9,11 +9,11 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{tab?:stri
   await page.addInitScript(({mobile,options,v1})=>{
     const fixture=(tag:string,uuid:string)=>({protocol:"vless",tag,server:"127.0.0.1",port:12345,uuid,transport:{kind:"tcp"},tls:{enabled:false,alpn:[],allow_insecure:false}});
     if(!sessionStorage.getItem("fixture-seeded")){
-      localStorage.setItem(v1,JSON.stringify(options.single?[fixture("My server","one")]:[fixture("Same","one"),fixture("Same","two")]));
+      localStorage.setItem(v1,JSON.stringify(options.single?[fixture("My server","one")]:options.selectedFirst?[fixture("First","one"),fixture("Second","two")]:[fixture("Same","one"),fixture("Same","two")]));
       localStorage.setItem("cloakwire:locale",options.locale??"en");
       localStorage.setItem(mobile?"singbox.mobile.tab":"singbox.tab",options.tab??"servers");
       if(options.customRouting)localStorage.setItem("singbox-client.settings.v2",JSON.stringify({tunnel_mode:"tun",routing:{vpn_processes:[],direct_processes:[],final_outbound:mobile?"proxy":"direct",rules:[],rule_sets:[],tun_app_mode:"all",tun_app_list:[]}}));
-      localStorage.setItem(mobile?"singbox.mobile.lastServer":"cloakwire.desktop.lastServer.v1",JSON.stringify(mobile?{kind:"profile",tag:"Same"}:{kind:"profile",key:"manual:Same"}));
+      localStorage.setItem(mobile?"singbox.mobile.lastServer":"cloakwire.desktop.lastServer.v1",JSON.stringify(mobile?{kind:"profile",tag:options.single?"My server":options.selectedFirst?"First":"Same"}:{kind:"profile",key:options.single?"manual:My server":options.selectedFirst?"manual:First":"manual:Same"}));
       sessionStorage.setItem("fixture-seeded","1");
     }
     const w=window as any;w.nativeCalls=[];
@@ -24,8 +24,8 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{tab?:stri
       if(cmd==="list_processes")return [{pid:123,name:"fixture.exe"}];
       if(cmd==="plugin:vpn|listApps")return [{packageName:"fixture.app",label:"Fixture app"}];
       if(cmd==="list_subscriptions")return {subscriptions:[],link_outbounds:[]};
-      if(cmd==="get_status")return {status:"stopped",pid:null,uptime_secs:null,last_exit_code:null,last_error:null};
-      if(cmd==="plugin:vpn|status")return {state:"stopped",message:null,since:null,engine:""};
+      if(cmd==="get_status")return {status:options.running?"running":"stopped",pid:options.running?123:null,uptime_secs:null,last_exit_code:null,last_error:null};
+      if(cmd==="plugin:vpn|status")return {state:options.running?"running":"stopped",message:null,since:null,engine:""};
       if(cmd==="get_binary_info")return {path:"fixture",exists:true};
       if(cmd==="get_singbox_version")return {version:"fixture",raw:"fixture"};
       if(cmd==="get_xray_version")return "fixture";

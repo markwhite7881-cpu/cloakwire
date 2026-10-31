@@ -1,3 +1,4 @@
+import { manualProfileHint } from "@/lib/manualProfileHint";
 import { useState } from "react";
 import { Link2, Loader2, Plus, Rss, Server, Trash2 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -241,6 +242,7 @@ export function ServersTab({
                 <ProfileCard
                   key={profile.id ?? `manual-${index}`}
                   outbound={profile.outbound}
+                  identityHint={profile.id ? manualProfileHint(profile.id,manualProfiles.flatMap(p=>p.profile.id?[p.profile.id]:[])) : undefined}
                   geoipByIp={geoipByIp}
                   onRemove={() => {
                     if (window.confirm(t("servers.removeConfirm", { name: profileLabel(profile.outbound) }))) onRemove(index);

@@ -41,9 +41,17 @@ async function proxyRequest(proxyPort, targetPort) {
     req.end();
   });
 }
+export async function finishOwnedCase(result,owners) {
+  const cleanup=await Promise.allSettled(owners.map(async owner=>{
+    await owner.stop();
+    const final=await owner.done;
+    if(final.issue==='cleanup_failed')throw new Error('cleanup_failed');
+  }));
+  return cleanup.some(item=>item.status==='rejected')?{exitCode:null,issue:'cleanup_failed'}:result;
+}
 async function loopbackCase(engine, binaries, dir, wrongUser) {
   const owners = [];
-  let hits = 0;
+  let hits = 0, result;
   const target = createServer((_, response) => { hits++; response.writeHead(204).end(); });
   await new Promise((yes, no) => target.once('error', no).listen(0, '127.0.0.1', yes));
   try {
@@ -62,14 +70,15 @@ async function loopbackCase(engine, binaries, dir, wrongUser) {
     }
     const success = await proxyRequest(proxyPort, target.address().port);
     const expected = wrongUser ? !success && hits === 0 : success && hits === 1;
-    return { exitCode: expected ? 0 : 1, issue: expected ? null : 'unexpected_result' };
+    result = { exitCode: expected ? 0 : 1, issue: expected ? null : 'unexpected_result' };
   } catch (error) {
-    return { exitCode: null, issue: ['timeout', 'core_rejected'].includes(error.message) ? error.message : 'unexpected_result' };
+    result = { exitCode: null, issue: ['timeout', 'core_rejected'].includes(error.message) ? error.message : 'unexpected_result' };
   } finally {
-    await Promise.all(owners.map(owner => owner.stop()));
+    result=await finishOwnedCase(result,owners);
     target.closeAllConnections();
     await new Promise(yes => target.close(yes));
   }
+  return result;
 }
 export async function runMatrix({ binaries: binaryDir, output }) {
   const suffix = { 'win32-x64': 'x86_64-pc-windows-msvc.exe', 'darwin-arm64': 'aarch64-apple-darwin', 'darwin-x64': 'x86_64-apple-darwin' }[`${process.platform}-${process.arch}`];
@@ -82,18 +91,25 @@ export async function runMatrix({ binaries: binaryDir, output }) {
   const dirty = await runOwnedProcess('git', ['status', '--porcelain', '--untracked-files=no']);
   const dir = await mkdtemp(join(tmpdir(), 'cloakwire-core-matrix-'));
   const cases = [];
+  let cleanupFailed=false;
   try {
-    for (const engine of ['sing-box', 'xray']) {
+    engines: for (const engine of ['sing-box', 'xray']) {
       const valid = loopbackFixtures({ serverPort: 9, proxyPort: 12001 })[engine];
       assertLoopbackFixture(valid);
       for (const [name, value, expected] of [['valid-config', JSON.stringify(valid), 0], ['malformed-config', '{"inbounds":', 'nonzero']]) {
         const file = join(dir, 'check.json');
         await writeFile(file, value, { mode: 0o600 });
-        cases.push(publicCase(name, engine, await runOwnedProcess(binaries[engine], checkArgs(engine, file)), expected));
+        const result=await runOwnedProcess(binaries[engine],checkArgs(engine,file));
+        cases.push(publicCase(name,engine,result,expected));
+        if(result.issue==='cleanup_failed'){cleanupFailed=true;break engines;}
       }
-      for (const wrongUser of [false, true]) cases.push(publicCase(wrongUser ? 'wrong-user' : 'vless-loopback', engine, await loopbackCase(engine, binaries, dir, wrongUser)));
+      for (const wrongUser of [false,true]){
+        const result=await loopbackCase(engine,binaries,dir,wrongUser);
+        cases.push(publicCase(wrongUser?'wrong-user':'vless-loopback',engine,result));
+        if(result.issue==='cleanup_failed'){cleanupFailed=true;break engines;}
+      }
     }
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { if(!cleanupFailed) await rm(dir, { recursive: true, force: true }); }
   const report = { schema: 1, commit, tracked_changes: Boolean(dirty.stdout.trim()), suite: 'core', core_sha256: coreHashes, cases };
   await mkdir(output, { recursive: true });
   await writeFile(join(output, 'connection-matrix.json'), JSON.stringify(report, null, 2) + '\n');

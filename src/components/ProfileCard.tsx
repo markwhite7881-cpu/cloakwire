@@ -22,6 +22,7 @@ const PROTOCOL_VARIANT: Record<string, "default" | "secondary" | "destructive" |
 
 interface Props {
   outbound: Outbound;
+  identityHint?: string;
   /** ip → country code from the GeoIP cache. */
   geoipByIp?: Record<string, string>;
   onRemove: () => void;
@@ -147,7 +148,7 @@ function protocolExtra(o: Outbound): string | null {
   }
 }
 
-export function ProfileCard({ outbound, geoipByIp, onRemove }: Props) {
+export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint }: Props) {
   const { t } = useI18n();
   const [showJson, setShowJson] = useState(false);
   const [jsonText, setJsonText] = useState<string | null>(null);
@@ -226,7 +227,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove }: Props) {
               alt={flag.code}
             />
             <span className="truncate text-sm font-medium" title={name}>
-              {name}
+              {name} {identityHint && <span className="font-mono text-xs text-muted-foreground">{identityHint}</span>}
             </span>
             {extra && (
               <span className="rounded bg-muted px-1.5 py-0 font-mono text-[10px] text-muted-foreground">

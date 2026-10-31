@@ -1,5 +1,6 @@
+import mergedFixture from "./fixtures/manual-merged-profiles.json";
 import { describe, expect, it } from "vitest";
-import { loadManualProfileStore, saveManualProfileStore, saveManualProfileStoreIfCurrent, reconcileManualProfiles, replaceManualRecord, resolveManualSelection, toGeneratorOutbounds, MANUAL_V1_KEY, MANUAL_V2_KEY, type ProfileStorage } from "./manualProfileStore";
+import { loadManualProfileStore, saveManualProfileStore, saveManualProfileStoreIfCurrent, resolveManualStoreConflict, reconcileManualProfiles, replaceManualRecord, resolveManualSelection, toGeneratorOutbounds, MANUAL_V1_KEY, MANUAL_V2_KEY, type ProfileStorage } from "./manualProfileStore";
 import type { Outbound } from "./types";
 
 const outbound = (tag = "Same", uuid = "11111111-1111-4111-8111-111111111111"): Outbound =>
@@ -82,7 +83,8 @@ describe("manual profile v2 persistence", () => {
     const merged = reconcileManualProfiles(records, [outbound(), outbound("Same", "new-user")], "merge");
     expect(merged).toHaveLength(2); expect(merged[0].id).toBe(records[0].id);
     expect(merged[1].id).not.toBe(records[0].id);
-    expect(merged.map(r => r.outbound)).toContainEqual(outbound("Same", "new-user"));
+    expect(merged.map(r => r.outbound)).toContainEqual(outbound("Same (2)", "new-user"));
+    expect(merged[0].outbound).toEqual(outbound());
   });
 });
 
@@ -94,4 +96,21 @@ it("does not overwrite a profile revision changed after the UI loaded",()=>{
   const result=saveManualProfileStoreIfCurrent(storage,[replaceManualRecord(loaded.records[0],outbound("Old dialog","late-user"))],loaded.records);
   expect(result.status).toBe("stale");
   expect(loadManualProfileStore(storage).records).toEqual(newer);
+});
+
+it("stale reconciliation preserves both newer source versions and refreshes the choice",()=>{
+ const {storage}=memory({[MANUAL_V1_KEY]:JSON.stringify([outbound()])});
+ loadManualProfileStore(storage);
+ storage.setItem(MANUAL_V1_KEY,JSON.stringify([outbound("Same","legacy-B")]));
+ const conflict=loadManualProfileStore(storage),before=storage.getItem(MANUAL_V2_KEY);
+ const newer=JSON.stringify([outbound("Same","legacy-C")]);storage.setItem(MANUAL_V1_KEY,newer);
+ expect(resolveManualStoreConflict(storage,conflict,"merge").status).toBe("stale");
+ expect(storage.getItem(MANUAL_V1_KEY)).toBe(newer);expect(storage.getItem(MANUAL_V2_KEY)).toBe(before);
+});
+
+it("produces the shared core-check fixture after merging changed credentials",()=>{
+ const {storage}=memory({[MANUAL_V1_KEY]:JSON.stringify([outbound()])});
+ const current=loadManualProfileStore(storage);
+ const legacy=[outbound("Same","22222222-2222-4222-8222-222222222222")];
+ expect(reconcileManualProfiles(current.records,legacy,"merge").map(r=>r.outbound)).toEqual(mergedFixture);
 });

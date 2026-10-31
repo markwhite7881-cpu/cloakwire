@@ -10,6 +10,7 @@ export interface ManualProfileEnvelope {
   legacyMirrorFingerprint: string | null; legacyMirrorStatus: "ready" | "pending";
 }
 export interface LoadResult {
+  source?: { v1: string | null; v2: string | null };
   status: "ready" | "legacy_conflict" | "corrupt" | "write_failed" | "mirror_failed";
   records: ManualProfileRecord[]; legacy: Outbound[] | null;
 }
@@ -80,7 +81,7 @@ export function saveManualProfileStore(storage: ProfileStorage, records: ManualP
     return { status: "saved" };
   } catch { return { status: "mirror_failed" }; }
 }
-export function loadManualProfileStore(storage: ProfileStorage): LoadResult {
+function readManualProfileStore(storage: ProfileStorage): LoadResult {
   let v1: string | null, v2: string | null;
   try { v1 = storage.getItem(MANUAL_V1_KEY); v2 = storage.getItem(MANUAL_V2_KEY); }
   catch { return { status: "corrupt", records: [], legacy: null }; }
@@ -103,6 +104,11 @@ export function loadManualProfileStore(storage: ProfileStorage): LoadResult {
   }
   return { status: "ready", records, legacy };
 }
+export function loadManualProfileStore(storage: ProfileStorage): LoadResult {
+  const loaded=readManualProfileStore(storage);
+  try { return {...loaded,source:{v1:storage.getItem(MANUAL_V1_KEY),v2:storage.getItem(MANUAL_V2_KEY)}}; }
+  catch { return loaded; }
+}
 export function replaceManualRecord(record: ManualProfileRecord, outbound: Outbound): ManualProfileRecord {
   const payload = (o: Outbound) => { const { tag: _tag, ...rest } = o as Outbound & { tag?: string }; return canonicalProfile(rest); };
   return { id: record.id, revision: record.revision + (payload(record.outbound) === payload(outbound) ? 0 : 1), outbound: structuredClone(outbound) };
@@ -120,10 +126,24 @@ export function reconcileManualProfiles(records: ManualProfileRecord[], legacy: 
     if (matches.length === 1 && !used.has(matches[0].id)) { used.add(matches[0].id); return matches[0]; }
     return newManualRecord(outbound);
   });
-  return choice === "legacy" ? imported : [...records, ...imported.filter(r => !records.some(existing => existing.id === r.id))];
+  const result=choice === "legacy" ? imported : [...records, ...imported.filter(r => !records.some(existing => existing.id === r.id))];
+  const retained=new Set(records.map(record=>record.id));
+  const tags=new Set(["proxy","auto","direct","block","dns-out",...result.filter(r=>retained.has(r.id)).flatMap(r=>"tag" in r.outbound?[r.outbound.tag]:[])]);
+  return result.map(record=>{
+    if(retained.has(record.id)||record.outbound.protocol==="unsupported")return record;
+    const base=record.outbound.tag;let name=base,n=2;
+    while(tags.has(name))name=base+" ("+(n++)+")";
+    tags.add(name);return {...record,outbound:{...record.outbound,tag:name}};
+  });
 }
-export function resolveManualStoreConflict(storage: ProfileStorage, loaded: LoadResult, choice: "current" | "legacy" | "merge"): SaveResult {
+export function resolveManualStoreConflict(storage: ProfileStorage, loaded: LoadResult, choice: "current" | "legacy" | "merge"): SaveResult | {status:"stale";latest:LoadResult} {
   if (choice !== "current" && !loaded.legacy) return { status: "failed" };
+  // Reconciliation owns both exact source versions, including corrupt bytes.
+  try {
+    if(!loaded.source||storage.getItem(MANUAL_V1_KEY)!==loaded.source.v1||storage.getItem(MANUAL_V2_KEY)!==loaded.source.v2) {
+      return {status:"stale",latest:loadManualProfileStore(storage)};
+    }
+  } catch { return {status:"failed"}; }
   // Keep the original bytes before an explicit user reconciliation.
   try { storage.setItem(RECOVERY_KEY, JSON.stringify({ v1: storage.getItem(MANUAL_V1_KEY), v2: storage.getItem(MANUAL_V2_KEY) })); }
   catch { return { status: "failed" }; }

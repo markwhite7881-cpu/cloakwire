@@ -1,0 +1,21 @@
+import {test,expect} from "playwright/test";
+import {openFixture,v2,records} from "./fixtures";
+test("quota failure does not allow reconnect to stop an accepted session",async({page},info)=>{
+ test.skip(info.project.name!=="desktop","Desktop callback regression");
+ await openFixture(page,info,{running:true,single:true,tab:"routing"});
+ await page.getByRole("button",{name:"All applications",exact:true}).click();
+ await page.getByRole("button",{name:"Apply routing",exact:true}).click();
+ await page.getByText("Servers",{exact:true}).first().click();
+ await page.locator("textarea").first().fill("vless://SYNTHETIC");
+ await page.getByRole("button",{name:"Add Server",exact:true}).click();
+ const dialog=page.getByRole("dialog").filter({hasText:"Compare imported profiles"});
+ await dialog.getByRole("radio",{name:/Update/}).check();
+ await page.evaluate(()=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==="singbox-client.manual-profiles.v2")throw new Error("quota");original.call(this,key,value);};});
+ await dialog.getByRole("button",{name:"Apply choices"}).click();
+ await expect(dialog.getByRole("alert")).toBeVisible();
+ await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+ await page.getByText("Home",{exact:true}).first().click();
+ await page.getByRole("button",{name:"Reconnect now",exact:true}).click();
+ await page.waitForTimeout(150);
+ expect(await page.evaluate(()=>(window as any).nativeCalls.filter((cmd:string)=>["stop_singbox","clear_system_proxy","start_managed_singbox"].includes(cmd)))).toEqual([]);
+});

@@ -1,3 +1,4 @@
+import { manualProfileHint } from "@/lib/manualProfileHint";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Gauge, Link2, Loader2, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
 import { FlagIcon } from "@/components/FlagIcon";
@@ -435,6 +436,7 @@ export function ServersScreen({
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium">
                               {profileLabel(o)}
+                              {manualId && <span className="ml-1 font-mono text-xs text-muted-foreground">{manualProfileHint(manualId,groups.flatMap(g=>g.entries.flatMap(e=>e.manualId?[e.manualId]:[])))}</span>}
                             </span>
                             <span className="block truncate font-mono text-[11px] text-muted-foreground">
                               {supported ? profileEndpoint(o) : t("servers.unsupportedLink")}

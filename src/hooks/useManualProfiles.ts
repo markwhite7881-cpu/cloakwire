@@ -44,6 +44,7 @@ export function useManualProfiles() {
     const prior = current.current;
     try {
       const result = resolveManualStoreConflict(storage(), prior, choice);
+      if (result.status === "stale") { publish(result.latest); return false; }
       if (result.status === "failed") return false;
       // Resolve generates IDs once in storage; reload the authoritative result.
       const loaded = loadManualProfileStore(storage());
@@ -52,13 +53,8 @@ export function useManualProfiles() {
     } catch { return false; }
   }, [publish]);
   const retry = useCallback(() => {
-    const prior = current.current;
-    try {
-      if (prior.status === "write_failed") {
-        const result = saveManualProfileStore(storage(), prior.records);
-        if (result.status !== "failed") publish(loadManualProfileStore(storage()));
-      } else publish(loadManualProfileStore(storage()));
-    } catch { /* existing visible error stays */ }
+    // Reload/repair the authoritative store; never replay a cached collection.
+    try { publish(loadManualProfileStore(storage())); } catch { /* keep visible error */ }
   }, [publish]);
   const outbounds = useMemo(() => toGeneratorOutbounds(state.records), [state.records]);
   return { state, records: state.records, outbounds, setOutbounds, saveRecords, blocked, reconcile, retry };

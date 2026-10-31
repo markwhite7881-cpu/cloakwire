@@ -453,5 +453,16 @@ mod generated_core_baseline_tests {
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries").join(format!("sing-box-{target}")),
             &path,
         ).await.unwrap();
+        let merged: Vec<crate::parser::Outbound> = serde_json::from_str(include_str!("../../../src/lib/fixtures/manual-merged-profiles.json")).unwrap();
+        let generated = serde_json::to_value(Config::build(&merged, &settings)).unwrap();
+        std::fs::write(&path, serde_json::to_vec(&generated).unwrap()).unwrap();
+        let binary=Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries").join(format!("sing-box-{target}"));
+        crate::engine::singbox::validate_config(&binary,&path).await.unwrap();
+        let mut duplicate=generated;
+        let list=duplicate["outbounds"].as_array_mut().unwrap();
+        let second=list.iter_mut().find(|o|o["tag"]=="Same (2)").unwrap();
+        second["tag"]="Same".into();
+        std::fs::write(&path,serde_json::to_vec(&duplicate).unwrap()).unwrap();
+        assert!(crate::engine::singbox::validate_config(&binary,&path).await.is_err());
     }
 }

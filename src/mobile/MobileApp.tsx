@@ -241,7 +241,7 @@ export default function MobileApp() {
     }
     return keys;
   }, [serverGroups]);
-  const [selectedIndex, setSelectedIndex] = useProfileSelection(profileKeys, 0);
+  const [selectedIndex, setSelectedIndex, selectionMissing, isSelectionMissing] = useProfileSelection(profileKeys, 0);
   const geoip = useGeoIp(profiles);
 
   // xray sends unmatched traffic to the FIRST outbound, so the list
@@ -271,6 +271,10 @@ export default function MobileApp() {
   // cold start so the UI (and auto-connect) points at the server the
   // user actually used instead of `profiles[0]`.
 
+  const [restoreSettled, setRestoreSettled] = useState(false);
+  const [restorePick] = useState(() => loadLastServer());
+  const restoreAttempted = useRef(false);
+
   // Snapshots for the "running" transition — the effect below keys
   // on vpn.state only, so it must read the selection as of that
   // moment rather than through closure deps (which would re-fire on
@@ -285,7 +289,7 @@ export default function MobileApp() {
   }, [activeBundle, selectedIndex, profiles]);
 
   useEffect(() => {
-    if (vpn.state !== "running") return;
+    if (vpn.state !== "running" || !restoreSettled || selectionNeedsChoice || isSelectionMissing()) return;
     const bundle = activeBundleRef.current;
     if (bundle) {
       saveLastServer({
@@ -308,7 +312,7 @@ export default function MobileApp() {
       if (key?.startsWith("manual:")) saveLastServer({ kind: "manual", id: key.slice(7) });
       else saveLastServer({ kind: "profile", tag: tagOf(picked) });
     }
-  }, [vpn.state]);
+  }, [vpn.state, restoreSettled]);
 
   // Restore: the pick may reference a subscription outbound that
   // only appears once hydration finishes, so keep trying while the
@@ -316,9 +320,7 @@ export default function MobileApp() {
   // blocked forever. `restoreSettled` also gates the auto-connect
   // effect below — it must not fire with the default selection
   // while the real pick is still being located.
-  const [restoreSettled, setRestoreSettled] = useState(false);
-  const [restorePick] = useState(() => loadLastServer());
-  const restoreAttempted = useRef(false);
+
   useEffect(() => {
     if (restoreAttempted.current) return;
     const pick = restorePick;
@@ -390,7 +392,7 @@ export default function MobileApp() {
   };
 
   const reconnect = async () => {
-    if (vpn.busy || reconnectInProgress || manualStore.blocked || selectionNeedsChoice) return;
+    if (vpn.busy || reconnectInProgress || manualStore.blocked || selectionNeedsChoice || isSelectionMissing()) return;
     setReconnectInProgress(true);
     setReconnectFailed(false);
     setReconnectError(null);
@@ -504,7 +506,7 @@ export default function MobileApp() {
       !activeBundle && profiles.length > 0;
     if (
       autoConnect &&
-      !manualStore.blocked && !selectionNeedsChoice &&
+      !manualStore.blocked && !selectionNeedsChoice && !selectionMissing &&
       restoreSettled &&
       vpn.ready &&
       !autoConnectFired.current &&
@@ -518,6 +520,7 @@ export default function MobileApp() {
     autoConnect,
     manualStore.blocked,
     selectionNeedsChoice,
+    selectionMissing,
     restoreSettled,
     vpn.ready,
     vpn.state,
@@ -525,20 +528,6 @@ export default function MobileApp() {
     activeBundle,
     vpn.connect,
   ]);
-
-  // Clamp the selection when the list shrinks. `-1` is the "Auto"
-  // (urltest) pick and is valid even when the list is non-empty —
-  // use the shared `isValidProfileSelection` helper so the mobile
-  // clamp matches the desktop behaviour. 2026-08-21.
-  useEffect(() => {
-    if (profiles.length === 0 && selectedIndex !== -1) setSelectedIndex(-1);
-    else if (
-      profiles.length > 0 &&
-      !isValidProfileSelection(selectedIndex, profiles.length)
-    ) {
-      setSelectedIndex(0);
-    }
-  }, [profiles.length, selectedIndex]);
 
   const onSelectProfile = (index: number) => {
     const isAuto = index === -1;
@@ -583,8 +572,8 @@ export default function MobileApp() {
 
   const connectWithSelection = async () => {
     if (vpn.busy) return;
-    if (manualStore.blocked || selectionNeedsChoice) {
-      vpn.reportError(t(selectionNeedsChoice ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`)); return;
+    if (manualStore.blocked || selectionNeedsChoice || isSelectionMissing()) {
+      vpn.reportError(t(selectionNeedsChoice || isSelectionMissing() ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`)); return;
     }
     vpn.clearError();
     setSelectionBusy(true);
@@ -643,7 +632,7 @@ export default function MobileApp() {
       >
         <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} mobile onApply={profileImport.apply} onCancel={profileImport.cancel} />
       <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
-        {selectionNeedsChoice && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
+        {(selectionNeedsChoice || selectionMissing) && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {shouldShowReconnectNotice({
             reconnectInProgress,
             reconnectRequired,

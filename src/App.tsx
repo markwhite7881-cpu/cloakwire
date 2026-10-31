@@ -478,7 +478,7 @@ export default function App() {
     [manualProfiles, subs.snapshot, manualRecords],
   );
   const profileKeys = useMemo(() => profiles.map(connectionProfileStorageKey), [profiles]);
-  const [selectedIndex, setSelectedIndex] = useProfileSelection(profileKeys);
+  const [selectedIndex, setSelectedIndex, selectionMissing, isSelectionMissing] = useProfileSelection(profileKeys);
   const liveSelectionRef = useRef({ profiles, selectedIndex });
   useEffect(() => {
     liveSelectionRef.current = { profiles, selectedIndex };
@@ -506,9 +506,8 @@ export default function App() {
       return;
     }
     if (subs.loaded) {
-      if (lastServerPick.key.startsWith("manual:")) requireSelectionChoice(true);
+      requireSelectionChoice(true);
       setSelectedIndex(-1);
-      saveLastServer({ kind: "auto" });
       finish();
     }
   }, [lastServerPick, profiles, subs.loaded]);
@@ -516,7 +515,7 @@ export default function App() {
   // Save the server that actually reached Running, not merely the last row the
   // user clicked. Reconnects therefore update this value only after success.
   useEffect(() => {
-    if (!selectionRestoreSettled || status.status !== "running") return;
+    if (!selectionRestoreSettled || status.status !== "running" || selectionNeedsChoiceRef.current || isSelectionMissing()) return;
     const { profiles: currentProfiles, selectedIndex: currentIndex } = liveSelectionRef.current;
     if (currentIndex === -1) {
       saveLastServer({ kind: "auto" });
@@ -691,8 +690,8 @@ export default function App() {
   const startCancelledRef = useRef(false);
   const onStart = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex): Promise<boolean> => {
     startCancelledRef.current = false;
-    if (manualStore.blocked || selectionNeedsChoiceRef.current) {
-      setError(t(selectionNeedsChoiceRef.current ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`));
+    if (manualStore.blocked || selectionNeedsChoiceRef.current || isSelectionMissing()) {
+      setError(t(selectionNeedsChoiceRef.current || isSelectionMissing() ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`));
       return false;
     }
     if (!inTauri) {
@@ -779,8 +778,8 @@ export default function App() {
   }, [onStart]);
 
   const reconnectCurrentProfile = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex): Promise<boolean> => {
-    if (manualStore.blocked || selectionNeedsChoiceRef.current) {
-      setError(t(selectionNeedsChoiceRef.current ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`)); return false;
+    if (manualStore.blocked || selectionNeedsChoiceRef.current || isSelectionMissing()) {
+      setError(t(selectionNeedsChoiceRef.current || isSelectionMissing() ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`)); return false;
     }
     if (!inTauri) return false;
     setReconnectInProgress(true);
@@ -814,7 +813,7 @@ export default function App() {
       setBusy(false);
       setReconnectInProgress(false);
     }
-  }, [profiles, selectedIndex]);
+  }, [profiles, selectedIndex, manualStore.blocked, manualStore.state.status, t, isSelectionMissing]);
 
   const onStop = useCallback(async () => {
     if (!inTauri) return;
@@ -1350,7 +1349,7 @@ export default function App() {
       <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
         <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} onApply={profileImport.apply} onCancel={profileImport.cancel} />
       <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
-        {selectionNeedsChoice && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
+        {(selectionNeedsChoice || selectionMissing) && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {tabs.find((t) => t.id === activeTab)?.content}
       </main>
 
