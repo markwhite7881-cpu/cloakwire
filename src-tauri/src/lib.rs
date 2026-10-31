@@ -29,10 +29,10 @@ pub mod commands;
 #[path = "commands_android.rs"]
 pub mod commands;
 pub mod config;
+pub mod diagnostics;
 #[cfg(not(target_os = "android"))]
 pub mod engine;
 pub mod error;
-pub mod diagnostics;
 #[cfg(not(target_os = "android"))]
 pub mod killswitch;
 pub mod parser;
@@ -49,15 +49,15 @@ pub mod subscriptions;
 #[cfg(not(target_os = "android"))]
 pub mod traffic;
 #[cfg(not(target_os = "android"))]
-pub mod updates;
-#[cfg(not(target_os = "android"))]
 pub mod tray;
 #[cfg(not(target_os = "android"))]
+pub mod updates;
+#[cfg(not(target_os = "android"))]
 pub mod xray;
+pub mod xray_config;
 #[cfg(target_os = "android")]
 #[path = "xray/routing.rs"]
 pub mod xray_routing;
-pub mod xray_config;
 
 #[cfg(not(target_os = "android"))]
 use process::ProcessManager;
@@ -253,9 +253,10 @@ pub fn run() {
 
     #[cfg(not(target_os = "android"))]
     builder
-        .manage(diagnostics::coordinator::ProbeCoordinator::default())
         .invoke_handler(tauri::generate_handler![
             diagnostics::get_connection_health,
+            diagnostics::get_connection_diagnostics,
+            diagnostics::retry_active_probe,
             diagnostics::cancel_profile_probe,
             commands::ping,
             commands::get_binary_info,

@@ -3,6 +3,10 @@
 //! Every command is async and returns `AppResult<T>`. The frontend
 //! sees errors as `{ kind, message }` (see error.rs).
 
+use crate::diagnostics::{
+    active_config::{ActiveLaunch, SessionSource},
+    types::ProfileRef,
+};
 use std::ffi::OsString;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -147,6 +151,8 @@ pub async fn check_config(app: AppHandle, config_path: String) -> AppResult<Stri
 pub struct ManagedLaunchInput {
     #[serde(alias = "manualOutbounds")]
     pub manual_outbounds: Vec<Outbound>,
+    #[serde(default, alias = "manualProfileId")]
+    pub manual_profile_id: Option<String>,
     #[serde(alias = "subscriptionLinks")]
     pub subscription_links: Option<Vec<crate::subscriptions::SubscriptionLinkRef>>,
     #[serde(alias = "selectAllSubscriptionLinks")]
@@ -231,6 +237,10 @@ async fn start_ready_profile_inner(
         .resolve_child_profile(&input.subscription_id, &input.child_key)
         .await?;
 
+    let source_ref = ProfileRef::Ready {
+        subscription_id: input.subscription_id.clone(),
+        child_key: input.child_key.clone(),
+    };
     let (value, proxy, binary, env, routing, xray_stats) = match profile.engine {
         EngineKind::Xray => {
             let prepared = crate::xray::prepare_xray_runtime_config(
@@ -258,11 +268,19 @@ async fn start_ready_profile_inner(
             )
         }
         EngineKind::Singbox => {
-            return start_resolved_singbox_profile(app, pm, profile, &input.routing, check_ticket)
-                .await;
+            return start_resolved_singbox_profile(
+                app,
+                pm,
+                profile,
+                &input.routing,
+                source_ref,
+                check_ticket,
+            )
+            .await;
         }
     };
 
+    let source = SessionSource::new(source_ref, Some(profile.name.clone()), &value);
     let path = write_runtime_config(&app, &value).map_err(config::preflight::preparation_error)?;
     let status = start_checked_ready_profile(
         Some(&app),
@@ -276,6 +294,7 @@ async fn start_ready_profile_inner(
             controller_url: None,
             profile_key: Some(profile.key),
             profile_name: Some(profile.name),
+            diagnostics: Some(ActiveLaunch::unavailable(source)),
             xray_stats,
         },
         check_ticket,
@@ -325,10 +344,12 @@ async fn start_resolved_singbox_profile(
     pm: State<'_, Arc<ProcessManager>>,
     profile: crate::subscriptions::ResolvedChildProfile,
     routing: &config::RoutingOptions,
+    source_ref: ProfileRef,
     check_ticket: u64,
 ) -> AppResult<ReadyProfileResult> {
     let config_value = prepare_ready_singbox_config(&profile, routing)
         .map_err(config::preflight::preparation_error)?;
+    let source = SessionSource::new(source_ref, Some(profile.name.clone()), &config_value);
     let binary = singbox::locate_binary(&app).map_err(config::preflight::preparation_error)?;
     let path =
         write_runtime_config(&app, &config_value).map_err(config::preflight::preparation_error)?;
@@ -344,6 +365,7 @@ async fn start_resolved_singbox_profile(
             controller_url: None,
             profile_key: Some(profile.key),
             profile_name: Some(profile.name),
+            diagnostics: Some(ActiveLaunch::unavailable(source)),
             xray_stats: None,
         },
         check_ticket,
@@ -483,8 +505,8 @@ pub async fn start_managed_singbox(
     subscriptions: State<'_, Arc<SubscriptionService>>,
     input: ManagedLaunchInput,
 ) -> AppResult<ManagedLaunchResult> {
+    let check_ticket = pm.begin_ready_profile_check();
     if let Some(profile_ref) = input.profile {
-        let check_ticket = pm.begin_ready_profile_check();
         let result = async {
             let profile = subscriptions
                 .resolve_child_profile(&profile_ref.subscription_id, &profile_ref.child_key)
@@ -515,6 +537,14 @@ pub async fn start_managed_singbox(
             }
             let config_value = prepare_ready_singbox_config(&profile, &input.settings.routing)
                 .map_err(config::preflight::preparation_error)?;
+            let source = SessionSource::new(
+                ProfileRef::Ready {
+                    subscription_id: profile_ref.subscription_id.clone(),
+                    child_key: profile_ref.child_key.clone(),
+                },
+                Some(profile.name.clone()),
+                &config_value,
+            );
             let binary =
                 singbox::locate_binary(&app).map_err(config::preflight::preparation_error)?;
             let path = write_runtime_config(&app, &config_value)
@@ -534,6 +564,7 @@ pub async fn start_managed_singbox(
                     )),
                     profile_key: Some(profile.key),
                     profile_name: Some(profile.name),
+                    diagnostics: Some(ActiveLaunch::unavailable(source)),
                     xray_stats: None,
                 },
                 check_ticket,
@@ -554,6 +585,16 @@ pub async fn start_managed_singbox(
         };
     }
 
+    let manual_tags: Vec<String> = input
+        .manual_outbounds
+        .iter()
+        .map(Outbound::display_name)
+        .collect();
+    let selected_ref = input
+        .subscription_links
+        .as_ref()
+        .filter(|v| v.len() == 1)
+        .map(|v| v[0].clone());
     let mut outbounds = input.manual_outbounds;
     let subscription_outbounds = if input.select_all_subscription_links {
         subscriptions.resolve_all_links().await?
@@ -562,13 +603,65 @@ pub async fn start_managed_singbox(
             .resolve_link_refs(input.subscription_links.as_deref().unwrap_or_default())
             .await?
     };
+    let subscription_tag = if subscription_outbounds.len() == 1 {
+        Some(subscription_outbounds[0].display_name())
+    } else {
+        None
+    };
     outbounds.extend(subscription_outbounds);
     let outbounds = deduplicate_outbounds(outbounds)?;
     let value = config::Config::build(&outbounds, &input.settings);
     let path = write_runtime_config(&app, &value)?;
     let controller_url = format!("http://{}", input.settings.clash_api.external_controller);
-    let status =
-        start_connection(app, pm, path.display().to_string(), Some(controller_url)).await?;
+    let selected = value["outbounds"]
+        .as_array()
+        .and_then(|v| v.iter().find(|v| v["tag"] == "proxy"))
+        .and_then(|v| v["default"].as_str())
+        .unwrap_or("auto");
+    let reference = if let Some(id) = input
+        .manual_profile_id
+        .filter(|id| !id.is_empty() && id.len() <= 128)
+        .filter(|_| {
+            selected != "auto"
+                && manual_tags
+                    .iter()
+                    .filter(|tag| tag.as_str() == selected)
+                    .count()
+                    == 1
+        }) {
+        ProfileRef::Manual { id }
+    } else if let Some(link) =
+        selected_ref.filter(|_| subscription_tag.as_deref() == Some(selected) && selected != "auto")
+    {
+        ProfileRef::Subscription {
+            subscription_id: link.subscription_id,
+            link_key: link.link_key,
+        }
+    } else {
+        ProfileRef::Auto {
+            snapshot_id: Uuid::new_v4().to_string(),
+        }
+    };
+    let source = SessionSource::new(reference, Some(selected.to_owned()), &value);
+    let binary = singbox::locate_binary(&app)?;
+    let status = start_checked_ready_profile(
+        Some(&app),
+        &pm,
+        LaunchSpec {
+            engine: EngineKind::Singbox,
+            binary,
+            args: singbox::run_args(&path).to_vec(),
+            env: Vec::new(),
+            config_path: path.clone(),
+            controller_url: Some(controller_url),
+            profile_key: None,
+            profile_name: None,
+            diagnostics: Some(ActiveLaunch::unavailable(source)),
+            xray_stats: None,
+        },
+        check_ticket,
+    )
+    .await?;
     Ok(ManagedLaunchResult {
         status,
         config_path: path.display().to_string(),
@@ -619,6 +712,7 @@ pub async fn start_connection(
         controller_url,
         profile_key: None,
         profile_name: None,
+        diagnostics: None,
         xray_stats: None,
     };
     pm.start_spec_with_app(Some(&app), spec).await
@@ -1721,7 +1815,7 @@ pub async fn request_macos_elevation(app: AppHandle) -> AppResult<()> {
 async fn start_checked_ready_profile(
     app: Option<&AppHandle>,
     pm: &Arc<ProcessManager>,
-    spec: LaunchSpec,
+    mut spec: LaunchSpec,
     check_ticket: u64,
 ) -> AppResult<StatusReport> {
     if !pm.is_ready_profile_check_current(check_ticket) {
@@ -1739,6 +1833,29 @@ async fn start_checked_ready_profile(
     if let Err(error) = checked {
         let _ = std::fs::remove_file(&spec.config_path);
         return Err(error);
+    }
+    if let Some(draft) = spec.diagnostics.take() {
+        let launch = crate::diagnostics::active_config::attach_checked_copy(
+            &spec.config_path,
+            spec.engine,
+            draft.source,
+            || async {
+                match spec.engine {
+                    EngineKind::Singbox => {
+                        singbox::validate_config(&spec.binary, &spec.config_path).await
+                    }
+                    EngineKind::Xray => {
+                        xray::validate_config(&spec.binary, &spec.config_path, &spec.env).await
+                    }
+                }
+            },
+        )
+        .await?;
+        spec.diagnostics = Some(launch);
+        if !pm.is_ready_profile_check_current(check_ticket) {
+            let _ = std::fs::remove_file(&spec.config_path);
+            return Err(config::preflight::ProfileCheckIssue::Cancelled.into());
+        }
     }
     if pm.is_running().await {
         pm.stop_after_profile_check(check_ticket).await?;
@@ -1777,6 +1894,7 @@ mod ready_preflight_tests {
             controller_url: None,
             profile_key: Some("candidate".into()),
             profile_name: None,
+            diagnostics: None,
             xray_stats: None,
         };
         let check_ticket = pm.begin_ready_profile_check();
@@ -1821,6 +1939,7 @@ mod preflight_cancellation_tests {
             controller_url: None,
             profile_key: Some("candidate".into()),
             profile_name: None,
+            diagnostics: None,
             xray_stats: None,
         };
         let result = pm.start_profile_checked_with_app(None, spec, ticket).await;

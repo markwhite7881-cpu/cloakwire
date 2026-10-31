@@ -1,3 +1,6 @@
+import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { presentConnection } from "@/lib/connectionPresentation";
+import type { DesktopHealthSnapshot, SessionIdentity } from "@/lib/connectionHealth";
 import { connectionProfileStorageKey } from "@/lib/lastServer";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -38,6 +41,10 @@ const inTauri =
 
 export interface HomeTabProps {
   status: StatusReport;
+  diagnostics?: DesktopHealthSnapshot|null;
+  onRetryHealth?: (expected:SessionIdentity)=>Promise<void>;
+  healthActionBusy?:boolean;
+  healthActionMessage?:string|null;
   statusLabel: Status;
   busy: boolean;
   error: string | null;
@@ -73,6 +80,7 @@ export interface HomeTabProps {
 
 export function HomeTab({
   status,
+  diagnostics=null,onRetryHealth,healthActionBusy=false,healthActionMessage,
   statusLabel,
   busy,
   error,
@@ -129,11 +137,12 @@ export function HomeTab({
   const latency = useServerLatency(allOutbounds, isRunning);
   const { t } = useI18n();
 
+  const healthView=presentConnection(status,diagnostics,Date.now());
   const headline = (() => {
-    if (statusLabel === "running") return t("common.connected");
+    if (statusLabel === "running") return t(`health.${healthView.state}`);
     if (statusLabel === "starting") return t("common.connecting");
     if (statusLabel === "stopping") return t("common.stopping");
-    if (statusLabel === "crashed") return t("common.error");
+    if (healthView.state === "crashed") return t("health.crashed");
     return t("common.disconnected");
   })();
 
@@ -346,6 +355,10 @@ export function HomeTab({
             </div>
           </div>
 
+          {(isRunning||healthView.issue)&&<ConnectionStatus view={healthView} showHeading={false}
+            onRetry={healthView.session&&onRetryHealth?()=>{void onRetryHealth(healthView.session!);}:undefined}
+            onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined}
+            busy={healthActionBusy} message={healthActionMessage}/>}
           {/* Bottom of Hero */}
           <div className="relative z-10 border-t border-border/60 pt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-muted-foreground/70">
             <div className="flex items-center gap-1.5">

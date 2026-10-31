@@ -1,6 +1,39 @@
 import type { TranslationSchema } from "./en";
 
 export const zhCN: TranslationSchema = {
+  health: {
+  "title": "连接检查",
+  "running": "VPN 已启动",
+  "checking": "正在检查服务器连接…",
+  "healthy": "已确认服务器连接",
+  "degraded": "尚未确认服务器连接",
+  "unavailable": "暂时无法检查",
+  "crashed": "VPN 意外停止",
+  "starting": "正在连接…",
+  "stopping": "正在停止…",
+  "stopped": "VPN 已关闭",
+  "session": "会话：{name}",
+  "auto": "自动选择",
+  "notice": "内核报告了一次请求错误",
+  "stoppedReason": "连接已停止",
+  "checked": "检查时间：{time}",
+  "retry": "重新检查",
+  "choose": "选择服务器",
+  "retryStale": "会话已更改，当前状态已刷新。",
+  "reasons": {
+    "network_unavailable": "无法确认可用的互联网连接，请检查 Wi-Fi 或网线。",
+    "endpoint_unreachable": "服务器拒绝了连接，请检查地址、端口和服务器状态。",
+    "timeout": "检查超时。可以重新检查，无需重启 VPN。",
+    "reality_verification": "内核无法验证 Reality 服务器，请核对配置与服务器当前设置。",
+    "tls_verification": "无法验证服务器证书，请检查设备时间和配置设置。",
+    "dns": "无法解析域名，请检查配置中的 DNS 设置。",
+    "authentication": "服务器拒绝了身份验证，请检查最新的配置凭据。",
+    "engine_unavailable": "无法访问正在运行的内核，或内核已停止。",
+    "unsupported_probe": "此配置暂不支持可靠的连接检查。",
+    "probe_target_unavailable": "检查网站未能确认连接，仅凭此结果无法判断 VPN 服务器是否故障。",
+    "unknown": "无法验证连接，请重试或选择其他服务器。"
+  }
+},
   routingModes: {
   "title": "应用路由",
   "all": "所有应用",

@@ -5,7 +5,7 @@
  * that as a JS Error so `try/catch` still works in the React code.
  */
 import { invoke } from "@tauri-apps/api/core";
-import type { HealthSnapshot } from "./connectionHealth";
+import type { HealthSnapshot, DesktopHealthSnapshot, SessionIdentity } from "./connectionHealth";
 import type {
   ActiveChildConfig,
   AddSubscriptionInput,
@@ -58,6 +58,8 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 }
 
 export const api = {
+  getConnectionDiagnostics: () => call<DesktopHealthSnapshot>("get_connection_diagnostics"),
+  retryActiveProbe: (expected:SessionIdentity) => call<string>("retry_active_probe",{expected}),
   getConnectionHealth: () => call<HealthSnapshot>("get_connection_health"),
   cancelProfileProbe: (operationId: string) => call<boolean>("cancel_profile_probe", { operationId }),
   ping: () => call<string>("ping"),
@@ -74,6 +76,7 @@ export const api = {
     call<StatusReport>("start_connection", { configPath, controllerUrl }),
   startManaged: (input: {
     manualOutbounds: Outbound[];
+    manualProfileId?: string;
     subscriptionLinks?: SubscriptionLinkRef[];
     selectAllSubscriptionLinks: boolean;
     profile?: { subscription_id: string; child_key: string };

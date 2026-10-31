@@ -18,5 +18,6 @@ pub struct LaunchSpec {
     pub controller_url: Option<String>,
     pub profile_key: Option<String>,
     pub profile_name: Option<String>,
+    pub(crate) diagnostics: Option<crate::diagnostics::active_config::ActiveLaunch>,
     pub(crate) xray_stats: Option<XrayStatsSpec>,
 }

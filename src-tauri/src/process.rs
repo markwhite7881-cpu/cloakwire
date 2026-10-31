@@ -71,6 +71,8 @@ pub struct StatusReport {
     pub engine: Option<EngineKind>,
     pub profile_key: Option<String>,
     pub profile_name: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
 }
 
 impl Default for StatusReport {
@@ -84,6 +86,7 @@ impl Default for StatusReport {
             engine: None,
             profile_key: None,
             profile_name: None,
+            run_id: None,
         }
     }
 }
@@ -103,10 +106,56 @@ struct XrayTestState {
     events: Vec<&'static str>,
 }
 
+/// Cancel an abandoned optional startup without ever touching a newer run.
+struct PendingDiagnosticStart {
+    manager: std::sync::Weak<ProcessManager>,
+    run: u64,
+    finished: bool,
+}
+impl PendingDiagnosticStart {
+    fn finish(mut self) {
+        self.finished = true;
+        if let Some(manager) = self.manager.upgrade() {
+            let _ = manager.pending_diagnostic_start.compare_exchange(
+                self.run,
+                0,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            );
+        }
+    }
+}
+impl Drop for PendingDiagnosticStart {
+    fn drop(&mut self) {
+        if self.finished {
+            return;
+        }
+        let Some(manager) = self.manager.upgrade() else {
+            return;
+        };
+        let run = self.run;
+        // Keep the watcher excluded until owned cleanup has reaped the child.
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            runtime.spawn(async move {
+                let _transition = manager.acquire_transition().await;
+                let _ = manager.discard_starting_child(run).await;
+                let _ = manager.pending_diagnostic_start.compare_exchange(
+                    run,
+                    0,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                );
+            });
+        }
+    }
+}
+
 /// Centralised state shared across Tauri commands.
 pub struct ProcessManager {
+    pub diagnostics: Arc<crate::diagnostics::active::SessionDiagnostics>,
     /// Currently running child process, if any.
     child: Mutex<Option<ChildSlot>>,
+    pending_diagnostic_start: AtomicU64,
     /// Auxiliary child process (e.g. sing-box TUN forwarder when running Xray).
     aux_child: Mutex<Option<ChildSlot>>,
     /// Ring buffer of recent log lines.
@@ -151,7 +200,9 @@ pub struct ProcessManager {
 impl Default for ProcessManager {
     fn default() -> Self {
         Self {
+            diagnostics: Arc::new(crate::diagnostics::active::SessionDiagnostics::default()),
             child: Mutex::new(None),
+            pending_diagnostic_start: AtomicU64::new(0),
             aux_child: Mutex::new(None),
             logs: Mutex::new(VecDeque::with_capacity(LOG_BUFFER_CAPACITY)),
             status: Mutex::new(StatusReport::default()),
@@ -215,6 +266,17 @@ impl ProcessManager {
         self.active_run_id.load(Ordering::Acquire)
     }
 
+    pub async fn probe_run_alive(&self, run_id: u64) -> bool {
+        if run_id == 0 || self.active_run_id() != run_id {
+            return false;
+        }
+        if self.status.lock().await.status != Status::Running {
+            return false;
+        }
+        let mut slot = self.child.lock().await;
+        slot.as_mut()
+            .is_some_and(|slot| slot.run_id == run_id && matches!(slot.child.try_wait(), Ok(None)))
+    }
     pub async fn snapshot_status(&self) -> StatusReport {
         self.status.lock().await.clone()
     }
@@ -321,9 +383,12 @@ impl ProcessManager {
         #[cfg(not(windows))]
         let mut cmd = {
             let mut cmd = Command::new("/bin/sh");
-            cmd.args(["-c", "sleep 60"]);
+            cmd.args(["-c", "exec sleep 60"]);
             cmd
         };
+        #[cfg(windows)]
+        cmd.creation_flags(0x0800_0000);
+        cmd.kill_on_drop(true);
         let child = cmd.spawn().expect("test child starts");
         let pid = child.id();
         let run_id = self.next_run_id.fetch_add(1, Ordering::AcqRel) + 1;
@@ -386,13 +451,14 @@ impl ProcessManager {
     async fn start_spec_with_check(
         self: &Arc<Self>,
         app: Option<&AppHandle>,
-        spec: LaunchSpec,
+        mut spec: LaunchSpec,
         ticket: Option<u64>,
     ) -> AppResult<StatusReport> {
-        let _clash_transition = self.acquire_transition().await;
+        let mut _clash_transition = self.acquire_transition().await;
         if ticket.is_some_and(|ticket| !self.is_ready_profile_check_current(ticket)) {
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
+        let startup_epoch = self.ready_check_epoch.load(Ordering::Acquire);
         {
             let mut status = self.status.lock().await;
             if matches!(
@@ -404,7 +470,7 @@ impl ProcessManager {
             status.status = Status::Starting;
             status.last_error = None;
         }
-        let run_id = self.next_run_id.fetch_add(1, Ordering::AcqRel) + 1;
+        let mut run_id = self.next_run_id.fetch_add(1, Ordering::AcqRel) + 1;
         self.active_run_id.store(run_id, Ordering::Release);
         let label = match spec.engine {
             EngineKind::Singbox => "starting sing-box profile",
@@ -422,75 +488,72 @@ impl ProcessManager {
                 return Err(AppError::TunCapabilities(message));
             }
         }
-        let mut cmd = Command::new(&spec.binary);
-        cmd.args(&spec.args)
-            .envs(spec.env.iter().map(|(key, value)| (key, value)))
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .stdin(std::process::Stdio::null())
-            .kill_on_drop(true);
-        #[cfg(windows)]
-        {
-            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-            cmd.creation_flags(CREATE_NO_WINDOW);
-        }
-        let mut child = match cmd.spawn() {
-            Ok(child) => child,
-            Err(error) => {
-                self.abort_start(run_id).await;
-                return Err(AppError::Spawn(format!(
-                    "could not start sing-box process: {error}"
-                )));
+        let optional_port = spec
+            .diagnostics
+            .as_ref()
+            .and_then(|d| d.wiring.as_ref())
+            .map(|w| w.port);
+        let mut startup_guard = optional_port.map(|_| {
+            self.pending_diagnostic_start
+                .store(run_id, Ordering::Release);
+            PendingDiagnosticStart {
+                manager: Arc::downgrade(self),
+                run: run_id,
+                finished: false,
             }
-        };
-        let pid = child.id();
-        if let Some(stdout) = child.stdout.take() {
-            let manager = Arc::clone(self);
-            let engine = spec.engine;
-            let reader = tokio::spawn(async move {
-                let mut lines = BufReader::new(stdout).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    if let Some(line) = frontend_log_line(engine, &line) {
-                        manager.push_log(LogStream::Stdout, line).await;
-                    }
+        });
+        self.spawn_main_child(&spec, run_id).await?;
+        if let Some(port) = optional_port {
+            // Readiness is outside the transition gate: Stop/new-start wins.
+            drop(_clash_transition);
+            let ready = self
+                .optional_listener_ready(run_id, startup_epoch, port)
+                .await;
+            _clash_transition = self.acquire_transition().await;
+            if self.active_run_id() != run_id || !self.is_ready_profile_check_current(startup_epoch)
+            {
+                self.discard_starting_child(run_id).await?;
+                return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+            }
+            if !ready {
+                self.discard_starting_child(run_id).await?;
+                if let Some(guard) = startup_guard.take() {
+                    guard.finish();
                 }
-            });
-            #[cfg(test)]
-            self.stdio_readers.lock().await.push(reader);
-            #[cfg(not(test))]
-            drop(reader);
-        }
-        if let Some(stderr) = child.stderr.take() {
-            let manager = Arc::clone(self);
-            let engine = spec.engine;
-            let reader = tokio::spawn(async move {
-                let mut lines = BufReader::new(stderr).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    if let Some(line) = frontend_log_line(engine, &line) {
-                        manager.push_log(LogStream::Stderr, line).await;
-                    }
+                if !self.is_ready_profile_check_current(startup_epoch) {
+                    return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
                 }
-            });
-            #[cfg(test)]
-            self.stdio_readers.lock().await.push(reader);
-            #[cfg(not(test))]
-            drop(reader);
+                // The original passed preflight. One owned startup fallback;
+                // this is not reconnect/recovery after an accepted connection.
+                if let Some(diagnostic) = spec.diagnostics.as_mut() {
+                    diagnostic.restore_original(&spec.config_path)?;
+                }
+                run_id = self.next_run_id.fetch_add(1, Ordering::AcqRel) + 1;
+                self.active_run_id.store(run_id, Ordering::Release);
+                self.pending_diagnostic_start
+                    .store(run_id, Ordering::Release);
+                startup_guard = Some(PendingDiagnosticStart {
+                    manager: Arc::downgrade(self),
+                    run: run_id,
+                    finished: false,
+                });
+                self.spawn_main_child(&spec, run_id).await?;
+            }
         }
-        *self.child.lock().await = Some(ChildSlot { run_id, child });
-        *self.started_at.lock().await = Some(std::time::Instant::now());
-        *self.current_config.lock().await = Some(spec.config_path.clone());
-        if spec.engine == EngineKind::Singbox {
-            *self.controller_url.lock().await = spec.controller_url.clone();
+        if optional_port.is_some() && !self.is_ready_profile_check_current(startup_epoch) {
+            self.discard_starting_child(run_id).await?;
+            return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
         let mut status = self.status.lock().await;
         status.status = Status::Running;
-        status.pid = pid;
-        status.last_exit_code = None;
-        status.engine = Some(spec.engine);
-        status.profile_key = spec.profile_key;
-        status.profile_name = spec.profile_name;
         let report = status.clone();
         drop(status);
+        if let Some(guard) = startup_guard.take() {
+            guard.finish();
+        }
+        if app.is_some() {
+            self.diagnostics.spawn_monitor(Arc::downgrade(self), run_id);
+        }
         if spec.engine == EngineKind::Xray {
             if let Some(stats_spec) = spec.xray_stats {
                 self.start_xray_telemetry(run_id, app.cloned(), stats_spec)
@@ -528,6 +591,145 @@ impl ProcessManager {
         Ok(report)
     }
 
+    async fn spawn_main_child(self: &Arc<Self>, spec: &LaunchSpec, run_id: u64) -> AppResult<()> {
+        let mut cmd = Command::new(&spec.binary);
+        cmd.args(&spec.args)
+            .envs(spec.env.iter().map(|(key, value)| (key, value)))
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .stdin(std::process::Stdio::null())
+            .kill_on_drop(true);
+        #[cfg(windows)]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        if let Some(diagnostic) = &spec.diagnostics {
+            diagnostic.release_port();
+        }
+        let mut child = match cmd.spawn() {
+            Ok(child) => child,
+            Err(error) => {
+                self.abort_start(run_id).await;
+                return Err(AppError::Spawn(format!(
+                    "could not start sing-box process: {error}"
+                )));
+            }
+        };
+        let pid = child.id();
+        self.diagnostics
+            .accept(run_id, spec.engine, spec.diagnostics.clone());
+        if let Some(stdout) = child.stdout.take() {
+            let manager = Arc::clone(self);
+            let engine = spec.engine;
+            let reader = tokio::spawn(async move {
+                let mut lines = BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    manager.diagnostics.observe_line(run_id, &line);
+                    if let Some(line) = frontend_log_line(engine, &line) {
+                        manager.push_log(LogStream::Stdout, line).await;
+                    }
+                }
+            });
+            #[cfg(test)]
+            self.stdio_readers.lock().await.push(reader);
+            #[cfg(not(test))]
+            drop(reader);
+        }
+        if let Some(stderr) = child.stderr.take() {
+            let manager = Arc::clone(self);
+            let engine = spec.engine;
+            let reader = tokio::spawn(async move {
+                let mut lines = BufReader::new(stderr).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    manager.diagnostics.observe_line(run_id, &line);
+                    if let Some(line) = frontend_log_line(engine, &line) {
+                        manager.push_log(LogStream::Stderr, line).await;
+                    }
+                }
+            });
+            #[cfg(test)]
+            self.stdio_readers.lock().await.push(reader);
+            #[cfg(not(test))]
+            drop(reader);
+        }
+        *self.child.lock().await = Some(ChildSlot { run_id, child });
+        *self.started_at.lock().await = Some(std::time::Instant::now());
+        *self.current_config.lock().await = Some(spec.config_path.clone());
+        if spec.engine == EngineKind::Singbox {
+            *self.controller_url.lock().await = spec.controller_url.clone();
+        }
+        let mut status = self.status.lock().await;
+        status.status = Status::Starting;
+        status.pid = pid;
+        status.last_exit_code = None;
+        status.engine = Some(spec.engine);
+        status.profile_key = spec.profile_key.clone();
+        status.profile_name = spec.profile_name.clone();
+        status.run_id = Some(run_id.to_string());
+        drop(status);
+        Ok(())
+    }
+    async fn optional_listener_ready(&self, run: u64, epoch: u64, port: u16) -> bool {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+        loop {
+            if self.active_run_id() != run || !self.is_ready_profile_check_current(epoch) {
+                return false;
+            }
+            let pid = {
+                let mut child = self.child.lock().await;
+                child.as_mut().and_then(|slot| {
+                    if slot.run_id == run && matches!(slot.child.try_wait(), Ok(None)) {
+                        slot.child.id()
+                    } else {
+                        None
+                    }
+                })
+            };
+            let Some(pid) = pid else {
+                return false;
+            };
+            if crate::diagnostics::network_events::owns_listener(pid, port).await
+                && crate::diagnostics::desktop::requires_proxy_auth(port).await
+            {
+                return true;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    }
+    /// Caller owns the transition. Never runs global proxy/firewall cleanup.
+    async fn discard_starting_child(&self, run: u64) -> AppResult<()> {
+        if self.active_run_id() != run {
+            return Ok(());
+        }
+        let child = {
+            let mut slot = self.child.lock().await;
+            if slot.as_ref().is_some_and(|slot| slot.run_id == run) {
+                slot.take()
+            } else {
+                None
+            }
+        };
+        if let Some(ChildSlot { mut child, .. }) = child {
+            let _ = child.start_kill();
+            let reaped = tokio::time::timeout(Duration::from_secs(2), child.wait()).await;
+            if !matches!(reaped, Ok(Ok(_))) {
+                self.abort_start(run).await;
+                return Err(AppError::Spawn(
+                    "could not stop optional diagnostic startup".into(),
+                ));
+            }
+        }
+        *self.started_at.lock().await = None;
+        *self.current_config.lock().await = None;
+        *self.controller_url.lock().await = None;
+        self.abort_start(run).await;
+        Ok(())
+    }
+
     /// Compatibility route for existing sing-box callers.
     pub async fn start(
         self: &Arc<Self>,
@@ -551,6 +753,7 @@ impl ProcessManager {
                 controller_url,
                 profile_key: None,
                 profile_name: None,
+                diagnostics: None,
                 xray_stats: None,
             },
         )
@@ -560,6 +763,7 @@ impl ProcessManager {
     /// Stop the running sing-box. Graceful: send SIGTERM/taskkill, then
     /// escalate to SIGKILL after `DEFAULT_TERMINATE_TIMEOUT`.
     pub async fn stop(self: &Arc<Self>) -> AppResult<StatusReport> {
+        self.diagnostics.retire(self.active_run_id(), true);
         self.ready_check_epoch.fetch_add(1, Ordering::AcqRel);
         self.stop_with_check(None).await
     }
@@ -578,6 +782,7 @@ impl ProcessManager {
         }
         let ChildSlot { run_id, mut child } =
             self.child.lock().await.take().ok_or(AppError::NotRunning)?;
+        self.diagnostics.retire(run_id, true);
 
         let engine = {
             let mut status = self.status.lock().await;
@@ -838,6 +1043,7 @@ impl ProcessManager {
             let _ = crate::killswitch::disarm_kill_switch();
         }
         self.stop_xray_telemetry().await;
+        self.diagnostics.clear();
         self.active_run_id.store(0, Ordering::Release);
         if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
             let _ = child.start_kill();
@@ -894,6 +1100,8 @@ impl ProcessManager {
         if self.active_run_id.load(Ordering::Acquire) != run_id {
             return;
         }
+
+        self.diagnostics.retire(run_id, _is_intentional_stop);
 
         if let Some(ChildSlot { mut child, .. }) = self.aux_child.lock().await.take() {
             let _ = child.start_kill();
@@ -1002,6 +1210,7 @@ impl ProcessManager {
     }
 
     async fn abort_start(&self, run_id: u64) {
+        self.diagnostics.retire(run_id, true);
         if self.active_run_id.load(Ordering::Acquire) != run_id {
             return;
         }
@@ -1023,14 +1232,17 @@ impl ProcessManager {
                 tokio::time::sleep(HEALTH_CHECK_INTERVAL).await;
                 let exited = {
                     let mut guard = self.child.lock().await;
-                    guard.as_mut().map(|slot| {
+                    guard.as_mut().and_then(|slot| {
                         let run_id = slot.run_id;
+                        if self.pending_diagnostic_start.load(Ordering::Acquire) == run_id {
+                            return None;
+                        }
                         let result = match slot.child.try_wait() {
                             Ok(Some(status)) => Some(Ok(status)),
                             Ok(None) => None,
                             Err(error) => Some(Err(error)),
                         };
-                        (run_id, result)
+                        Some((run_id, result))
                     })
                 };
                 match exited {
@@ -1615,6 +1827,7 @@ mod engine_runtime_tests {
             controller_url: Some("http://controller.test".into()),
             profile_key: Some("test-xray".into()),
             profile_name: Some("Test Xray".into()),
+            diagnostics: None,
             xray_stats: None,
         }
     }

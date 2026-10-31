@@ -19,6 +19,7 @@ export interface StatusReport {
   engine?: EngineKind | null;
   profile_key?: string | null;
   profile_name?: string | null;
+  run_id?: string | null;
 }
 
 export interface LogLine {

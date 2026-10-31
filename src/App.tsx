@@ -1,3 +1,4 @@
+import { sameSessionIdentity, type DesktopHealthSnapshot, type SessionIdentity } from "@/lib/connectionHealth";
 import { useProfileImport } from "@/hooks/useProfileImport";
 import { ProfileImportDialog } from "@/components/ProfileImportDialog";
 import { APP_VERSION } from "@/lib/appVersion";
@@ -321,6 +322,13 @@ export default function App() {
   const [binary, setBinary] = useState<BinaryInfo | null>(null);
   const [version, setVersion] = useState<SingboxVersion | null>(null);
   const [xrayVersion, setXrayVersion] = useState<string | null>(null);
+  const [diagnostics,setDiagnostics]=useState<DesktopHealthSnapshot|null>(null);
+  const [healthActionBusy,setHealthActionBusy]=useState(false);
+  const [healthActionMessage,setHealthActionMessage]=useState<string|null>(null);
+  const healthActionPending=useRef(false);
+  const diagnosticsRef=useRef<DesktopHealthSnapshot|null>(null);
+  diagnosticsRef.current=diagnostics;
+  const refreshEpoch=useRef(0);
   const [status, setStatus] = useState<StatusReport>({
     status: "stopped" as Status,
     pid: null,
@@ -536,6 +544,7 @@ export default function App() {
   const geoip = useGeoIp(manualProfiles);
 
   const refresh = useCallback(async () => {
+    const epoch=++refreshEpoch.current;
     if (!inTauri) {
       // Browser preview — show mock state.
       setBinary({
@@ -582,10 +591,13 @@ export default function App() {
       // window — even after we added CREATE_NO_WINDOW it was still
       // a wasted process; pulling them out of the hot loop removes
       // the flash entirely.
-      const [st, log] = await Promise.all([
+      const [st, log,health] = await Promise.all([
         api.getStatus(),
         api.getLogs(500),
+        api.getConnectionDiagnostics().catch(()=>null),
       ]);
+      if(epoch!==refreshEpoch.current)return;
+      setDiagnostics(health);
       setStatus(st);
       setLogs(log);
       // While sing-box is up, also pull the currently-active
@@ -606,7 +618,7 @@ export default function App() {
         try {
           const p = await api.listProxies();
           const now = p.proxies?.["proxy"]?.now ?? null;
-          setActiveOutbound(now);
+          if(epoch===refreshEpoch.current)setActiveOutbound(now);
         } catch {
           // best effort
         }
@@ -616,11 +628,24 @@ export default function App() {
         // re-render if the value is already null.
         setActiveOutbound(null);
       }
-      setError(null);
+      if(epoch===refreshEpoch.current)setError(null);
     } catch (e) {
-      setError(humanError(e));
+      if(epoch===refreshEpoch.current)setError(humanError(e));
     }
   }, []);
+
+  const retryHealth=useCallback(async(expected:SessionIdentity)=>{
+    if(healthActionPending.current)return;
+    const current=diagnosticsRef.current?.session;
+    if(!current||!sameSessionIdentity(current,expected)){await refresh();return;}
+    healthActionPending.current=true;setHealthActionBusy(true);setHealthActionMessage(null);
+    try{
+      await api.retryActiveProbe(expected);
+      await refresh();
+    }catch{
+      setHealthActionMessage(t("health.retryStale"));await refresh();
+    }finally{healthActionPending.current=false;setHealthActionBusy(false);}
+  },[refresh,t]);
 
   // One-time static fetch: binary path/version. The version literally
   // cannot change while the app is running, so it doesn't belong in
@@ -690,6 +715,7 @@ export default function App() {
   const startCancelledRef = useRef(false);
   const onStart = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex): Promise<boolean> => {
     startCancelledRef.current = false;
+    ++refreshEpoch.current;setHealthActionMessage(null);
     if (manualStore.blocked || selectionNeedsChoiceRef.current || isSelectionMissing()) {
       setError(t(selectionNeedsChoiceRef.current || isSelectionMissing() ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`));
       return false;
@@ -723,6 +749,7 @@ export default function App() {
       //    but routes them all to `direct`.
       const managed = await api.startManaged({
         ...selection,
+        manualProfileId:profiles[requestedIndex]?.kind==="manual"?profiles[requestedIndex].id:undefined,
         settings: effectiveSettings,
       });
       if (managed.routing.unavailable.length > 0) {
@@ -733,6 +760,7 @@ export default function App() {
       const path = managed.config_path;
       setConfigPath(path);
       const next = managed.status;
+      ++refreshEpoch.current;
       setStatus(next);
 
       // 3. Update system proxy state based on mode
@@ -793,7 +821,9 @@ export default function App() {
           } catch {
             // best-effort; the process stop/start remains authoritative
           }
-          setStatus(await api.stop());
+          const stopped=await api.stop();
+          ++refreshEpoch.current;
+          setStatus(stopped);
         },
         start: (index) => onStartRef.current(overrideSettings, index),
       });
@@ -816,6 +846,7 @@ export default function App() {
   }, [profiles, selectedIndex, manualStore.blocked, manualStore.state.status, t, isSelectionMissing]);
 
   const onStop = useCallback(async () => {
+    ++refreshEpoch.current;setHealthActionMessage(null);
     if (!inTauri) return;
     setBusy(true);
     setError(null);
@@ -856,19 +887,10 @@ export default function App() {
   useEffect(() => {
     if (!inTauri) return;
     const isConnected = status.status === "running";
-    const selected = selectedIndex >= 0 ? profiles[selectedIndex] : null;
-    const activeName = isConnected
-      ? status.profile_name ||
-        (selected
-          ? selected.kind === "manual"
-            ? profileLabel(selected.outbound)
-            : selected.kind === "subscription"
-              ? selected.label
-              : selected.name
-          : null)
-      : null;
+    const accepted=diagnostics?.session?.run_id===status.run_id?diagnostics?.session:null;
+    const activeName=isConnected?(accepted?accepted.display_name:status.profile_name??null):null;
     void api.updateTrayStatus(isConnected, activeName).catch(() => {});
-  }, [inTauri, status.status, status.profile_name, selectedIndex, profiles]);
+  }, [inTauri, status.status, status.run_id, status.profile_name, diagnostics]);
 
   // Desktop notifications on connection status changes
   const prevStatusRef = useRef<Status>(status.status);
@@ -876,16 +898,8 @@ export default function App() {
     const prev = prevStatusRef.current;
     if (prev !== status.status) {
       if (prev !== "running" && status.status === "running") {
-        const selected = selectedIndex >= 0 ? profiles[selectedIndex] : null;
-        const activeName =
-          status.profile_name ||
-          (selected
-            ? selected.kind === "manual"
-              ? profileLabel(selected.outbound)
-              : selected.kind === "subscription"
-                ? selected.label
-                : selected.name
-            : null);
+        const accepted=diagnostics?.session?.run_id===status.run_id?diagnostics?.session:null;
+        const activeName=accepted?accepted.display_name:status.profile_name??null;
         void notify(
           t("notify.titleConnected"),
           `${t("notify.bodyConnected")} ${activeName || ""}`.trim(),
@@ -897,7 +911,7 @@ export default function App() {
       }
       prevStatusRef.current = status.status;
     }
-  }, [status.status, status.profile_name, selectedIndex, profiles, t]);
+  }, [status.status, status.run_id, status.profile_name, diagnostics, t]);
 
   // Listen for tray connect/disconnect toggle event
   useEffect(() => {
@@ -1090,6 +1104,10 @@ export default function App() {
             statusLabel={status.status}
             busy={busy}
             error={error}
+            diagnostics={diagnostics}
+            onRetryHealth={retryHealth}
+            healthActionBusy={healthActionBusy}
+            healthActionMessage={healthActionMessage}
             onDismissError={() => setError(null)}
             canStart={canStartManagedSelection(profiles, selectedIndex)}
             configName={configPath ? basename(configPath) : null}
@@ -1214,6 +1232,10 @@ export default function App() {
     ],
     [
       status,
+      diagnostics,
+      retryHealth,
+      healthActionBusy,
+      healthActionMessage,
       busy,
       error,
       configPath,

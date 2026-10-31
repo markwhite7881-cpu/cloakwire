@@ -10,7 +10,7 @@
 
 **Spec:** ../specs/2026-10-31-connection-reliability-and-ux-design.md
 
-**Status:** реализация начата. B1–B3: данные, выбор, импорт и UI режимов реализованы и проверены. Native accepted identity/health остаются D5; B4 не реализован, B5 выполнен частично. [Результаты](../../testing/implementation-stage-2026-10-31.md).
+**Status:** B1–B3 реализованы ранее. B4 desktop: native accepted identity, состояния/карточка здоровья, retry/choose и названия принятой сессии реализованы; badges/candidate probe/owner-specific refresh-reconnect остаются следующим шагом. B5: репрезентативные браузерные проверки выполнены; native WebView-матрица открыта. Android в текущем этапе отложен пользователем. [Текущий этап](../../testing/desktop-active-health-2026-10-31.md).
 
 ## Global Constraints
 

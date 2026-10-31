@@ -63,6 +63,11 @@ sysinfo = { version = "0.32", default-features = false, features = ["system"] }
 
 [target."cfg(windows)".dependencies]
 winreg = "0.52"
+windows-sys = { version = "=0.59.0", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "=0.10.1"
+system-configuration = "=0.8.0"
 
 [dev-dependencies]
 tempfile = "3"

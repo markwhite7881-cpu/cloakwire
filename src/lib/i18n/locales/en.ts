@@ -1,4 +1,37 @@
 export const en = {
+  health: {
+  "title": "Connection check",
+  "running": "VPN is running",
+  "checking": "Checking server access…",
+  "healthy": "Server connection verified",
+  "degraded": "Server access not confirmed",
+  "unavailable": "Check unavailable",
+  "crashed": "VPN stopped unexpectedly",
+  "starting": "Connecting…",
+  "stopping": "Stopping…",
+  "stopped": "VPN is off",
+  "session": "Session: {name}",
+  "auto": "Automatic selection",
+  "notice": "The core reported a request error",
+  "stoppedReason": "Connection stopped",
+  "checked": "Checked at {time}",
+  "retry": "Check again",
+  "choose": "Choose a server",
+  "retryStale": "The session changed. Its current status has been refreshed.",
+  "reasons": {
+    "network_unavailable": "An available internet connection could not be confirmed. Check Wi-Fi or the network cable.",
+    "endpoint_unreachable": "The server refused a connection. Check its address, port and availability.",
+    "timeout": "The check did not finish in time. You can try again without restarting the VPN.",
+    "reality_verification": "The core could not verify the Reality server. Compare the profile with the current server settings.",
+    "tls_verification": "The server certificate could not be verified. Check the device time and profile settings.",
+    "dns": "A domain name could not be resolved. Check the profile's DNS settings.",
+    "authentication": "The server rejected authentication. Check the current profile credentials.",
+    "engine_unavailable": "The running core could not be reached or has stopped.",
+    "unsupported_probe": "A reliable check is not yet available for this configuration.",
+    "probe_target_unavailable": "The check sites could not confirm access. This alone does not prove the VPN server is broken.",
+    "unknown": "The connection could not be verified. Try checking again or choose another server."
+  }
+},
   routingModes: {
   "title": "Application routing",
   "all": "All applications",

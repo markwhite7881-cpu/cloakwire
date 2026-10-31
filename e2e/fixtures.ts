@@ -1,7 +1,7 @@
 import {expect,type Page,type TestInfo} from "playwright/test";
 export const v1="singbox-client.manual-profiles.v1",v2="singbox-client.manual-profiles.v2";
 export const settingsKey="singbox-client.settings.v2";
-export async function openFixture(page:Page,testInfo:TestInfo,options:{parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
+export async function openFixture(page:Page,testInfo:TestInfo,options:{health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
   const mobile=testInfo.project.name==="mobile";
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text());});
@@ -11,6 +11,8 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{parseFail
     if(!sessionStorage.getItem("fixture-seeded")){
       localStorage.setItem(v1,JSON.stringify(options.single?[fixture("My server","one")]:options.selectedFirst?[fixture("First","one"),fixture("Second","two")]:[fixture("Same","one"),fixture("Same","two")]));
       localStorage.setItem("cloakwire:locale",options.locale??"en");
+      if(options.theme)localStorage.setItem("cloakwire:theme-mode",options.theme);
+      if(options.accent)localStorage.setItem("cloakwire:accent",options.accent);
       localStorage.setItem(mobile?"singbox.mobile.tab":"singbox.tab",options.tab??"servers");
       if(options.customRouting)localStorage.setItem("singbox-client.settings.v2",JSON.stringify({tunnel_mode:"tun",routing:{vpn_processes:[],direct_processes:[],final_outbound:mobile?"proxy":"direct",rules:[],rule_sets:[],tun_app_mode:"all",tun_app_list:[]}}));
       localStorage.setItem(mobile?"singbox.mobile.lastServer":"cloakwire.desktop.lastServer.v1",JSON.stringify(mobile?{kind:"profile",tag:options.single?"My server":options.selectedFirst?"First":"Same"}:{kind:"profile",key:options.single?"manual:My server":options.selectedFirst?"manual:First":"manual:Same"}));
@@ -18,13 +20,30 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{parseFail
     }
     const w=window as any;w.nativeCalls=[];
     w.__TAURI_EVENT_PLUGIN_INTERNALS__={unregisterListener:()=>{}};
-    w.__TAURI_INTERNALS__={transformCallback:()=>1,unregisterCallback:()=>{},invoke:async(cmd:string)=>{
+    w.__TAURI_INTERNALS__={transformCallback:()=>1,unregisterCallback:()=>{},invoke:async(cmd:string,args:any={})=>{
       w.nativeCalls.push(cmd);
+      if(cmd==="update_tray_status"){w.lastTray=args;return null;}
       if(cmd==="parse_input"&&options.parseFailure)return {outbounds:[],subscriptions:[],failures:[{line:1,input:"vless://SYNTHETIC",error:{kind:"parse",message:"Invalid port number"}}]};
       if(cmd==="parse_input")return {outbounds:[fixture("Provider label","NEW_SECRET")],subscriptions:[],failures:[]};
       if(cmd==="list_processes")return [{pid:123,name:"fixture.exe"}];
       if(cmd==="plugin:vpn|listApps")return [{packageName:"fixture.app",label:"Fixture app"}];
       if(cmd==="list_subscriptions")return {subscriptions:[],link_outbounds:[]};
+      if(cmd==="get_connection_diagnostics"){
+        if(!options.health)return null;
+        const w=window as any;
+        if(!w.fixtureHealth){
+          const session={profile_ref:{kind:"manual",id:"accepted-a"},profile_revision:"native-a",run_id:"7",network_generation:"network-a",effective_outbound_revision:"member-a",engine:"singbox",display_name:"Accepted server A"};
+          w.fixtureHealth={session,health:{...session,operation_id:"initial",scope:"active_session",stage:options.health==="checking"?"verifying":"complete",outcome:options.health==="reality"?"unavailable":options.health,issue:options.health==="reality"?"probe_target_unavailable":options.health==="unavailable"?"unsupported_probe":null,checked_at:new Date().toISOString(),latency_ms:options.health==="healthy"?14:null},
+            issue:options.health==="reality"?{run_id:"7",code:"reality_verification",severity:"notice",count:2,observed_at:new Date().toISOString()}:null,ended_unexpectedly:false};
+        }
+        return w.fixtureHealth;
+      }
+      if(cmd==="retry_active_probe"){
+        const w=window as any;(w.probeCalls??=[]).push(args.expected);
+        w.fixtureHealth.health={...w.fixtureHealth.session,operation_id:"retry",scope:"active_session",stage:"verifying",outcome:"checking",issue:null,checked_at:null,latency_ms:null};
+        return "retry";
+      }
+      if(cmd==="get_status"&&options.health)return {status:"running",run_id:(window as any).fixtureRun??"7",engine:"singbox",pid:123,uptime_secs:1,last_exit_code:null,last_error:null};
       if(cmd==="get_status")return {status:options.running?"running":"stopped",pid:options.running?123:null,uptime_secs:null,last_exit_code:null,last_error:null};
       if(cmd==="plugin:vpn|status")return {state:options.running?"running":"stopped",message:null,since:null,engine:""};
       if(cmd==="get_binary_info")return {path:"fixture",exists:true};

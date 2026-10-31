@@ -63,3 +63,18 @@ export function isHealthFresh(health: ConnectionHealth | null, expected: Session
   const age = now - Date.parse(health.checked_at);
   return Number.isFinite(age) && age >= 0 && age < 60000;
 }
+
+export interface AcceptedSession extends SessionIdentity {
+  engine: "singbox" | "xray";
+  display_name: string | null;
+}
+export interface RuntimeIssue {
+  run_id: string; code: HealthIssue; severity: "notice" | "connection";
+  count: number; observed_at: string;
+}
+export interface DesktopHealthSnapshot {
+  session: AcceptedSession | null;
+  health: ConnectionHealth | null;
+  issue: RuntimeIssue | null;
+  ended_unexpectedly: boolean;
+}

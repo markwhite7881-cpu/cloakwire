@@ -6,17 +6,20 @@ pub mod types;
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn get_connection_health(
-    coordinator: tauri::State<'_, coordinator::ProbeCoordinator>,
+    pm: tauri::State<'_, std::sync::Arc<crate::process::ProcessManager>>,
 ) -> types::HealthSnapshot {
-    coordinator.snapshot()
+    types::HealthSnapshot {
+        selected_profile: None,
+        active_session: pm.diagnostics.snapshot().health,
+    }
 }
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn cancel_profile_probe(
     operation_id: String,
-    coordinator: tauri::State<'_, coordinator::ProbeCoordinator>,
+    pm: tauri::State<'_, std::sync::Arc<crate::process::ProcessManager>>,
 ) -> bool {
-    coordinator.cancel(&operation_id)
+    pm.diagnostics.cancel(&operation_id)
 }
 
 pub mod probe_config;
@@ -44,3 +47,45 @@ mod desktop_tests;
 
 #[cfg(all(test, not(target_os = "android")))]
 mod desktop_native_tests;
+
+#[cfg(not(target_os = "android"))]
+pub mod active_config;
+#[cfg(all(test, not(target_os = "android")))]
+mod active_config_tests;
+
+#[cfg(not(target_os = "android"))]
+pub mod issues;
+#[cfg(all(test, not(target_os = "android")))]
+mod issues_tests;
+
+#[cfg(not(target_os = "android"))]
+pub mod active;
+#[cfg(all(test, not(target_os = "android")))]
+mod active_tests;
+
+#[cfg(all(test, not(target_os = "android")))]
+mod active_native_tests;
+
+#[cfg(all(test, not(target_os = "android")))]
+mod lifecycle_tests;
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub fn get_connection_diagnostics(
+    pm: tauri::State<'_, std::sync::Arc<crate::process::ProcessManager>>,
+) -> active::DesktopHealthSnapshot {
+    pm.diagnostics.snapshot()
+}
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub fn retry_active_probe(
+    pm: tauri::State<'_, std::sync::Arc<crate::process::ProcessManager>>,
+    expected: types::SessionIdentity,
+) -> Result<String, String> {
+    pm.diagnostics
+        .request(pm.inner().clone(), expected)
+        .map_err(|_| "connection_check_stale".to_owned())
+}
+
+#[cfg(not(target_os = "android"))]
+pub mod network_events;

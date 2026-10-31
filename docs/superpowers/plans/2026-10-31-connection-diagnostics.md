@@ -10,7 +10,7 @@
 
 **Spec:** ../specs/2026-10-31-connection-reliability-and-ux-design.md
 
-**Status:** реализация начата. D0: безопасная часть готова. D1: контракты/координатор готовы. D2: реализован внутренний desktop adapter и проверен lifecycle настоящих ядер; isolated Xray закрыт через unsupported_probe до доказанной привязки интерфейса. Active-session probe, системная матрица и интеграция остаются незавершёнными, как и D3–D5. [Desktop checkpoint](../../testing/desktop-probe-2026-10-31.md). [Результаты](../../testing/implementation-stage-2026-10-31.md).
+**Status:** D2 active-session, D4/D5 для Windows/macOS реализованы в текущем checkpoint; Android отложен пользователем. Desktop independent probe остаётся внутренним, isolated Xray закрыт через unsupported_probe. Системная матрица и полное завершение D2–D5 остаются открытыми. [Текущий этап](../../testing/desktop-active-health-2026-10-31.md).
 
 ## Global Constraints
 

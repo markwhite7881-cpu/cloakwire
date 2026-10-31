@@ -16,7 +16,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-fn binary(engine: EngineKind) -> PathBuf {
+pub(super) fn binary(engine: EngineKind) -> PathBuf {
     let name = if engine == EngineKind::Singbox {
         "sing-box"
     } else {
@@ -43,7 +43,7 @@ fn network() -> PhysicalNetwork {
     let name = "lo0";
     PhysicalNetwork::fixture(name)
 }
-fn candidate(engine: EngineKind, port: u16, user: &str) -> Value {
+pub(super) fn candidate(engine: EngineKind, port: u16, user: &str) -> Value {
     match engine {
         EngineKind::Singbox => {
             json!({"outbounds":[{"type":"vless","tag":"selected","server":"127.0.0.1","server_port":port,"uuid":user}]})
@@ -53,7 +53,7 @@ fn candidate(engine: EngineKind, port: u16, user: &str) -> Value {
         }
     }
 }
-async fn server(parent: &std::path::Path) -> (OwnedCore, u16, String) {
+pub(super) async fn server(parent: &std::path::Path) -> (OwnedCore, u16, String) {
     let socket = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = socket.local_addr().unwrap().port();
     let id = uuid::Uuid::new_v4().to_string();
@@ -76,7 +76,7 @@ async fn server(parent: &std::path::Path) -> (OwnedCore, u16, String) {
     .unwrap();
     (core, port, id)
 }
-async fn endpoint(
+pub(super) async fn endpoint(
     stall: bool,
 ) -> (
     String,
