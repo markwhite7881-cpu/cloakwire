@@ -3,6 +3,7 @@
 //! Every command is async and returns `AppResult<T>`. The frontend
 //! sees errors as `{ kind, message }` (see error.rs).
 
+use crate::diagnostics::sources::{ready_revision, require_revision, revision as source_revision};
 use crate::diagnostics::{
     active_config::{ActiveLaunch, SessionSource},
     types::ProfileRef,
@@ -149,6 +150,14 @@ pub async fn check_config(app: AppHandle, config_path: String) -> AppResult<Stri
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ManagedLaunchInput {
+    #[serde(default, alias = "expectedIdle")]
+    pub expected_idle: bool,
+    #[serde(default, alias = "expectedCatalogEpoch")]
+    pub expected_catalog_epoch: Option<String>,
+    #[serde(default, alias = "expectedSourceRevision")]
+    pub expected_source_revision: Option<String>,
+    #[serde(default, alias = "expectedSession")]
+    pub expected_session: Option<crate::diagnostics::types::SessionIdentity>,
     #[serde(alias = "manualOutbounds")]
     pub manual_outbounds: Vec<Outbound>,
     #[serde(default, alias = "manualProfileId")]
@@ -170,6 +179,8 @@ pub struct ManagedProfileInput {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ReadyProfileInput {
+    #[serde(default)]
+    pub expected_source_revision: Option<String>,
     pub subscription_id: String,
     pub child_key: String,
     pub routing: config::RoutingOptions,
@@ -237,6 +248,11 @@ async fn start_ready_profile_inner(
         .resolve_child_profile(&input.subscription_id, &input.child_key)
         .await?;
 
+    let original_revision = ready_revision(profile.engine, &profile.config);
+    require_revision(
+        input.expected_source_revision.as_deref(),
+        Some(&original_revision),
+    )?;
     let source_ref = ProfileRef::Ready {
         subscription_id: input.subscription_id.clone(),
         child_key: input.child_key.clone(),
@@ -280,7 +296,8 @@ async fn start_ready_profile_inner(
         }
     };
 
-    let source = SessionSource::new(source_ref, Some(profile.name.clone()), &value);
+    let source = SessionSource::new(source_ref, Some(profile.name.clone()), &value)
+        .with_source_revision(original_revision);
     let path = write_runtime_config(&app, &value).map_err(config::preflight::preparation_error)?;
     let status = start_checked_ready_profile(
         Some(&app),
@@ -349,7 +366,8 @@ async fn start_resolved_singbox_profile(
 ) -> AppResult<ReadyProfileResult> {
     let config_value = prepare_ready_singbox_config(&profile, routing)
         .map_err(config::preflight::preparation_error)?;
-    let source = SessionSource::new(source_ref, Some(profile.name.clone()), &config_value);
+    let source = SessionSource::new(source_ref, Some(profile.name.clone()), &config_value)
+        .with_source_revision(ready_revision(profile.engine, &profile.config));
     let binary = singbox::locate_binary(&app).map_err(config::preflight::preparation_error)?;
     let path =
         write_runtime_config(&app, &config_value).map_err(config::preflight::preparation_error)?;
@@ -505,18 +523,43 @@ pub async fn start_managed_singbox(
     subscriptions: State<'_, Arc<SubscriptionService>>,
     input: ManagedLaunchInput,
 ) -> AppResult<ManagedLaunchResult> {
+    if input.expected_idle && pm.active_run_id() != 0 {
+        return Err(AppError::Validation("profile_source_changed".into()));
+    }
+    if let Some(expected) = &input.expected_session {
+        if pm
+            .diagnostics
+            .snapshot()
+            .session
+            .as_ref()
+            .map(|s| &s.identity)
+            != Some(expected)
+        {
+            return Err(AppError::Validation("profile_source_changed".into()));
+        }
+    }
     let check_ticket = pm.begin_ready_profile_check();
+    require_revision(
+        input.expected_catalog_epoch.as_deref(),
+        Some(&crate::diagnostics::sources::catalog_epoch().to_string()),
+    )?;
     if let Some(profile_ref) = input.profile {
         let result = async {
             let profile = subscriptions
                 .resolve_child_profile(&profile_ref.subscription_id, &profile_ref.child_key)
                 .await?;
+            let original_revision = ready_revision(profile.engine, &profile.config);
+            require_revision(
+                input.expected_source_revision.as_deref(),
+                Some(&original_revision),
+            )?;
             if profile.engine == EngineKind::Xray {
                 let ready = start_ready_profile_inner(
                     app,
                     pm.clone(),
                     subscriptions,
                     ReadyProfileInput {
+                        expected_source_revision: input.expected_source_revision.clone(),
                         subscription_id: profile_ref.subscription_id,
                         child_key: profile_ref.child_key,
                         routing: input.settings.routing,
@@ -544,7 +587,8 @@ pub async fn start_managed_singbox(
                 },
                 Some(profile.name.clone()),
                 &config_value,
-            );
+            )
+            .with_source_revision(original_revision);
             let binary =
                 singbox::locate_binary(&app).map_err(config::preflight::preparation_error)?;
             let path = write_runtime_config(&app, &config_value)
@@ -585,6 +629,8 @@ pub async fn start_managed_singbox(
         };
     }
 
+    let manual_revisions: Vec<String> =
+        input.manual_outbounds.iter().map(source_revision).collect();
     let manual_tags: Vec<String> = input
         .manual_outbounds
         .iter()
@@ -605,6 +651,11 @@ pub async fn start_managed_singbox(
     };
     let subscription_tag = if subscription_outbounds.len() == 1 {
         Some(subscription_outbounds[0].display_name())
+    } else {
+        None
+    };
+    let subscription_revision = if subscription_outbounds.len() == 1 {
+        Some(source_revision(&subscription_outbounds[0]))
     } else {
         None
     };
@@ -642,7 +693,22 @@ pub async fn start_managed_singbox(
             snapshot_id: Uuid::new_v4().to_string(),
         }
     };
-    let source = SessionSource::new(reference, Some(selected.to_owned()), &value);
+    let revision = match &reference {
+        ProfileRef::Manual { .. } => manual_tags
+            .iter()
+            .position(|tag| tag == selected)
+            .map(|i| manual_revisions[i].clone()),
+        ProfileRef::Subscription { .. } => subscription_revision,
+        _ => None,
+    };
+    require_revision(
+        input.expected_source_revision.as_deref(),
+        revision.as_deref(),
+    )?;
+    let mut source = SessionSource::new(reference, Some(selected.to_owned()), &value);
+    if let Some(revision) = revision {
+        source = source.with_source_revision(revision);
+    }
     let binary = singbox::locate_binary(&app)?;
     let status = start_checked_ready_profile(
         Some(&app),
@@ -1856,6 +1922,10 @@ async fn start_checked_ready_profile(
             let _ = std::fs::remove_file(&spec.config_path);
             return Err(config::preflight::ProfileCheckIssue::Cancelled.into());
         }
+    }
+    let _source_handoff = crate::diagnostics::sources::catalog_handoff().await;
+    if !pm.is_ready_profile_check_current(check_ticket) {
+        return Err(config::preflight::ProfileCheckIssue::Cancelled.into());
     }
     if pm.is_running().await {
         pm.stop_after_profile_check(check_ticket).await?;

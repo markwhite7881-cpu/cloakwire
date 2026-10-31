@@ -174,6 +174,7 @@ pub struct ProcessManager {
     next_run_id: AtomicU64,
     /// Invalidates pending profile checks on Stop or a newer connection request.
     ready_check_epoch: AtomicU64,
+    ready_catalog_epoch: AtomicU64,
     /// ID currently allowed to mutate runtime state; zero means no active run.
     active_run_id: Arc<AtomicU64>,
     /// Run generation currently owning Xray telemetry, or zero when idle.
@@ -212,6 +213,7 @@ impl Default for ProcessManager {
             controller_url: Mutex::new(None),
             next_run_id: AtomicU64::new(0),
             ready_check_epoch: AtomicU64::new(0),
+            ready_catalog_epoch: AtomicU64::new(crate::diagnostics::sources::catalog_epoch()),
             active_run_id: Arc::new(AtomicU64::new(0)),
             xray_stats_run_id: AtomicU64::new(0),
             transition: Arc::new(Semaphore::new(1)),
@@ -232,10 +234,16 @@ impl ProcessManager {
     }
 
     pub fn begin_ready_profile_check(&self) -> u64 {
+        self.ready_catalog_epoch.store(
+            crate::diagnostics::sources::catalog_epoch(),
+            Ordering::Release,
+        );
         self.ready_check_epoch.fetch_add(1, Ordering::AcqRel) + 1
     }
     pub fn is_ready_profile_check_current(&self, ticket: u64) -> bool {
         self.ready_check_epoch.load(Ordering::Acquire) == ticket
+            && self.ready_catalog_epoch.load(Ordering::Acquire)
+                == crate::diagnostics::sources::catalog_epoch()
     }
 
     pub async fn set_kill_switch_mode(&self, mode: crate::config::KillSwitchMode) {

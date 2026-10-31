@@ -1,8 +1,9 @@
+import type {ReactNode} from "react";
 import {AlertCircle,CheckCircle2,RefreshCw,Server} from "lucide-react";
 import {useI18n} from "@/lib/i18n";
 import type {ConnectionPresentation} from "@/lib/connectionPresentation";
-export function ConnectionStatus({view,onRetry,onChooseServer,busy=false,message,showHeading=true}:{
-  view:ConnectionPresentation;onRetry?:()=>void;onChooseServer?:()=>void;busy?:boolean;message?:string|null;showHeading?:boolean;
+export function ConnectionStatus({view,onRetry,onChooseServer,busy=false,message,showHeading=true,actions}:{
+  view:ConnectionPresentation;onRetry?:()=>void;onChooseServer?:()=>void;busy?:boolean;message?:string|null;showHeading?:boolean;actions?:ReactNode;
 }){
   const {t,locale}=useI18n();
   const code=view.issue?.code??view.health?.issue;
@@ -26,6 +27,7 @@ export function ConnectionStatus({view,onRetry,onChooseServer,busy=false,message
     {needsAttention&&onChooseServer&&<button type="button" onClick={onChooseServer} className="ml-2 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
       <Server aria-hidden="true" className="h-4 w-4"/>{t("health.choose")}
     </button>}
+    {needsAttention&&actions}
     {message&&<p role="status" className="text-xs text-muted-foreground">{message}</p>}
   </section>;
 }

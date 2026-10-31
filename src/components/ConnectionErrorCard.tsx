@@ -1,10 +1,11 @@
+import type {ReactNode} from "react";
 import { useState } from "react";
 import { AlertCircle, Copy, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { isProfileCheckCancelled, profileCheckDetails } from "@/lib/profileCheck";
 import { copyTextToClipboard } from "@/lib/diagnostics";
 
-export function ConnectionErrorCard({ error, onDismiss }: { error: string; onDismiss?: () => void }) {
+export function ConnectionErrorCard({ error, onDismiss, actions }: { error: string; onDismiss?: () => void; actions?:ReactNode }) {
   const { t } = useI18n();
   const [dismissedError, setDismissedError] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
@@ -34,7 +35,7 @@ export function ConnectionErrorCard({ error, onDismiss }: { error: string; onDis
               <button
                 type="button"
                 onClick={() => void copyReport()}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-destructive/25 px-2 py-1 hover:bg-destructive/10"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-destructive/25 px-2 py-1 hover:bg-destructive/10"
               >
                 <Copy aria-hidden="true" className="h-3.5 w-3.5" />
                 {copyState === "copied" ? t("common.copied") : t("profileCheck.copyReport")}
@@ -42,12 +43,13 @@ export function ConnectionErrorCard({ error, onDismiss }: { error: string; onDis
               {copyState === "failed" && <p role="status">{t("profileCheck.copyUnavailable")}</p>}
             </>
           ) : <p>{error}</p>}
+          {actions}
         </div>
         <button
           type="button"
           aria-label={t("common.close")}
           onClick={() => { setDismissedError(error); onDismiss?.(); }}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg hover:bg-destructive/10"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-destructive/10"
         >
           <X aria-hidden="true" className="h-4 w-4" />
         </button>

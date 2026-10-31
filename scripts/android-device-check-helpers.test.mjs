@@ -30,3 +30,10 @@ test("negative start regressions require recovery before any explicit routing mu
   assert.equal(sessionWasDisturbed(original,original,false),true);
   assert.equal(sessionWasDisturbed(original,original,true),false);
 });
+
+test("WebView PID belongs to the selected Android user, not a same-name root process", async () => {
+  const {userAppPid}=await import("./android-device-check-helpers.mjs");
+  const processes="PID USER NAME\n8350 root app.cloakwire.client\n32444 u0_a517 app.cloakwire.client\n32445 u10_a517 app.cloakwire.client";
+  assert.equal(userAppPid(processes,"app.cloakwire.client"),"32444");
+  assert.throws(()=>userAppPid("8350 root app.cloakwire.client","app.cloakwire.client"));
+});

@@ -65,6 +65,7 @@ export function isHealthFresh(health: ConnectionHealth | null, expected: Session
 }
 
 export interface AcceptedSession extends SessionIdentity {
+  source_revision?: string|null;
   engine: "singbox" | "xray";
   display_name: string | null;
 }

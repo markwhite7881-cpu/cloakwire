@@ -1,3 +1,4 @@
+import {invalidateProfilePreparations} from "@/lib/profilePreparations";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import type { Outbound, Subscription, SubscriptionSnapshot, SubscriptionSummary } from "@/lib/types";
@@ -147,39 +148,23 @@ export function useSubscriptions() {
   // real fetch resolves. `ServersScreen` already renders "No
   // servers loaded" for empty groups, so the transient state is
   // identical to a freshly-added subscription.
+  const outboundLoadEpoch=useRef(0);
   const loadOutbounds = useCallback(
-    async (snapshot?: {
-      link_outbounds: {
-        subscription_id: string;
-        links: { key: string; label: string; protocol: string }[];
-      }[];
-      subscriptions: SubscriptionSummary[];
-    }) => {
-      const snap = snapshot ?? (await api.listSubscriptions());
-      const next: Record<string, FetchResult> = {};
-      for (const group of snap.link_outbounds) {
-        // Seed with an empty list so the picker has a stable
-        // shape; `group.entries.length` will be 0 until the
-        // fire-and-forget fetch below resolves and the real
-        // outbounds arrive.
-        next[group.subscription_id] = { outbounds: [], errors: 0 };
-        api
-          .getSubscriptionOutbounds(group.subscription_id)
-          .then((full) => {
-            if (full && full.length > 0) {
-              setLastResult((prev) => ({
-                ...prev,
-                [group.subscription_id]: { outbounds: full, errors: 0 },
-              }));
-            }
-          })
-          .catch(() => {
-            /* keep the empty state; user can pull-to-refresh */
-          });
-      }
-      setLastResult(next);
-    },
-    [],
+    async (snapshot?:SubscriptionSnapshot) => {
+      const epoch=++outboundLoadEpoch.current;
+      const snap=snapshot??await api.listSubscriptions();
+      const pairs=await Promise.all(snap.link_outbounds.map(async group=>{
+        const outbounds=await api.getSubscriptionOutbounds(group.subscription_id).catch(()=>[]);
+        // A concurrent refresh may replace the positional list after the
+        // summary read. Never attach its old revision to newly fetched payloads.
+        const revisions=outbounds?.length?await api.profileSourceRevisions(outbounds).catch(()=>[]):[];
+        const consistent=Array.isArray(revisions)&&revisions.length===(outbounds?.length??0)&&
+          group.links.length===(outbounds?.length??0)&&group.links.every((link,index)=>!!link.source_revision&&link.source_revision===revisions[index]);
+        return [group.subscription_id,{outbounds:consistent?outbounds??[]:[],errors:consistent?0:1}] as const;
+      }));
+      if(epoch!==outboundLoadEpoch.current)return;
+      setSnapshot(snap);setLastResult(Object.fromEntries(pairs));
+    },[],
   );
 
   // Initial load. On Android we also migrate any pre-v1.3.1 records
@@ -243,10 +228,12 @@ export function useSubscriptions() {
   const refreshOne = useCallback(
     async (id: string, override?: Subscription) => {
       const sub = override ?? subs.find((s) => s.id === id);
-      if (!sub) return;
+      if (!sub) return false;
       setFetching((prev) => ({ ...prev, [id]: true }));
       try {
+        await invalidateProfilePreparations();
         const result = await api.refreshSubscription(id);
+        await invalidateProfilePreparations();
         // Rust may return a `SubscriptionSummary` with
         // `last_success_at: null` even after a successful refresh
         // (the timestamp is only persisted on a subsequent tick in
@@ -267,6 +254,7 @@ export function useSubscriptions() {
           prev.map((s) => (s.id === id ? merged : s)),
         );
         await loadOutbounds();
+        return true;
       } catch (e) {
         // If the Rust store has no record for this id, the local
         // entry is stale (e.g. someone removed it from disk, or
@@ -282,6 +270,7 @@ export function useSubscriptions() {
             prev.map((s) => (s.id === id ? { ...s, lastError: msg } : s)),
           );
         }
+        return false;
       } finally {
         setFetching((prev) => ({ ...prev, [id]: false }));
       }
@@ -354,6 +343,7 @@ export function useSubscriptions() {
         }
       }
       try {
+        await invalidateProfilePreparations();
         await api.addSubscription({
           name: displayName,
           url: input.url.trim(),
@@ -373,6 +363,7 @@ export function useSubscriptions() {
 
   const remove = useCallback(
     async (id: string) => {
+      await invalidateProfilePreparations();
       // Optimistic delete; revert if Rust rejects.
       const previous = subs.find((s) => s.id === id);
       setSubs((prev) => prev.filter((s) => s.id !== id));

@@ -359,7 +359,11 @@ impl SubscriptionService {
     /// before handing it to the xray engine. Returns 404 if the
     /// subscription is not a bundle, has no children, or has no
     /// `active_child_key` set. 2026-08-20.
-    pub async fn get_active_child_config(&self, id: &str) -> AppResult<ActiveChildConfig> {
+    pub async fn get_active_child_config(
+        &self,
+        id: &str,
+        requested_key: Option<&str>,
+    ) -> AppResult<ActiveChildConfig> {
         let _guard = self.lock.lock().await;
         let records = self.store.load_all()?;
         let record = records.iter().find(|r| r.id == id).ok_or_else(not_found)?;
@@ -372,11 +376,14 @@ impl SubscriptionService {
                 record.kind
             )));
         }
-        let key = record.active_child_key.clone().ok_or_else(|| {
-            AppError::Validation(format!(
-                "subscription {id:?} has no active child; call set_active_child first"
-            ))
-        })?;
+        let key = requested_key
+            .map(str::to_owned)
+            .or_else(|| record.active_child_key.clone())
+            .ok_or_else(|| {
+                AppError::Validation(format!(
+                    "subscription {id:?} has no active child; call set_active_child first"
+                ))
+            })?;
         let child = record
             .children
             .iter()
@@ -389,6 +396,10 @@ impl SubscriptionService {
         let config = serde_json::to_string(&child.config)
             .map_err(|e| AppError::Validation(format!("child config serialise failed: {e}")))?;
         Ok(ActiveChildConfig {
+            source_revision: crate::diagnostics::sources::ready_revision(
+                child.engine,
+                &child.config,
+            ),
             engine: child.engine,
             child_key: child.key.clone(),
             child_name: child.name.clone(),
@@ -720,6 +731,7 @@ fn snapshot(records: Vec<SubscriptionRecord>) -> SubscriptionSnapshot {
                         format!("{protocol} link {}", index + 1)
                     };
                     SubscriptionLinkSummary {
+                        source_revision: crate::diagnostics::sources::revision(outbound),
                         key: format!("index-{index}"),
                         label,
                         protocol,

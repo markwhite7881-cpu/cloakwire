@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {execFileSync} from "node:child_process";
 import {chromium} from "playwright";
-import {readAcceptedConfig,sameConfig,sessionWasDisturbed} from "./android-device-check-helpers.mjs";
+import {readAcceptedConfig,sameConfig,sessionWasDisturbed,userAppPid} from "./android-device-check-helpers.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, xs) =>
   x.startsWith("--") ? [...a, [x.slice(2), xs[i+1] && !xs[i+1].startsWith("--") ? xs[i+1] : true]] : a, []));
@@ -24,7 +24,7 @@ async function connect() {
   const until = Date.now()+15000;
   do {
     try {
-      const pid = adb("shell","pidof",app).split(" ")[0];
+      const pid = userAppPid(adb("shell","ps","-A","-o","PID,USER,NAME"),app);
       const sockets = adb("shell","cat","/proc/net/unix");
       if (!sockets.includes("@webview_devtools_remote_"+pid)) throw new Error("not ready");
       if(port) {adb("forward","--remove","tcp:"+port);ownedPorts.delete(port);port=undefined;}

@@ -155,6 +155,7 @@ impl SubscriptionStore {
     }
 
     pub fn replace_all(&self, records: &[SubscriptionRecord]) -> AppResult<()> {
+        let _mutation = crate::diagnostics::sources::catalog_mutation()?;
         self.replace_all_with(records, |temporary_path, target_path| {
             fs::rename(temporary_path, target_path)
         })

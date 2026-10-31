@@ -121,6 +121,7 @@ pub struct ChildProfileRecord {
 impl ChildProfileRecord {
     fn to_summary(&self) -> ChildProfileSummary {
         ChildProfileSummary {
+            source_revision: crate::diagnostics::sources::ready_revision(self.engine, &self.config),
             key: self.key.clone(),
             name: self.name.clone(),
             engine: self.engine,
@@ -261,6 +262,8 @@ pub struct SubscriptionOutbounds {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SubscriptionLinkSummary {
+    #[serde(default)]
+    pub source_revision: String,
     pub key: String,
     pub label: String,
     pub protocol: String,
@@ -268,6 +271,8 @@ pub struct SubscriptionLinkSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ChildProfileSummary {
+    #[serde(default)]
+    pub source_revision: String,
     pub key: String,
     pub name: String,
     pub engine: EngineKind,

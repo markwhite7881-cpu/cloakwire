@@ -1,4 +1,5 @@
 pub mod coordinator;
+pub mod sources;
 #[cfg(test)]
 mod tests;
 pub mod types;

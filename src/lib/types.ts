@@ -98,6 +98,7 @@ export interface SubscriptionFailure {
 }
 
 export interface ChildProfileSummary {
+  source_revision?: string;
   key: string;
   name: string;
   engine: EngineKind;
@@ -129,6 +130,7 @@ export interface SubscriptionLinkRef {
 }
 
 export interface SubscriptionLinkSummary {
+  source_revision?: string;
   key: string;
   label: string;
   protocol: string;
@@ -301,6 +303,7 @@ export interface TuicOut {
 }
 
 export interface ActiveChildConfig {
+  source_revision?:string;
   engine: EngineKind;
   child_key: string;
   child_name: string;

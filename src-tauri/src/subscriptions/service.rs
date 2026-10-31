@@ -500,6 +500,7 @@ fn snapshot(records: Vec<SubscriptionRecord>) -> SubscriptionSnapshot {
                         format!("{protocol} link {}", index + 1)
                     };
                     SubscriptionLinkSummary {
+                        source_revision: crate::diagnostics::sources::revision(outbound),
                         key: format!("index-{index}"),
                         label,
                         protocol,

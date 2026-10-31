@@ -1,3 +1,10 @@
+import {profilePreparation} from "@/lib/profilePreparations";
+import {vpnBeginPreparation} from "@/lib/vpn";
+import {ProfileHealthContext} from "@/components/ProfileHealthBadge";
+import {ProfileErrorActions} from "@/components/ProfileErrorActions";
+import {useProfileErrorActions} from "@/hooks/useProfileErrorActions";
+import {useSourceRevisions} from "@/hooks/useSourceRevisions";
+import {findSourceIndex,type ProfileSource} from "@/lib/profileEvidence";
 import { useProfileImport } from "@/hooks/useProfileImport";
 import { ProfileImportDialog } from "@/components/ProfileImportDialog";
 import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
@@ -12,13 +19,12 @@ import cloakwireLogo from "@/assets/cloakwire-logo.png";
 import { api } from "@/lib/api";
 import { humanError, isProfileCheckCancelled, profileCheckDetails } from "@/lib/profileCheck";
 import { reconnectSelectedProfile } from "@/lib/reconnectState";
-import { connectSelectedProfile } from "./lib/connectWithSelection";
 import { useGeoIp } from "@/hooks/useGeoIp";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useManualProfiles } from "@/hooks/useManualProfiles";
 import { useProfileSelection } from "@/hooks/useProfileSelection";
 import { ManualProfileStorageNotice } from "@/components/ManualProfileStorageNotice";
-import { isSupported } from "@/lib/outbound";
+import { isSupported, profileLabel } from "@/lib/outbound";
 import { isValidProfileSelection } from "@/lib/profileSelection";
 import { cn } from "@/lib/utils";
 import type { GeneratorSettings, Outbound } from "@/lib/types";
@@ -234,6 +240,14 @@ export default function MobileApp() {
     [manualProfiles, subs.subs, effectiveLastResult, manualRecords],
   );
 
+  const sourceRevisions=useSourceRevisions(profiles);
+  const profileSources:(ProfileSource|null)[]=profiles.map(()=>null);
+  for(const group of serverGroups)for(const entry of group.entries){
+    const revision=entry.manualId?sourceRevisions[entry.profileIndex]:subs.snapshot.link_outbounds.find(g=>g.subscription_id===group.subscriptionId)?.links.find(l=>l.key==="index-"+entry.sourceIndex)?.source_revision;
+    if(revision)profileSources[entry.profileIndex]={profile_ref:entry.manualId?{kind:"manual",id:entry.manualId}:{kind:"subscription",subscription_id:group.subscriptionId!,link_key:"index-"+entry.sourceIndex},source_revision:revision};
+  }
+  const readySources:ProfileSource[]=subs.subs.flatMap(sub=>sub.children.flatMap(child=>child.source_revision?[{profile_ref:{kind:"ready" as const,subscription_id:sub.id,child_key:child.key},source_revision:child.source_revision}]:[]));
+  const allSources=[...profileSources,...readySources];
   const profileKeys = useMemo(() => {
     const keys: string[] = [];
     for (const group of serverGroups) for (const entry of group.entries) {
@@ -383,8 +397,8 @@ export default function MobileApp() {
   // IDs remain stable even when duplicate labels are disambiguated for the core.
   const profileImport = useProfileImport(manualStore, markConnectionDirty);
 
-  const removeManualProfile = (id: string) => {
-    if (manualStore.saveRecords(manualRecords.filter(r => r.id !== id))) markConnectionDirty();
+  const removeManualProfile = async(id: string) => {
+    if (await manualStore.saveRecords(manualRecords.filter(r => r.id !== id))) markConnectionDirty();
   };
   const setMobileSettings = (next: GeneratorSettings) => {
     setSettings(next);
@@ -570,23 +584,45 @@ export default function MobileApp() {
     setMobileSettings({ ...settings, default_outbound: null });
   };
 
-  const connectWithSelection = async () => {
-    if (vpn.busy) return;
-    if (manualStore.blocked || selectionNeedsChoice || isSelectionMissing()) {
-      vpn.reportError(t(selectionNeedsChoice || isSelectionMissing() ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`)); return;
+  const connectWithSelection = async (target?:ProfileSource,expectedRunId?:string) => {
+    if (vpn.busy || manualStore.blocked) return;
+    if (!target && (selectionNeedsChoice || isSelectionMissing())) {
+      vpn.reportError(t("profileStorage.choose")); return;
     }
-    vpn.clearError();
-    setSelectionBusy(true);
-    try {
-      await connectSelectedProfile(activeBundle, {
-        loadChild: (id) => api.getActiveChildConfig(id, settings.routing),
-        connect: vpn.connect,
-        reportError: vpn.reportError,
-      });
-    } finally {
-      setSelectionBusy(false);
-    }
+    const assertCurrent=profilePreparation();
+    const ownerContext=expectedRunId??vpn.runId??"stopped";
+    const source=target??(activeBundle?readySources.find(source=>source.profile_ref.kind==="ready"&&source.profile_ref.subscription_id===activeBundle.subscriptionId&&source.profile_ref.child_key===activeBundle.childKey)??null:profileSources[selectedIndex]??null);
+    vpn.clearError();setSelectionBusy(true);
+    try{
+      const preparationId=("__TAURI_INTERNALS__" in window)?(await vpnBeginPreparation()).request:undefined;
+      assertCurrent();
+      if(source&&source.profile_ref.kind!=="manual")await api.validateSubscriptionSource(source);
+      assertCurrent();
+      if(source?.profile_ref.kind==="ready"||(!target&&activeBundle)){
+        const ref=source?.profile_ref.kind==="ready"?source.profile_ref:{subscription_id:activeBundle!.subscriptionId,child_key:activeBundle!.childKey};
+        const child=await api.getActiveChildConfig(ref.subscription_id,settings.routing,ref.child_key);
+        if(child.child_key!==ref.child_key||(source&&child.source_revision!==source.source_revision))throw Error(t("profileEvidence.changed"));
+        assertCurrent();
+        await vpn.connect({engine:child.engine,config:child.config,name:child.child_name},child.child_name,{source,settings,expectedRunId:ownerContext,preparationId});
+      }else{
+        const index=target?findSourceIndex(profileSources,target):selectedIndex;
+        if(target&&index<0)throw Error(t("profileEvidence.changed"));
+        const picked=profiles[index];
+        const attemptProfiles=picked?[picked,...profiles.filter((_,i)=>i!==index)]:profiles;
+        const attemptSettings={...settings,default_outbound:picked&&isSupported(picked)?picked.tag:null};
+        await vpn.connect(undefined,picked?profileLabel(picked):undefined,{source,profiles:attemptProfiles,settings:attemptSettings,expectedRunId:ownerContext,preparationId});
+      }
+    }catch(error){vpn.reportError(humanError(error)==="profile_source_changed"?t("profileEvidence.changed"):error,source,ownerContext)}
+    finally{setSelectionBusy(false)}
   };
+  const cardActions=useProfileErrorActions({
+    contextKey:vpn.runId??"stopped",
+    ownerContextKey:vpn.error?(vpn.errorContext??"stopped"):undefined,
+    target:vpn.error?(vpn.errorSource??null):vpn.state==="error"?vpn.source??null:null,
+    sources:allSources,disabled:vpn.busy,
+    choose:()=>changeTab("servers"),refresh:subs.refreshOne,
+    reconnect:async(_index,target)=>{await connectWithSelection(target,vpn.runId??"stopped")},
+  });
 
   const dotCls =
     vpn.state === "running"
@@ -624,6 +660,7 @@ export default function MobileApp() {
       </header>
 
       {/* Content */}
+      <ProfileHealthContext.Provider value={{sources:allSources,evidence:vpn.profileCheck??null}}>
       <main
         ref={contentRef}
         className="min-h-0 flex-1 overflow-y-auto"
@@ -681,6 +718,7 @@ export default function MobileApp() {
           {activeTab === "home" && (
             <HomeScreen
               vpn={vpn}
+              errorActions={<ProfileErrorActions {...cardActions}/>}
               profiles={profiles}
               groups={serverGroups}
               selectedIndex={selectedIndex}
@@ -769,6 +807,7 @@ export default function MobileApp() {
           )}
         </div>
       </main>
+      </ProfileHealthContext.Provider>
 
       {/* Bottom navigation. */}
       <nav className="shrink-0 border-t border-border/60 bg-card/95 backdrop-blur-2xl pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl">

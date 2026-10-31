@@ -12,12 +12,14 @@ export type ConnectionProfile =
   | { kind: "manual"; outbound: Outbound; id?: string; revision?: number }
   | {
       kind: "subscription";
+      source_revision?: string;
       reference: SubscriptionLinkRef;
       label: string;
       protocol: string;
     }
   | {
       kind: "ready_config";
+      source_revision?: string;
       subscriptionId: string;
       key: string;
       name: string;
@@ -60,6 +62,7 @@ export function buildConnectionProfiles(
           reference: { subscription_id: linkGroup.subscription_id, link_key: link.key },
           label: link.label,
           protocol: link.protocol,
+          source_revision: link.source_revision,
         })),
       );
     }
@@ -70,6 +73,7 @@ export function buildConnectionProfiles(
         key: child.key,
         name: child.name,
         engine: child.engine,
+        source_revision: child.source_revision,
       })),
     );
   }
@@ -83,6 +87,7 @@ export function buildConnectionProfiles(
         reference: { subscription_id: linkGroup.subscription_id, link_key: link.key },
         label: link.label,
         protocol: link.protocol,
+          source_revision: link.source_revision,
       })),
     );
   }

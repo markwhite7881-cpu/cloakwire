@@ -19,20 +19,28 @@ pub struct AcceptedSession {
     pub identity: SessionIdentity,
     pub engine: EngineKind,
     pub display_name: Option<String>,
+    #[serde(default)]
+    pub source_revision: Option<String>,
 }
 #[derive(Clone)]
 pub struct SessionSource {
     profile_ref: ProfileRef,
     name: Option<String>,
     revision: String,
+    source_revision: Option<String>,
 }
 impl SessionSource {
     pub fn new(profile_ref: ProfileRef, name: Option<String>, config: &Value) -> Self {
         Self {
+            source_revision: None,
             profile_ref,
             name,
             revision: format!("{:x}", Sha256::digest(config.to_string().as_bytes())),
         }
+    }
+    pub fn with_source_revision(mut self, revision: String) -> Self {
+        self.source_revision = Some(revision);
+        self
     }
     pub fn revision(&self) -> &str {
         &self.revision
@@ -48,6 +56,7 @@ impl SessionSource {
             },
             engine,
             display_name: self.name.clone(),
+            source_revision: self.source_revision.clone(),
         }
     }
 }

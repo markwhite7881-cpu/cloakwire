@@ -9,6 +9,7 @@ export interface ServerGroupEntry {
   profileIndex: number;
   profile: Outbound;
   manualId?: string;
+  sourceIndex?:number;
 }
 
 export interface ServerGroup {
@@ -54,7 +55,7 @@ export function buildGroupedServerProfiles(
       const identity = group.kind === "manual" && manualIds?.[sourceIndex] ? { manualId: manualIds[sourceIndex] } : {};
       if (profile.protocol === "unsupported") {
         const profileIndex = profiles.push(profile) - 1;
-        entries.push({ profileIndex, profile, ...identity });
+        entries.push({ profileIndex, profile, sourceIndex, ...identity });
         continue;
       }
 
@@ -72,7 +73,7 @@ export function buildGroupedServerProfiles(
 
       seenEndpoint.add(endpoint);
       const profileIndex = profiles.push(displayed) - 1;
-      entries.push({ profileIndex, profile: displayed, ...identity });
+      entries.push({ profileIndex, profile: displayed, sourceIndex, ...identity });
     }
     groups.push({ ...group, entries });
   };

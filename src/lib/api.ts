@@ -58,6 +58,10 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 }
 
 export const api = {
+  profileCatalogEpoch:()=>call<string>("profile_catalog_epoch"),
+  invalidateProfilePreparations:()=>call<void>("invalidate_profile_preparations"),
+  validateSubscriptionSource:(source:{profile_ref:import("./connectionHealth").ProfileRef;source_revision:string})=>call<void>("validate_subscription_source",{profileRef:source.profile_ref,sourceRevision:source.source_revision}),
+  profileSourceRevisions: (outbounds:Outbound[]) => call<string[]>("profile_source_revisions",{outbounds}),
   getConnectionDiagnostics: () => call<DesktopHealthSnapshot>("get_connection_diagnostics"),
   retryActiveProbe: (expected:SessionIdentity) => call<string>("retry_active_probe",{expected}),
   getConnectionHealth: () => call<HealthSnapshot>("get_connection_health"),
@@ -77,6 +81,10 @@ export const api = {
   startManaged: (input: {
     manualOutbounds: Outbound[];
     manualProfileId?: string;
+    expectedSourceRevision?: string;
+    expectedCatalogEpoch?: string;
+    expectedIdle?:boolean;
+    expectedSession?: SessionIdentity;
     subscriptionLinks?: SubscriptionLinkRef[];
     selectAllSubscriptionLinks: boolean;
     profile?: { subscription_id: string; child_key: string };
@@ -230,8 +238,8 @@ export const api = {
     }),
   setActiveChild: (id: string, childKey: string) =>
     call<SubscriptionSummary>("set_active_child", { id, childKey }),
-  getActiveChildConfig: (id: string, routing: RoutingOptions) =>
-    call<ActiveChildConfig>("get_active_child_config", { id, routing }),
+  getActiveChildConfig: (id: string, routing: RoutingOptions, childKey?:string) =>
+    call<ActiveChildConfig>("get_active_child_config", { id, routing, childKey }),
   migrateLegacySubscriptions: (
     inputs: LegacySubscriptionInput[],
   ) =>

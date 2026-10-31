@@ -1181,19 +1181,21 @@ pub async fn set_active_child(
 #[tauri::command]
 pub async fn get_active_child_config(
     app: AppHandle,
+    child_key: Option<String>,
     id: String,
     routing: crate::config::RoutingOptions,
 ) -> AppResult<ActiveChildConfig> {
     let service = subscription_service(&app)?;
     #[cfg_attr(not(target_os = "android"), allow(unused_mut))]
-    let mut result = service.get_active_child_config(&id).await?;
+    let mut result = service
+        .get_active_child_config(&id, child_key.as_deref())
+        .await?;
     // Apply local routing before the Android service adds its TUN fields.
     #[cfg(target_os = "android")]
     {
         use crate::subscriptions::EngineKind;
-        let parsed: serde_json::Value = serde_json::from_str(&result.config).map_err(|e| {
-            AppError::Unsupported(format!("bundle config is not valid JSON: {e}"))
-        })?;
+        let parsed: serde_json::Value = serde_json::from_str(&result.config)
+            .map_err(|e| AppError::Unsupported(format!("bundle config is not valid JSON: {e}")))?;
         let prepared = match result.engine {
             EngineKind::Xray => {
                 let merged = crate::xray_routing::merge_routing(parsed, &routing)?;

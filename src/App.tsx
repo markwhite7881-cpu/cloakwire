@@ -1,3 +1,9 @@
+import {profilePreparation} from "@/lib/profilePreparations";
+import {ProfileHealthContext} from "@/components/ProfileHealthBadge";
+import {ProfileErrorActions} from "@/components/ProfileErrorActions";
+import {useProfileErrorActions} from "@/hooks/useProfileErrorActions";
+import {useSourceRevisions} from "@/hooks/useSourceRevisions";
+import {activeEvidence,sourceForProfile,type ProfileSource,type ProfileEvidence} from "@/lib/profileEvidence";
 import { sameSessionIdentity, type DesktopHealthSnapshot, type SessionIdentity } from "@/lib/connectionHealth";
 import { useProfileImport } from "@/hooks/useProfileImport";
 import { ProfileImportDialog } from "@/components/ProfileImportDialog";
@@ -485,6 +491,14 @@ export default function App() {
     () => buildConnectionProfiles(manualProfiles, subs.snapshot, manualRecords),
     [manualProfiles, subs.snapshot, manualRecords],
   );
+  const manualRevisions = useSourceRevisions(manualProfiles);
+  const profileSources = profiles.map((profile,index)=>sourceForProfile(profile,manualRevisions[index]));
+  const [attemptEvidence,setAttemptEvidence]=useState<ProfileEvidence|null>(null);
+  const contextKey=String(status.run_id??"stopped")+":"+JSON.stringify(diagnostics?.session??null);
+  const connectionContext=useRef(contextKey);connectionContext.current=contextKey;
+  const [errorContext,setErrorContext]=useState<string|null>(null);
+  const [actionError,setActionError]=useState<string|null>(null);
+  const [errorSource,setErrorSource]=useState<ProfileSource|null>(null);
   const profileKeys = useMemo(() => profiles.map(connectionProfileStorageKey), [profiles]);
   const [selectedIndex, setSelectedIndex, selectionMissing, isSelectionMissing] = useProfileSelection(profileKeys);
   const liveSelectionRef = useRef({ profiles, selectedIndex });
@@ -628,7 +642,7 @@ export default function App() {
         // re-render if the value is already null.
         setActiveOutbound(null);
       }
-      if(epoch===refreshEpoch.current)setError(null);
+      // Polling must not dismiss a rejected candidate's error card.
     } catch (e) {
       if(epoch===refreshEpoch.current)setError(humanError(e));
     }
@@ -713,10 +727,12 @@ export default function App() {
   }, [status.status, refresh]);
 
   const startCancelledRef = useRef(false);
-  const onStart = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex): Promise<boolean> => {
+  const onStart = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex, target?:ProfileSource, expectedSession?:SessionIdentity): Promise<boolean> => {
+    const assertCurrent=profilePreparation();
+    const attemptContext=connectionContext.current;
     startCancelledRef.current = false;
     ++refreshEpoch.current;setHealthActionMessage(null);
-    if (manualStore.blocked || selectionNeedsChoiceRef.current || isSelectionMissing()) {
+    if (manualStore.blocked || (!target && (selectionNeedsChoiceRef.current || isSelectionMissing()))) {
       setError(t(selectionNeedsChoiceRef.current || isSelectionMissing() ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`));
       return false;
     }
@@ -741,14 +757,20 @@ export default function App() {
         : settings;
     setBusy(true);
     setError(null);
-    setRoutingWarning(null);
+    setRoutingWarning(null);setAttemptEvidence(null);
     try {
       // 1. Always generate a fresh config from the imported profiles
       //    + current settings. The config we start with MUST include
       //    the VPN servers, otherwise the proxy accepts connections
       //    but routes them all to `direct`.
+      const expectedCatalogEpoch=await api.profileCatalogEpoch();
+      assertCurrent();
       const managed = await api.startManaged({
+        expectedCatalogEpoch,
+        expectedIdle:!!target&&!expectedSession,
         ...selection,
+        expectedSourceRevision:(target??profileSources[requestedIndex])?.source_revision,
+        expectedSession,
         manualProfileId:profiles[requestedIndex]?.kind==="manual"?profiles[requestedIndex].id:undefined,
         settings: effectiveSettings,
       });
@@ -790,12 +812,12 @@ export default function App() {
       return true;
     } catch (e) {
       startCancelledRef.current = isProfileCheckCancelled(e);
-      if (!startCancelledRef.current) setError(humanError(e));
+      if (!startCancelledRef.current) {const source=target??profileSources[requestedIndex]??null;const message=["profile_source_changed","profile_source_busy"].includes(humanError(e))?t("profileEvidence.changed"):humanError(e);setErrorSource(source);setErrorContext(attemptContext);setActionError(message);if(source)setAttemptEvidence({source,kind:"preflight",outcome:"failed",checked_at:Date.now()});setError(message);}
       return false;
     } finally {
       setBusy(false);
     }
-  }, [manualProfiles, profiles, selectedIndex, settings, refresh, t, manualStore.blocked, manualStore.state.status, selectionNeedsChoice]);
+  }, [manualProfiles, profiles, selectedIndex, settings, refresh, t, manualStore.blocked, manualStore.state.status, selectionNeedsChoice, manualRevisions]);
 
   // Latest onStart, for handlers that need to call it after they've
   // already scheduled a state update (so the new settings object
@@ -1092,6 +1114,17 @@ export default function App() {
 
   // Tabs are assembled here so they can close over the live state
   // (profiles, status, error, …) without prop-drilling. Order matters.
+  const acceptedSource=diagnostics?.session?.source_revision?{profile_ref:diagnostics.session.profile_ref,source_revision:diagnostics.session.source_revision}:null;
+  const cardActions=useProfileErrorActions({
+    contextKey,ownerContextKey:error?errorContext??undefined:undefined,
+    target:error?(error===actionError?errorSource:null):acceptedSource,sources:profileSources,disabled:busy||healthActionBusy,
+    refresh:subs.refreshOne,choose:()=>setActiveTab("servers"),
+    reconnect:async(index,target)=>{
+      const profile=profiles[index];
+      const default_outbound=profile?.kind==="manual"&&isSupported(profile.outbound)?profile.outbound.tag:profile?.kind==="subscription"?profile.label:null;
+      await onStart({...settings,default_outbound},index,target,diagnostics?.session??undefined);
+    }
+  });
   const tabs: TabDef[] = useMemo(
     () => [
       {
@@ -1104,6 +1137,8 @@ export default function App() {
             statusLabel={status.status}
             busy={busy}
             error={error}
+            errorActions={<ProfileErrorActions {...cardActions}/>}
+            runtimeActions={!error?<ProfileErrorActions {...cardActions}/>:undefined}
             diagnostics={diagnostics}
             onRetryHealth={retryHealth}
             healthActionBusy={healthActionBusy}
@@ -1232,7 +1267,7 @@ export default function App() {
     ],
     [
       status,
-      diagnostics,
+      diagnostics,cardActions,
       retryHealth,
       healthActionBusy,
       healthActionMessage,
@@ -1368,12 +1403,14 @@ export default function App() {
       )}
 
       {/* Body — fills the rest of the viewport with the active tab. */}
+      <ProfileHealthContext.Provider value={{sources:profileSources,evidence:activeEvidence(status,diagnostics),attempt:attemptEvidence}}>
       <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
         <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} onApply={profileImport.apply} onCancel={profileImport.cancel} />
       <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
         {(selectionNeedsChoice || selectionMissing) && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {tabs.find((t) => t.id === activeTab)?.content}
       </main>
+      </ProfileHealthContext.Provider>
 
       <UpdateModal
         open={updateModalOpen}

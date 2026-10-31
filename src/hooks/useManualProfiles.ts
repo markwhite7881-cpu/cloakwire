@@ -1,3 +1,4 @@
+import {invalidateProfilePreparations} from "@/lib/profilePreparations";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { Outbound } from "@/lib/types";
 import { canonicalProfile, loadManualProfileStore, newManualRecord,
@@ -18,8 +19,9 @@ export function useManualProfiles() {
   const current = useRef(state);
   const publish = useCallback((next: LoadResult) => { current.current = next; setState(next); }, []);
   const blocked = state.status === "legacy_conflict" || state.status === "corrupt" || state.status === "write_failed";
-  const saveRecords = useCallback((records: ManualProfileRecord[]): boolean => {
+  const saveRecords = useCallback(async(records: ManualProfileRecord[]): Promise<boolean> => {
     const prior = current.current;
+    try{await invalidateProfilePreparations()}catch{return false}
     if (prior.status === "legacy_conflict" || prior.status === "corrupt") return false;
     let saved;
     try { saved = saveManualProfileStoreIfCurrent(storage(), records, prior.records); } catch { saved = { status: "failed" as const }; }
@@ -28,7 +30,7 @@ export function useManualProfiles() {
     publish({ status: saved.status === "saved" ? "ready" : "mirror_failed", records, legacy: toGeneratorOutbounds(records) });
     return true;
   }, [publish]);
-  const setOutbounds = useCallback((update: Outbound[] | ((outbounds: Outbound[]) => Outbound[])): boolean => {
+  const setOutbounds = useCallback(async(update: Outbound[] | ((outbounds: Outbound[]) => Outbound[])): Promise<boolean> => {
     const prior = current.current.records;
     const next = typeof update === "function" ? update(toGeneratorOutbounds(prior)) : update;
     const used = new Set<string>();
@@ -40,8 +42,9 @@ export function useManualProfiles() {
     });
     return saveRecords(records);
   }, [saveRecords]);
-  const reconcile = useCallback((choice: "current" | "legacy" | "merge"): boolean => {
+  const reconcile = useCallback(async(choice: "current" | "legacy" | "merge"): Promise<boolean> => {
     const prior = current.current;
+    try{await invalidateProfilePreparations()}catch{return false}
     try {
       const result = resolveManualStoreConflict(storage(), prior, choice);
       if (result.status === "stale") { publish(result.latest); return false; }

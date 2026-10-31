@@ -79,6 +79,17 @@ RoutingModeSummary={mode:"all"|"include"|"exclude"|"custom",hasAdditionalRules:b
 - [ ] Состояние после Activity recreation берётся из native snapshot; UI event listener не владеет lifetime probes/recovery.
 - [ ] npm test/build, native DTO tests; коммит feat: show connection health and actionable errors.
 
+#### Контрольная точка B4: результаты строк и действия ошибок, 2026-10-31
+
+- [x] Привязать результаты к точному источнику/содержимому; показывать unknown/stale без наследования результата новой записью.
+- [x] Windows/macOS: показать существующие проверки принятой сессии; Android: честно обозначить только preflight.
+- [x] Обновлять исходную подписку и переподключать исходный сервер из карточки; сохранить проверку перед заменой, запретить повторный клик и устаревшие действия.
+- [x] Отменять подготовку при изменении источников, сохранять исходный контекст ошибки, согласовывать snapshot и outbound cache.
+- [x] Проверить RU/EN/zh-CN, Windows/macOS native suites, Android APK/JVM и реальные действия/маршрутизацию на телефоне.
+- [ ] Завершить остальные B4-сценарии, зависимые от D3/Auto/isolated candidate UI и полного lifecycle.
+
+Доказательства и пределы: [profile-actions-2026-10-31.md](../../testing/profile-actions-2026-10-31.md). Предыдущие общие пункты B4 сохраняют статус partial, если объединяют уже готовые и ещё не реализованные зависимости.
+
 ### B5. Читаемость и визуальная проверка
 
 **Files:** изменить src/index.css, src/components/{Button.tsx,Card.tsx,Badge.tsx,StatusPill.tsx} и затронутые экраны, mobile/components/{SectionCard.tsx,Sheet.tsx,Switch.tsx}; создать playwright.config.ts, e2e/{connection-ui.spec.ts,profile-import.spec.ts,routing-modes.spec.ts,fixtures.ts}; package.json для согласованного test:ui.

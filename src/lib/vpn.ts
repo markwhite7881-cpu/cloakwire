@@ -1,3 +1,4 @@
+import type {ProfileSource,ProfileEvidence} from "./profileEvidence";
 // Bridge to the Android VPN plugin (Kotlin VpnService + libbox) and
 // to the shared traffic commands. Desktop never imports this module —
 // it drives the sing-box sidecar through `lib/api.ts` instead.
@@ -14,6 +15,9 @@ import {
 export type VpnState = "stopped" | "starting" | "running" | "error";
 
 export interface VpnStatus {
+  source?:ProfileSource|null;
+  run_id?:string|null;
+  profile_check?:(ProfileEvidence & {error?:string|null;error_context?:string|null})|null;
   state: VpnState;
   message: string | null;
   since: number | null;
@@ -34,6 +38,7 @@ export interface AppEntry {
 
 /** Ask the OS for VPN permission. Resolves `{ prepared: false }`
  *  when the user declined (or the dialog is still pending). */
+export const vpnBeginPreparation=()=>invoke<{request:string}>("plugin:vpn|beginProfilePreparation");
 export const vpnPrepare = () =>
   invoke<{ prepared: boolean }>("plugin:vpn|prepare");
 
@@ -49,6 +54,9 @@ export const vpnPrepare = () =>
 export const vpnStart = (
   config: string,
   options: {
+    preparationId?:string;
+    source?:ProfileSource|null;
+    expectedRunId?:string;
     engine?: "singbox" | "xray";
     apps?: string[];
     appsMode?: "include" | "exclude";
@@ -65,6 +73,9 @@ export const vpnStart = (
 ) =>
   invoke<void>("plugin:vpn|start", {
     config,
+    preparationId:options.preparationId??"",
+    source:options.source?JSON.stringify(options.source):"",
+    expectedRunId:options.expectedRunId??"",
     engine: options.engine ?? "singbox",
     apps: JSON.stringify(options.apps ?? []),
     appsMode: options.appsMode ?? "exclude",

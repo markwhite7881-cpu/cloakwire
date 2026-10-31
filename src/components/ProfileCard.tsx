@@ -1,3 +1,4 @@
+import {ProfileHealthBadge} from "./ProfileHealthBadge";
 import { useState } from "react";
 import { Check, Copy, Eye, EyeOff, Globe2, Server, X } from "lucide-react";
 import { Badge } from "./Badge";
@@ -23,6 +24,7 @@ const PROTOCOL_VARIANT: Record<string, "default" | "secondary" | "destructive" |
 interface Props {
   outbound: Outbound;
   identityHint?: string;
+  manualId?:string;
   /** ip → country code from the GeoIP cache. */
   geoipByIp?: Record<string, string>;
   onRemove: () => void;
@@ -148,7 +150,7 @@ function protocolExtra(o: Outbound): string | null {
   }
 }
 
-export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint }: Props) {
+export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manualId }: Props) {
   const { t } = useI18n();
   const [showJson, setShowJson] = useState(false);
   const [jsonText, setJsonText] = useState<string | null>(null);
@@ -229,6 +231,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint }: Pro
             <span className="truncate text-sm font-medium" title={name}>
               {name} {identityHint && <span className="font-mono text-xs text-muted-foreground">{identityHint}</span>}
             </span>
+            <ProfileHealthBadge profileRef={manualId?{kind:"manual",id:manualId}:null}/>
             {extra && (
               <span className="rounded bg-muted px-1.5 py-0 font-mono text-[10px] text-muted-foreground">
                 {extra}

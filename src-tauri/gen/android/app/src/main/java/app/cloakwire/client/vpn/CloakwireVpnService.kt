@@ -39,6 +39,9 @@ class CloakwireVpnService : VpnService() {
     const val ACTION_START = "app.cloakwire.client.START"
     const val ACTION_STOP = "app.cloakwire.client.STOP"
     const val EXTRA_CONFIG_PATH = "configPath"
+    internal const val EXTRA_START_REQUEST = "startRequest"
+    internal const val EXTRA_PROFILE_SOURCE = "profileSource"
+    internal const val EXTRA_EXPECTED_RUN = "expectedRunId"
     internal const val EXTRA_PREFLIGHTED = "configPreflighted"
     internal const val EXTRA_PENDING_START_CANCELLED = "pendingStartCancelled"
     const val EXTRA_APPS = "apps"
@@ -178,6 +181,9 @@ class CloakwireVpnService : VpnService() {
         queueStart(
           configPath, apps, appsMode, serverName, engine, killSwitch, blockIpv6Val,
           preflighted = intent.getBooleanExtra(EXTRA_PREFLIGHTED, false),
+          profileSource = intent.getStringExtra(EXTRA_PROFILE_SOURCE).orEmpty(),
+          startRequest = if(intent.hasExtra(EXTRA_START_REQUEST)) intent.getLongExtra(EXTRA_START_REQUEST,-1L) else null,
+          expectedRun = intent.getStringExtra(EXTRA_EXPECTED_RUN).orEmpty(),
         )
         return START_STICKY
       }
@@ -213,6 +219,9 @@ class CloakwireVpnService : VpnService() {
     killSwitch: String = "on_drop",
     blockIpv6Option: Boolean = true,
     preflighted: Boolean = false,
+    profileSource: String = "",
+    startRequest:Long?=null,
+    expectedRun: String = "",
   ) {
     val request = ++preflightGeneration
     val selectedEngine = if (engine == ENGINE_SINGBOX) ENGINE_SINGBOX else ENGINE_XRAY
@@ -241,7 +250,10 @@ class CloakwireVpnService : VpnService() {
             mainHandler.post {
               if (request != preflightGeneration) return@post
               try {
-                acceptStart(config, selectedApps, selectedMode, serverName, selectedEngine, killSwitch, blockIpv6Option)
+                if(!VpnEvents.matchesRun(expectedRun)) return@post
+                val owner=if(checkedSnapshot) ProfileSource.parse(profileSource) else null
+                val accept={acceptStart(config, selectedApps, selectedMode, serverName, selectedEngine, killSwitch, blockIpv6Option,owner)}
+                if(startRequest!=null)AndroidProfilePreflight.starts.handoff(startRequest,accept) else accept()
               } catch (error: Exception) {
                 reportPreflightFailure(request, error)
               }
@@ -276,6 +288,7 @@ class CloakwireVpnService : VpnService() {
     engine: String = ENGINE_XRAY,
     killSwitch: String = "on_drop",
     blockIpv6Option: Boolean = true,
+    profileSource:ProfileSource?=null,
   ) {
     // Only a checked, fully prepared snapshot can replace the restart config.
     configFile(this).writeText(config)
@@ -317,6 +330,7 @@ class CloakwireVpnService : VpnService() {
     // Foreground must be entered quickly after startForegroundService,
     // before any heavy work.
     startForegroundWith("Connecting…")
+    VpnEvents.acceptSource(profileSource,resolvedName)
     VpnEvents.update(VpnEvents.STATE_STARTING)
     if (starting || sessionActive) {
       // A new session replaces the old one: tear down first.

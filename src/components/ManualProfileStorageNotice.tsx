@@ -3,12 +3,12 @@ import { useI18n } from "@/lib/i18n";
 import type { LoadResult } from "@/lib/manualProfileStore";
 
 export function ManualProfileStorageNotice({ state, retry, reconcile }: {
-  state: LoadResult; retry: () => void; reconcile: (choice: "current" | "legacy" | "merge") => boolean;
+  state: LoadResult; retry: () => void; reconcile: (choice: "current" | "legacy" | "merge") => Promise<boolean>;
 }) {
   const { t } = useI18n();
   const [failed, setFailed] = useState(false);
   if (state.status === "ready") return null;
-  const choose = (choice: "current" | "legacy" | "merge") => setFailed(!reconcile(choice));
+  const choose = async(choice: "current" | "legacy" | "merge") => setFailed(!await reconcile(choice));
   const button = "min-h-11 rounded-lg border border-border px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
   return <section role="alert" className="m-3 space-y-2 rounded-xl border border-amber-500/40 bg-card p-3 text-sm">
     <h2 className="font-semibold">{t("profileStorage.title")}</h2>

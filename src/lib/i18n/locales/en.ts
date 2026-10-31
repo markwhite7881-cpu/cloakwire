@@ -1,4 +1,18 @@
 export const en = {
+  profileEvidence: {
+  "unknown": "Not checked",
+  "stale": "Check expired",
+  "healthy": "Access verified · active VPN",
+  "prepared": "Profile check passed · access not checked",
+  "failed": "Check failed",
+  "checking": "Checking…",
+  "unavailable": "Check unavailable",
+  "refresh": "Update subscription",
+  "reconnect": "Reconnect this server",
+  "changed": "This profile or connection has changed. Choose a server again.",
+  "refreshed": "Subscription updated. Check the server selection before reconnecting.",
+  "refreshFailed": "Could not update the subscription. The current connection was kept."
+},
   health: {
   "title": "Connection check",
   "running": "VPN is running",

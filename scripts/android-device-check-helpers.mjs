@@ -14,3 +14,11 @@ export function sameConfig(a,b) { return JSON.stringify(canonical(JSON.parse(a))
 export function sessionWasDisturbed(before,after,configMatches) {
   return !configMatches || ["state","engine","since","profile_name"].some(k=>before[k]!==after[k]);
 }
+
+// All device operations explicitly target Android user 0.
+export function userAppPid(processes,app) {
+  const rows=processes.split("\n").map(line=>line.trim().split(/\s+/))
+    .filter(([pid,user,name])=>/^\d+$/.test(pid) && /^u0_a\d+$/.test(user) && name===app);
+  if(rows.length!==1) throw new Error("webview_unavailable");
+  return rows[0][0];
+}

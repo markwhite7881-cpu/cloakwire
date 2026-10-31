@@ -35,6 +35,9 @@ class SetAccentArgs {
 
 @InvokeArg
 class StartArgs {
+  var preparationId: String = ""
+  var source: String = ""
+  var expectedRunId: String = ""
   /**
    * Full pre-built engine config JSON. Rust generates manual/share-link
    * sing-box configs and normalizes ready bundle configs. The plugin only
@@ -142,14 +145,22 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
 
   @Command
   fun start(invoke: Invoke) {
-    val request = AndroidProfilePreflight.starts.begin()
     thread(name = "vpn-plugin-start") {
+      var request=-1L
+      var errorContext="stopped"
+      var source:ProfileSource?=null
       try {
         if (VpnService.prepare(activity) != null) {
           invoke.reject("VPN permission not granted — call prepare first")
           return@thread
         }
         val args = invoke.parseArgs(StartArgs::class.java)
+        request=if(args.preparationId.isNotEmpty()) args.preparationId.toLong() else AndroidProfilePreflight.starts.begin()
+        if(!AndroidProfilePreflight.starts.isCurrent(request))throw ProfileCheckException(ProfileCheckKind.CANCELLED)
+        errorContext=args.expectedRunId.ifEmpty { VpnEvents.currentRun() }
+        source=ProfileSource.parse(args.source)
+        if(!VpnEvents.matchesRun(args.expectedRunId))throw IllegalStateException("profile_source_changed")
+        if(AndroidProfilePreflight.starts.isCurrent(request))VpnEvents.recordCheck(source,"checking",context=errorContext)
 
         val engine = if (args.engine == "xray") {
           CloakwireVpnService.ENGINE_XRAY
@@ -162,6 +173,8 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
           check = { AndroidProfilePreflight.check(activity, it, engine) },
           handoff = { config ->
             AndroidProfilePreflight.starts.handoff(request) {
+              if(!VpnEvents.matchesRun(args.expectedRunId))throw IllegalStateException("profile_source_changed")
+              VpnEvents.recordCheck(source,"passed",context=errorContext)
               // Unique checked snapshots prevent overlapping starts from replacing
               // each other's config, and leave the last session untouched on rejection.
               val file = File.createTempFile("vpn-checked-", ".json", activity.cacheDir)
@@ -171,6 +184,9 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
                   .setAction(CloakwireVpnService.ACTION_START)
                   .putExtra(CloakwireVpnService.EXTRA_CONFIG_PATH, file.absolutePath)
                   .putExtra(CloakwireVpnService.EXTRA_PREFLIGHTED, true)
+                  .putExtra(CloakwireVpnService.EXTRA_START_REQUEST,request)
+                  .putExtra(CloakwireVpnService.EXTRA_PROFILE_SOURCE, source?.toJson()?.toString().orEmpty())
+                  .putExtra(CloakwireVpnService.EXTRA_EXPECTED_RUN, args.expectedRunId)
                   .putExtra(CloakwireVpnService.EXTRA_ENGINE, engine)
                   .putExtra(CloakwireVpnService.EXTRA_APPS, args.apps)
                   .putExtra(CloakwireVpnService.EXTRA_APPS_MODE, appsMode)
@@ -188,17 +204,26 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve()
       } catch (error: Exception) {
         if (AndroidProfilePreflight.starts.isCurrent(request)) {
-          invoke.reject(ProfilePreflight.failure(error).message ?: ProfileCheckKind.FAILED.token)
+          val safe=ProfilePreflight.failure(error).message ?: ProfileCheckKind.FAILED.token
+          VpnEvents.recordCheck(source,"failed",safe,errorContext)
+          invoke.reject(safe)
         } else {
           invoke.reject(ProfileCheckKind.CANCELLED.token)
         }
       } catch (_: LinkageError) {
-        if (AndroidProfilePreflight.starts.isCurrent(request)) invoke.reject(ProfileCheckKind.UNAVAILABLE.token)
+        if (AndroidProfilePreflight.starts.isCurrent(request)) {VpnEvents.recordCheck(source,"failed",ProfileCheckKind.UNAVAILABLE.token,errorContext);invoke.reject(ProfileCheckKind.UNAVAILABLE.token)}
         else invoke.reject(ProfileCheckKind.CANCELLED.token)
       }
     }
   }
 
+  @Command fun beginProfilePreparation(invoke:Invoke) {
+    val result=JSObject();result.put("request",AndroidProfilePreflight.starts.begin().toString());invoke.resolve(result)
+  }
+  @Command fun invalidateProfileStarts(invoke:Invoke) {
+    AndroidProfilePreflight.starts.cancel()
+    invoke.resolve(JSObject())
+  }
   @Command
   fun stop(invoke: Invoke) {
     AndroidProfilePreflight.starts.cancel()

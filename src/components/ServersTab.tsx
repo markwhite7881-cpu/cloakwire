@@ -1,3 +1,5 @@
+import {ProfileHealthBadge} from "./ProfileHealthBadge";
+import {profileRef} from "@/lib/profileEvidence";
 import { manualProfileHint } from "@/lib/manualProfileHint";
 import { useState } from "react";
 import { Link2, Loader2, Plus, Rss, Server, Trash2 } from "lucide-react";
@@ -201,6 +203,12 @@ export function ServersTab({
         )}
       </Card>
 
+      {profiles.some(p=>p.kind!=="manual")&&<Card className="bento-card"><CardContent className="pt-4">
+        <ul className="space-y-2">{profiles.filter(p=>p.kind!=="manual").map(profile=><li key={JSON.stringify(profileRef(profile))} className="min-w-0 rounded-lg border border-border p-3">
+          <span className="break-words text-sm">{profile.kind==="subscription"?profile.label:profile.kind==="ready_config"?profile.name:""}</span>
+          <ProfileHealthBadge profileRef={profileRef(profile)}/>
+        </li>)}</ul>
+      </CardContent></Card>}
       {/* ─── Profile list: Custom / Manual Servers ───────────────────── */}
       <Card className="bento-card">
         <CardHeader>
@@ -242,6 +250,7 @@ export function ServersTab({
                 <ProfileCard
                   key={profile.id ?? `manual-${index}`}
                   outbound={profile.outbound}
+                  manualId={profile.id}
                   identityHint={profile.id ? manualProfileHint(profile.id,manualProfiles.flatMap(p=>p.profile.id?[p.profile.id]:[])) : undefined}
                   geoipByIp={geoipByIp}
                   onRemove={() => {

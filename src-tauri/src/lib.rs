@@ -86,6 +86,16 @@ fn vpn_mobile_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // managed value per type, so we wrap in a newtype to
             // avoid colliding with the subscription service state.
             // 2026-08-21.
+            let invalidator = handle.clone();
+            diagnostics::sources::register_invalidator(Arc::new(move || {
+                invalidator
+                    .run_mobile_plugin::<serde_json::Value>(
+                        "invalidateProfileStarts",
+                        serde_json::json!({}),
+                    )
+                    .map(|_| ())
+                    .map_err(|_| crate::error::AppError::Validation("profile_source_busy".into()))
+            }));
             app.manage(VpnPluginHandle(handle));
             Ok(())
         })
@@ -221,6 +231,10 @@ pub fn run() {
     #[cfg(target_os = "android")]
     builder
         .invoke_handler(tauri::generate_handler![
+            diagnostics::sources::profile_source_revisions,
+            diagnostics::sources::profile_catalog_epoch,
+            diagnostics::sources::invalidate_profile_preparations,
+            diagnostics::sources::validate_subscription_source,
             commands::ping,
             commands::write_default_config,
             commands::parse_link,
@@ -254,6 +268,10 @@ pub fn run() {
     #[cfg(not(target_os = "android"))]
     builder
         .invoke_handler(tauri::generate_handler![
+            diagnostics::sources::profile_source_revisions,
+            diagnostics::sources::profile_catalog_epoch,
+            diagnostics::sources::invalidate_profile_preparations,
+            diagnostics::sources::validate_subscription_source,
             diagnostics::get_connection_health,
             diagnostics::get_connection_diagnostics,
             diagnostics::retry_active_probe,

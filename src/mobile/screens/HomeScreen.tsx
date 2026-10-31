@@ -1,3 +1,5 @@
+import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
+import type {ReactNode} from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -36,7 +38,7 @@ const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export function HomeScreen({
-  vpn,
+  vpn,errorActions,
   profiles,
   groups,
   selectedIndex,
@@ -53,6 +55,7 @@ export function HomeScreen({
   onAddLinks,
 }: {
   vpn: VpnConnection;
+  errorActions?:ReactNode;
   profiles: Outbound[];
   groups: ServerGroup[];
   selectedIndex: number;
@@ -391,7 +394,7 @@ export function HomeScreen({
         </div>
       </div>
 
-      {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} />}
+      {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
 
       {/* ─── Bento 2: Live Traffic & 60 FPS Speed Wave ────────────── */}
       <div className="bento-card flex flex-col justify-between rounded-3xl p-4 shadow-xl">
@@ -631,6 +634,7 @@ export function HomeScreen({
                                 <span className="block truncate text-sm font-medium text-foreground">
                                   {profileLabel(profile)}
                                 </span>
+                                <ProfileHealthBadge profileIndex={entry.profileIndex}/>
                                 <span className="block truncate font-mono text-[11px] text-muted-foreground/80">
                                   {supported ? ep : "unsupported link"}
                                 </span>
@@ -755,7 +759,7 @@ export function HomeScreen({
                         ) : (
                           <span className="text-sm">🌐</span>
                         )}
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{profileLabel(profile)}</span>
+                        <span className="min-w-0 flex-1 text-sm font-medium"><span className="block truncate">{profileLabel(profile)}</span><ProfileHealthBadge profileIndex={entry.profileIndex}/></span>
                         <LatencyBadge ms={latency} />
                         <span className="font-mono text-[10px] text-muted-foreground/70">{profile.protocol}</span>
                       </button>

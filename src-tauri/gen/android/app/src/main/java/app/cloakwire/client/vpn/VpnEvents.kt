@@ -30,6 +30,20 @@ object VpnEvents {
   @Volatile var activeEngine: String = ""
     private set
 
+  @Volatile private var acceptedSource: ProfileSource? = null
+  @Volatile private var runId: String? = null
+  @Volatile private var profileName: String? = null
+  @Volatile private var checkEvidence: ProfileCheckEvidence? = null
+  @Synchronized internal fun recordCheck(source:ProfileSource?,outcome:String,error:String?=null,context:String=currentRun()) {
+    checkEvidence=source?.let { ProfileCheckEvidence(it,outcome,System.currentTimeMillis(),error,context) }
+    emit()
+  }
+  @Synchronized internal fun acceptSource(source:ProfileSource?,name:String) {
+    acceptedSource=source;profileName=name;runId=java.util.UUID.randomUUID().toString()
+  }
+  @Synchronized internal fun currentRun():String=runId?:"stopped"
+  @Synchronized internal fun matchesRun(expected:String):Boolean = expected.isEmpty() || expected==(runId?:"stopped")
+
   /** Set by VpnPlugin.load / cleared by onDestroy. */
   @Volatile var emitter: ((String, JSObject) -> Unit)? = null
 
@@ -48,6 +62,7 @@ object VpnEvents {
 
   @Synchronized
   fun update(newState: String, newMessage: String = "") {
+    if(newState==STATE_STOPPED){acceptedSource=null;runId=null;profileName=null;if(checkEvidence?.outcome=="checking")checkEvidence=null}
     state = newState
     message = newMessage
     since = System.currentTimeMillis()
@@ -79,12 +94,16 @@ object VpnEvents {
     }
   }
 
-  fun statusJson(): JSObject {
+  @Synchronized fun statusJson(): JSObject {
     val obj = JSObject()
     obj.put("state", state)
     obj.put("message", message)
     obj.put("since", since)
     obj.put("engine", activeEngine)
+    obj.put("source", acceptedSource?.toJson()?:org.json.JSONObject.NULL)
+    obj.put("run_id", runId?:org.json.JSONObject.NULL)
+    obj.put("profile_name", profileName?:org.json.JSONObject.NULL)
+    obj.put("profile_check", checkEvidence?.toJson()?:org.json.JSONObject.NULL)
     return obj
   }
 

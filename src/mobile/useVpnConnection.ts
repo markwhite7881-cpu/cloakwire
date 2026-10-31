@@ -1,9 +1,12 @@
+import {profilePreparation} from "@/lib/profilePreparations";
+import type {ProfileSource,ProfileEvidence} from "@/lib/profileEvidence";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { humanError, isProfileCheckCancelled } from "@/lib/profileCheck";
 import {
   onVpnStatus,
   vpnPrepare,
+  vpnBeginPreparation,
   vpnStart,
   vpnStatus,
   vpnStop,
@@ -18,6 +21,11 @@ const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export interface VpnConnection {
+  source?:ProfileSource|null;
+  runId?:string|null;
+  profileCheck?:ProfileEvidence|null;
+  errorSource?:ProfileSource|null;
+  errorContext?:string|null;
   /** Last known VPN state (drives the button + status dot). */
   state: VpnState;
   /** Error/info message from the service (state === "error"). */
@@ -40,7 +48,7 @@ export interface VpnConnection {
   /** Last accepted connection name; never derived from a failed candidate. */
   profileName?: string | null;
   /** Surface a failed ready-profile lookup without replacing the running VPN. */
-  reportError: (error: unknown) => void;
+  reportError: (error: unknown, source?:ProfileSource|null, context?:string) => void;
   clearError: () => void;
   /**
    * Start the VPN. Pass `override` to feed a pre-built engine config
@@ -52,9 +60,11 @@ export interface VpnConnection {
    * Settings tile can show "Germany #1" instead of a generic outbound
    * tag. Optional.
    */
-  connect: (override?: BundleChildOverride, name?: string) => Promise<void>;
+  connect: (override?: BundleChildOverride, name?: string, request?:ConnectRequest) => Promise<void>;
   disconnect: () => Promise<void>;
 }
+
+export interface ConnectRequest { preparationId?:string; source:ProfileSource|null;profiles?:Outbound[];settings?:GeneratorSettings;expectedRunId?:string }
 
 /** Engine configuration of a bundle subscription's active child. */
 export interface BundleChildOverride {
@@ -93,13 +103,19 @@ export function useVpnConnection(
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState(false);
+  const [errorContext,setErrorContext]=useState<string|null>(null);
+  const [errorSource,setErrorSource]=useState<ProfileSource|null>(null);
+  const [dismissedCheck,setDismissedCheck]=useState<number|null>(null);
+  const statusRef=useRef(status);statusRef.current=status;
   const [profileName, setProfileName] = useState<string | null>(null);
-  const reportError = useCallback((cause: unknown) => {
+  const reportError = useCallback((cause: unknown,source?:ProfileSource|null,context?:string) => {
+    setErrorSource(source??null);setErrorContext(context??null);
     const wasCancelled = isProfileCheckCancelled(cause);
     setCancelled(wasCancelled);
     setError(wasCancelled ? null : humanError(cause));
   }, []);
   const clearError = useCallback(() => {
+    setDismissedCheck(statusRef.current.profile_check?.checked_at??null);
     setError(null);
     setCancelled(false);
     // A previous service error must not keep a dismissed card mounted while
@@ -155,7 +171,14 @@ export function useVpnConnection(
     };
   }, []);
 
-  const connect = useCallback(async (override?: BundleChildOverride, name?: string) => {
+  const connect = useCallback(async (override?: BundleChildOverride, name?: string, request?:ConnectRequest) => {
+    const assertCurrent=profilePreparation();
+    const expectedRunId=request?.expectedRunId??statusRef.current.run_id??"stopped";
+    setErrorContext(expectedRunId);
+    const attemptProfiles=request?.profiles??profilesRef.current;
+    const attemptSettings=request?.settings??settingsRef.current;
+    const source=request?.source??null;
+    setErrorSource(source);
     clearError();
     // Browser preview (?mobile=1 outside Tauri): fake the state so
     // the UI is demoable.
@@ -171,7 +194,7 @@ export function useVpnConnection(
     // Bundle children come with a pre-built engine config — pass it
     // through verbatim. Share-link paths still need at least one
     // profile to pick from.
-    if (!override && profilesRef.current.length === 0) {
+    if (!override && attemptProfiles.length === 0) {
       setError("Add a server first (Servers tab).");
       return;
     }
@@ -179,6 +202,8 @@ export function useVpnConnection(
     try {
       // 1. VPN permission (Android shows the system dialog on the
       //    first call; resolves prepared=false when declined).
+      const preparationId=request?.preparationId??(await vpnBeginPreparation()).request;
+      assertCurrent();
       const { prepared } = await vpnPrepare();
       if (!prepared) {
         setError("VPN permission required.");
@@ -199,12 +224,12 @@ export function useVpnConnection(
         // through sing-box. Ready bundle children carry their own engine.
         engine = "singbox";
         config = JSON.stringify(
-          await api.generateConfig(profilesRef.current, settingsRef.current),
+          await api.generateConfig(attemptProfiles, attemptSettings),
         );
       }
       // 3. Per-app routing (Android only): include/exclude package
       //    lists from the Routing screen.
-      const routing = settingsRef.current.routing ?? {};
+      const routing = attemptSettings.routing ?? {};
       const appsMode =
         routing.tun_app_mode === "include" || routing.tun_app_mode === "exclude"
           ? routing.tun_app_mode
@@ -220,23 +245,27 @@ export function useVpnConnection(
         name?.trim() ||
         override?.name?.trim() ||
         (() => {
-          const supported = profilesRef.current.find(isSupported);
+          const supported = attemptProfiles.find(isSupported);
           return supported ? profileLabel(supported) : "";
         })();
       // 5. Hand off to the VpnService.
+      assertCurrent();
       await vpnStart(config, {
+        preparationId,
         engine,
+        source,
+        expectedRunId,
         apps,
         appsMode,
         name: resolvedName,
-        killSwitch: settingsRef.current.kill_switch,
-        blockIpv6: settingsRef.current.block_ipv6,
+        killSwitch: attemptSettings.kill_switch,
+        blockIpv6: attemptSettings.block_ipv6,
       });
       setProfileName(resolvedName || null);
       // No shared Clash API traffic stream on Android; byte counters
       // come from the VpnService notification instead.
     } catch (e) {
-      reportError(e);
+      reportError(e,source,expectedRunId);
     } finally {
       setBusy(false);
     }
@@ -265,7 +294,10 @@ export function useVpnConnection(
     engine: status.engine,
     ready,
     busy,
-    error,
+    error:error??(status.profile_check?.checked_at!==dismissedCheck?status.profile_check?.error??null:null),
+    errorContext:error?errorContext:status.profile_check?.error_context??errorContext,
+    errorSource:error?errorSource:status.profile_check?.source??errorSource,
+    source:status.source,runId:status.run_id,profileCheck:status.profile_check,
     cancelled,
     profileName: status.state === "running" ? status.profile_name || profileName : null,
     reportError,

@@ -1,3 +1,4 @@
+import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import { manualProfileHint } from "@/lib/manualProfileHint";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Gauge, Link2, Loader2, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
@@ -334,6 +335,7 @@ export function ServersScreen({
                               <span className="block truncate text-sm font-medium">
                                 {child.name}
                               </span>
+                              <ProfileHealthBadge profileRef={{kind:"ready",subscription_id:s.id,child_key:child.key}}/>
                               <span className="block truncate font-mono text-[11px] text-muted-foreground">
                                 {child.endpoint
                                   ? `${child.endpoint.host}:${child.endpoint.port}`
@@ -391,7 +393,7 @@ export function ServersScreen({
               )}
               {isExpanded && (
                 <ul className="divide-y divide-border">
-                  {group.entries.map(({ profile: o, profileIndex: i, manualId }) => {
+                  {group.entries.map(({ profile: o, profileIndex: i, manualId,sourceIndex }) => {
                     const supported = isSupported(o);
                     const isSel = i === selectedIndex;
                     const ms =
@@ -441,6 +443,7 @@ export function ServersScreen({
                             <span className="block truncate font-mono text-[11px] text-muted-foreground">
                               {supported ? profileEndpoint(o) : t("servers.unsupportedLink")}
                             </span>
+                          <ProfileHealthBadge profileRef={manualId?{kind:"manual",id:manualId}:group.subscriptionId?{kind:"subscription",subscription_id:group.subscriptionId,link_key:"index-"+sourceIndex}:null}/>
                           </span>
                           <LatencyBadge ms={ms} dim={pinging && ms == null} />
                         </button>

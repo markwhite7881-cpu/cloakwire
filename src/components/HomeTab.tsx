@@ -1,3 +1,6 @@
+import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
+import {profileRef} from "@/lib/profileEvidence";
+import type {ReactNode} from "react";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { presentConnection } from "@/lib/connectionPresentation";
 import type { DesktopHealthSnapshot, SessionIdentity } from "@/lib/connectionHealth";
@@ -41,6 +44,8 @@ const inTauri =
 
 export interface HomeTabProps {
   status: StatusReport;
+  errorActions?:ReactNode;
+  runtimeActions?:ReactNode;
   diagnostics?: DesktopHealthSnapshot|null;
   onRetryHealth?: (expected:SessionIdentity)=>Promise<void>;
   healthActionBusy?:boolean;
@@ -79,7 +84,7 @@ export interface HomeTabProps {
 }
 
 export function HomeTab({
-  status,
+  status,errorActions,runtimeActions,
   diagnostics=null,onRetryHealth,healthActionBusy=false,healthActionMessage,
   statusLabel,
   busy,
@@ -358,7 +363,7 @@ export function HomeTab({
           {(isRunning||healthView.issue)&&<ConnectionStatus view={healthView} showHeading={false}
             onRetry={healthView.session&&onRetryHealth?()=>{void onRetryHealth(healthView.session!);}:undefined}
             onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined}
-            busy={healthActionBusy} message={healthActionMessage}/>}
+            busy={healthActionBusy} message={healthActionMessage} actions={runtimeActions}/>}
           {/* Bottom of Hero */}
           <div className="relative z-10 border-t border-border/60 pt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-muted-foreground/70">
             <div className="flex items-center gap-1.5">
@@ -512,7 +517,7 @@ export function HomeTab({
 
       </div>
 
-      {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} />}
+      {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} actions={errorActions} />}
 
       {/* All-servers strip — quick visual switcher. */}
       {profiles.length > 0 && (
@@ -957,7 +962,7 @@ function ProfileChoice({
       )}
     >
       <FlagIcon code={display.code} size={compact ? 16 : 14} className="shrink-0 self-center" />
-      <span className="min-w-0 flex-1 truncate font-medium">{display.label}</span>
+      <span className="min-w-0 flex-1 font-medium"><span className="block truncate">{display.label}</span><ProfileHealthBadge profileRef={profileRef(row.profile)}/></span>
       {compact && <span className="font-mono text-[10px] text-muted-foreground">{display.protocol}</span>}
       <LatencyBadge ms={display.ms} />
     </button>
