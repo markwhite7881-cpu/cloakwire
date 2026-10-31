@@ -129,3 +129,12 @@ export function resolveManualStoreConflict(storage: ProfileStorage, loaded: Load
   catch { return { status: "failed" }; }
   return saveManualProfileStore(storage, reconcileManualProfiles(loaded.records, loaded.legacy ?? [], choice));
 }
+
+/** Re-read before a UI write so a stale dialog cannot overwrite a newer collection. */
+export function saveManualProfileStoreIfCurrent(storage:ProfileStorage,records:ManualProfileRecord[],expected:ManualProfileRecord[]):SaveResult|{status:"stale";latest:LoadResult}{
+  const latest=loadManualProfileStore(storage);
+  if(latest.status==="legacy_conflict"||latest.status==="corrupt"||canonicalProfile(latest.records)!==canonicalProfile(expected)){
+    return {status:"stale",latest};
+  }
+  return saveManualProfileStore(storage,records);
+}

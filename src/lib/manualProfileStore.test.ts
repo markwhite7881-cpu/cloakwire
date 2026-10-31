@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadManualProfileStore, saveManualProfileStore, reconcileManualProfiles, replaceManualRecord, resolveManualSelection, toGeneratorOutbounds, MANUAL_V1_KEY, MANUAL_V2_KEY, type ProfileStorage } from "./manualProfileStore";
+import { loadManualProfileStore, saveManualProfileStore, saveManualProfileStoreIfCurrent, reconcileManualProfiles, replaceManualRecord, resolveManualSelection, toGeneratorOutbounds, MANUAL_V1_KEY, MANUAL_V2_KEY, type ProfileStorage } from "./manualProfileStore";
 import type { Outbound } from "./types";
 
 const outbound = (tag = "Same", uuid = "11111111-1111-4111-8111-111111111111"): Outbound =>
@@ -84,4 +84,14 @@ describe("manual profile v2 persistence", () => {
     expect(merged[1].id).not.toBe(records[0].id);
     expect(merged.map(r => r.outbound)).toContainEqual(outbound("Same", "new-user"));
   });
+});
+
+it("does not overwrite a profile revision changed after the UI loaded",()=>{
+  const {storage}=memory({[MANUAL_V1_KEY]:JSON.stringify([outbound()])});
+  const loaded=loadManualProfileStore(storage);
+  const newer=[replaceManualRecord(loaded.records[0],outbound("Newer name","newer-user"))];
+  expect(saveManualProfileStore(storage,newer).status).toBe("saved");
+  const result=saveManualProfileStoreIfCurrent(storage,[replaceManualRecord(loaded.records[0],outbound("Old dialog","late-user"))],loaded.records);
+  expect(result.status).toBe("stale");
+  expect(loadManualProfileStore(storage).records).toEqual(newer);
 });

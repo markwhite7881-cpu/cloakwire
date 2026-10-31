@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { Outbound } from "@/lib/types";
 import { canonicalProfile, loadManualProfileStore, newManualRecord,
-  resolveManualStoreConflict, saveManualProfileStore, toGeneratorOutbounds,
+  resolveManualStoreConflict, saveManualProfileStore, saveManualProfileStoreIfCurrent, toGeneratorOutbounds,
   type LoadResult, type ManualProfileRecord, type ProfileStorage } from "@/lib/manualProfileStore";
 
 function storage(): ProfileStorage {
@@ -22,7 +22,8 @@ export function useManualProfiles() {
     const prior = current.current;
     if (prior.status === "legacy_conflict" || prior.status === "corrupt") return false;
     let saved;
-    try { saved = saveManualProfileStore(storage(), records); } catch { saved = { status: "failed" as const }; }
+    try { saved = saveManualProfileStoreIfCurrent(storage(), records, prior.records); } catch { saved = { status: "failed" as const }; }
+    if (saved.status === "stale") { publish(saved.latest); return false; }
     if (saved.status === "failed") { publish({ ...prior, status: "write_failed" }); return false; }
     publish({ status: saved.status === "saved" ? "ready" : "mirror_failed", records, legacy: toGeneratorOutbounds(records) });
     return true;
