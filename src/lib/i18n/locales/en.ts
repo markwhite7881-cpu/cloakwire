@@ -1,4 +1,22 @@
 export const en = {
+  routingModes: {
+  "title": "Application routing",
+  "all": "All applications",
+  "include": "Only selected",
+  "exclude": "Except selected",
+  "custom": "Custom policy",
+  "scope": "This base policy applies after local-network and DNS handling. Additional routing rules may still change the route.",
+  "android_scope": "This policy controls which applications enter the VPN. Domain rules and the global mode still apply inside it.",
+  "additional": "Additional rules or a global override are active and remain unchanged.",
+  "xray": "Desktop Xray does not support routing by application. Use sing-box with TUN for these modes.",
+  "requires_tun": "Application routing requires TUN mode.",
+  "pending": "These changes are not applied yet. Choose applications, then apply.",
+  "conflict": "These active lists or base policies will be replaced: {modes}. Lists are kept as drafts; additional rules are preserved.",
+  "empty_include": "Select at least one application. An empty list cannot mean all applications.",
+  "save_failed": "Could not save the draft lists. No routing changes were applied.",
+  "stale": "Routing changed while you were editing. Cancel and choose the mode again.",
+  "apply": "Apply routing"
+},
   profileImport: {
   "title": "Compare imported profiles",
   "description": "The address matches a saved profile. Choose which record to update or add a separate profile. A running connection keeps its current settings until you reconnect.",

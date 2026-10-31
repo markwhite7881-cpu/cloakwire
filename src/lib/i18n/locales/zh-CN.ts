@@ -1,6 +1,24 @@
 import type { TranslationSchema } from "./en";
 
 export const zhCN: TranslationSchema = {
+  routingModes: {
+  "title": "应用路由",
+  "all": "所有应用",
+  "include": "仅所选应用",
+  "exclude": "排除所选应用",
+  "custom": "自定义策略",
+  "scope": "此基础策略在本地网络和 DNS 处理后生效。其他路由规则仍可能更改路由。",
+  "android_scope": "此策略决定哪些应用进入 VPN。域名规则和全局模式仍在 VPN 内生效。",
+  "additional": "其他规则或全局覆盖已启用，并将保持不变。",
+  "xray": "桌面版 Xray 不支持按应用路由。请使用 sing-box 的 TUN 模式。",
+  "requires_tun": "按应用路由需要 TUN 模式。",
+  "pending": "更改尚未应用。请选择应用，然后应用更改。",
+  "conflict": "将替换以下生效列表或基础策略：{modes}。列表会保存为草稿；其他规则保持不变。",
+  "empty_include": "请至少选择一个应用。空列表不代表所有应用。",
+  "save_failed": "无法保存草稿列表。路由未更改。",
+  "stale": "编辑期间路由已更改。请取消后重新选择模式。",
+  "apply": "应用路由"
+},
   profileImport: {
   "title": "比较导入的配置",
   "description": "地址与已保存的配置相同。请选择要更新的记录，或单独添加。当前连接会保留原设置，直到重新连接。",

@@ -1,3 +1,6 @@
+import { useRoutingModeDraft } from "@/hooks/useRoutingModeDraft";
+import { describeRoutingMode } from "@/lib/routingMode";
+import { Button } from "@/components/Button";
 import { useEffect, useMemo, useState } from "react";
 import { AppWindow, ChevronDown, Plus, Search, X } from "lucide-react";
 import { vpnListApps, type AppEntry } from "@/lib/vpn";
@@ -48,8 +51,10 @@ export function RoutingScreen({
   const updateRouting = (patch: Partial<RoutingOptions>) =>
     onSettingsChange({ ...settings, routing: { ...r, ...patch } });
 
-  const mode: TunAppMode = r.tun_app_mode ?? "all";
-  const appList = r.tun_app_list ?? [];
+  const draft = useRoutingModeDraft(settings, "android", onSettingsChange);
+  const summary = describeRoutingMode(settings, "android", "singbox");
+  const mode = draft.mode;
+  const appList = draft.list;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -83,15 +88,26 @@ export function RoutingScreen({
         </div>
       </SectionCard>
 
+      <section className="rounded-xl border border-border p-3 text-sm space-y-2">
+        <p className="font-semibold">{t("routingModes.title")}: {t("routingModes."+summary.mode)}</p>
+        <p className="text-muted-foreground">{t("routingModes.android_scope")}</p>
+        {summary.hasAdditionalRules&&<p className="text-muted-foreground">{t("routingModes.additional")}</p>}
+      </section>
       {/* Per-app routing */}
       <PerAppSection
         mode={mode}
         appList={appList}
         hasRouteRules={r.rules.length > 0}
-        onModeChange={(tun_app_mode) => updateRouting({ tun_app_mode })}
-        onListChange={(tun_app_list) => updateRouting({ tun_app_list })}
+        onModeChange={draft.choose}
+        onListChange={draft.changeList}
       />
 
+      {draft.pending&&<section className="rounded-xl border border-border p-3 space-y-3">
+        <p className="text-sm text-muted-foreground">{t("routingModes.pending")}</p>
+        {!!draft.planned?.conflicts.length&&<p className="text-sm text-muted-foreground">{t("routingModes.conflict",{modes:draft.planned.conflicts.map(mode=>t("routingModes."+mode)).join(", ")})}</p>}
+        {draft.error&&<p role="alert" className="text-sm text-destructive">{t(draft.error)}</p>}
+        <div className="flex gap-2"><Button className="min-h-11" onClick={draft.apply}>{t("routingModes.apply")}</Button><Button className="min-h-11" variant="outline" onClick={draft.cancel}>{t("common.cancel")}</Button></div>
+      </section>}
       {/* Rule groups */}
       <RuleGroup
         title={t("routing.proxyRoutingRules")}
@@ -171,13 +187,11 @@ function PerAppSection({
     vpnListApps()
       .then((list) => {
         if (cancelled) return;
+        setLoading(false);
         setApps(list);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) { setError(e instanceof Error ? e.message : String(e)); setLoading(false); }
       });
     return () => {
       cancelled = true;
@@ -221,7 +235,7 @@ function PerAppSection({
               onClick={() => onModeChange(m.id)}
               aria-pressed={mode === m.id}
               className={cn(
-                "rounded-xl border py-2.5 px-2 text-[11px] font-medium transition-all duration-200",
+                "min-h-11 rounded-xl border py-2.5 px-2 text-sm font-medium transition-all duration-200",
                 mode === m.id
                   ? "border-theme-accent bg-theme-subtle text-theme-accent font-semibold shadow-sm"
                   : "border-white/5 bg-[#07080c] text-muted-foreground active:scale-95 hover:text-foreground",

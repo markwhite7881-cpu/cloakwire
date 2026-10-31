@@ -31,18 +31,19 @@ import { PresetPicker } from "./PresetPicker";
 import { RuleSetsPanel } from "./RuleSetsPanel";
 import { ProcessPicker } from "./ProcessPicker";
 import { newRuleId } from "@/lib/presets";
-import { applyProcessSelection } from "@/lib/processSelection";
+import { RoutingModePanel } from "./RoutingModePanel";
 import { useI18n } from "@/lib/i18n";
 import type { CustomRule, CustomRuleSet, GeneratorSettings, Outbound, RoutingOptions } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface Props {
   profiles: Outbound[];
+  engine?: "singbox" | "xray";
   settings: GeneratorSettings;
   onSettingsChange: (next: GeneratorSettings) => void;
 }
 
-export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
+export function RoutingTab({ profiles, settings, onSettingsChange, engine = "singbox" }: Props) {
   const { t } = useI18n();
   const r = settings.routing;
   const updateRouting = (patch: Partial<RoutingOptions>) =>
@@ -168,25 +169,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
         </div>
       )}
 
-      {/* Simple UX: two process-picker cards. */}
-      <ProcessPickerCard
-        icon={<Shield size={18} className="text-theme-accent" />}
-        title={t("routing.appsViaVpnTitle")}
-        description={t("routing.appsViaVpnDesc")}
-        accent="vpn"
-        selected={r.vpn_processes}
-        onChange={(next) => updateRouting(applyProcessSelection(r, "vpn", next))}
-        disabled={!isTunActive}
-      />
-      <ProcessPickerCard
-        icon={<ShieldOff size={18} className="text-theme-accent" />}
-        title={t("routing.appsDirectTitle")}
-        description={t("routing.appsDirectDesc")}
-        accent="direct"
-        selected={r.direct_processes}
-        onChange={(next) => updateRouting(applyProcessSelection(r, "direct", next))}
-        disabled={!isTunActive}
-      />
+      <RoutingModePanel settings={settings} engine={engine} onChange={onSettingsChange} />
 
       {/* Overlap warning — same process in BOTH lists. */}
       {overlapProcessNames.length > 0 && (
@@ -214,6 +197,29 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
             </span>
           )}
         </summary>
+<div className="mt-4 space-y-4">
+      {/* Advanced lists are preserved until an explicit edit. */}
+      <ProcessPickerCard
+        icon={<Shield size={18} className="text-theme-accent" />}
+        title={t("routing.appsViaVpnTitle")}
+        description={t("routing.appsViaVpnDesc")}
+        accent="vpn"
+        selected={r.vpn_processes}
+        onChange={(next) => updateRouting({ vpn_processes: next })}
+        disabled={!isTunActive || engine === "xray"}
+      />
+      <ProcessPickerCard
+        icon={<ShieldOff size={18} className="text-theme-accent" />}
+        title={t("routing.appsDirectTitle")}
+        description={t("routing.appsDirectDesc")}
+        accent="direct"
+        selected={r.direct_processes}
+        onChange={(next) => updateRouting({ direct_processes: next })}
+        disabled={!isTunActive || engine === "xray"}
+      />
+
+</div>
+
 
         <div className="px-1 pb-1 pt-3 space-y-4 border-t border-border/80 mt-3">
           {/* General settings — sniff, final, auto_detect_interface */}
@@ -256,6 +262,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange }: Props) {
                   <option value="block">{t("routing.finalBlock")}</option>
                   {profiles
                     .filter((o) => o.protocol !== "unsupported")
+                    .filter((o, index, all) => !["direct", "proxy", "auto", "block"].includes(o.tag) && all.findIndex(p => p.tag === o.tag) === index)
                     .map((p) => (
                       <option key={p.tag} value={p.tag}>
                         {p.tag}

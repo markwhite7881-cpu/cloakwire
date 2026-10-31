@@ -267,28 +267,7 @@ function loadSettings(): GeneratorSettings {
       ) {
         merged.remote_dns = "1.1.1.1";
       }
-      // Migration: the simple-UX commit (123e450) flipped the default
-      // `final_outbound` from "proxy" to "direct", which inverted the
-      // model from "VPN for everything, except apps in Apps direct"
-      // to "VPN for nothing, except apps in Apps via VPN". Every
-      // existing user opened the app, clicked Connect, and watched all
-      // their traffic go direct. If we see `direct` AND the user has
-      // no signs of intent (no pickers, no rules, no rule-sets), it
-      // was almost certainly the broken default and not a choice —
-      // flip it back to "proxy" and persist.
-      const r = merged.routing;
-      if (
-        r.final_outbound === "direct" &&
-        r.vpn_processes.length === 0 &&
-        r.direct_processes.length === 0 &&
-        r.rules.length === 0 &&
-        r.rule_sets.length === 0
-      ) {
-        merged.routing = { ...r, final_outbound: "proxy" };
-        try {
-          window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
-        } catch { /* ignore */ }
-      }
+      // Preserve explicit/custom routing. Base-policy changes now require Apply.
       if (parsed.tunnel_mode === "system_proxy") {
         merged.tunnel_mode = "tun";
         try {
@@ -1220,6 +1199,7 @@ export default function App() {
             : undefined,
         content: (
           <RoutingTab
+            engine={(() => { const selected = profiles[selectedIndex]; return selected?.kind === "ready_config" ? selected.engine : "singbox"; })()}
             profiles={manualProfiles}
             settings={settings}
             onSettingsChange={handleSettingsChange}
