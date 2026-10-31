@@ -1,7 +1,7 @@
 import {expect,type Page,type TestInfo} from "playwright/test";
 export const v1="singbox-client.manual-profiles.v1",v2="singbox-client.manual-profiles.v2";
 export const settingsKey="singbox-client.settings.v2";
-export async function openFixture(page:Page,testInfo:TestInfo,options:{subscription?:boolean;boundSource?:boolean;startError?:boolean;health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
+export async function openFixture(page:Page,testInfo:TestInfo,options:{profileProbe?:boolean;staleProbe?:boolean;revisionDelay?:number;subscription?:boolean;boundSource?:boolean;startError?:boolean;health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
   const mobile=testInfo.project.name==="mobile";
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text());});
@@ -22,7 +22,29 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{subscript
     w.__TAURI_EVENT_PLUGIN_INTERNALS__={unregisterListener:()=>{}};
     w.__TAURI_INTERNALS__={transformCallback:()=>1,unregisterCallback:()=>{},invoke:async(cmd:string,args:any={})=>{
       w.nativeCalls.push(cmd);w.nativeRequests.push({cmd,args});
-      if(cmd==="profile_source_revisions")return args.outbounds.map((o:any)=>(o.uuid==="one"?"a":"b").repeat(64));
+      if(options.profileProbe){
+        const snapshot=()=>({selected_profile:w.selectedProbe??null,active_session:null});
+        if(cmd==="plugin:vpn|register_listener"&&args.event==="probe"){w.probeListener=args.handler;return null;}
+        if(cmd==="plugin:vpn|probeSnapshot"){
+          if(options.staleProbe&&!w.selectedProbe)w.selectedProbe={profile_ref:{kind:"manual",id:"previous-server"},profile_revision:"old",run_id:null,network_generation:"old-network",effective_outbound_revision:null,operation_id:"old-result",scope:"selected_profile",stage:"complete",outcome:"failed",issue:"authentication",checked_at:new Date().toISOString(),latency_ms:null};
+          return snapshot();
+        }
+        if(cmd==="plugin:vpn|probe"){
+          const source=JSON.parse(args.source),id="probe-"+(w.probeStarts=(w.probeStarts??0)+1);
+          w.selectedProbe={profile_ref:source.profile_ref,profile_revision:source.source_revision,run_id:null,network_generation:"physical",effective_outbound_revision:null,operation_id:id,scope:"selected_profile",stage:"preparing",outcome:"checking",issue:null,checked_at:null,latency_ms:null};
+          return {operation_id:id};
+        }
+        if(cmd==="run_android_profile_probe"){
+          if(w.selectedProbe?.operation_id!==args.operationId)throw Error("profile_check_cancelled");
+          w.selectedProbe={...w.selectedProbe,stage:"complete",outcome:"healthy",checked_at:new Date().toISOString(),latency_ms:25};
+          w.probeListener?.onmessage(snapshot());return null;
+        }
+        if(cmd==="plugin:vpn|cancelProbe"){
+          if(w.selectedProbe?.operation_id===args.operationId)w.selectedProbe=null;
+          w.probeListener?.onmessage(snapshot());return null;
+        }
+      }
+      if(cmd==="profile_source_revisions"){if(options.revisionDelay)await new Promise(r=>setTimeout(r,options.revisionDelay));return args.outbounds.map((o:any)=>(o.uuid==="one"?"a":"b").repeat(64));}
       if(cmd==="profile_catalog_epoch")return "1";
       if(cmd==="plugin:vpn|beginProfilePreparation")return {request:"1"};
       if(cmd==="plugin:vpn|prepare")return {prepared:true};

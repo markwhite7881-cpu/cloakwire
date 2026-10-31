@@ -2,6 +2,9 @@ import type { TranslationSchema } from "./en";
 
 export const ru: TranslationSchema = {
   profileEvidence: {
+    pastPassed: "Был доступен",
+    pastFailed: "Не ответил при проверке",
+    pastUnavailable: "Не удалось проверить",
     profileHealthy: "Доступ подтверждён · выбранный сервер",
   "unknown": "Не проверен",
   "stale": "Проверка устарела",
@@ -17,9 +20,10 @@ export const ru: TranslationSchema = {
   "refreshFailed": "Не удалось обновить подписку. Текущее подключение сохранено."
 },
   profileProbe: {
-  "title": "Проверка выбранного сервера",
+    details: "Подробнее",
+  "title": "Проверка сервера",
   "check": "Проверить сервер",
-  "hint": "Проверка сохраняет текущее VPN-соединение. Результат относится к выбранному серверу.",
+  "hint": "Запускается по кнопке. Последний результат сохраняется у сервера.",
   "choose": "Для проверки выберите конкретный сервер.",
   "cancel": "Отменить проверку"
 },

@@ -2,7 +2,7 @@ import {sameProfileRef,sameSessionIdentity,type ProfileRef,type DesktopHealthSna
 import type {ConnectionProfile} from "./connectionProfiles";
 import type {StatusReport} from "./types";
 export interface ProfileSource { profile_ref:ProfileRef; source_revision:string }
-export interface ProfileEvidence { source:ProfileSource; kind:"access"|"preflight"; scope?:"selected_profile"|"active_session"; outcome:"passed"|"failed"|"checking"|"unavailable"; checked_at:number; latency_ms?:number|null }
+export interface ProfileEvidence { historical?:boolean; source:ProfileSource; kind:"access"|"preflight"; scope?:"selected_profile"|"active_session"; outcome:"passed"|"failed"|"checking"|"unavailable"; checked_at:number; latency_ms?:number|null }
 export function sameSource(a:ProfileSource|null|undefined,b:ProfileSource|null|undefined):boolean {
  return !!a&&!!b&&!!a.source_revision&&a.source_revision===b.source_revision&&sameProfileRef(a.profile_ref,b.profile_ref);
 }
@@ -22,6 +22,7 @@ export function sourceForProfile(profile:ConnectionProfile,manualRevision?:strin
 export function badgeForProfile(source:ProfileSource|null,evidence:ProfileEvidence|null,now:number){
  if(!source||!evidence||!sameSource(source,evidence.source))return{state:"unknown",time:null,latency:null};
  const age=now-evidence.checked_at;
+ if(evidence.scope==="selected_profile"&&evidence.outcome!=="checking"&&Number.isFinite(age)&&(evidence.historical||age>=60000))return{state:evidence.outcome==="passed"?"pastPassed":evidence.outcome==="failed"?"pastFailed":"pastUnavailable",time:evidence.checked_at,latency:evidence.latency_ms??null};
  if(!Number.isFinite(age)||age<0||age>=60000)return{state:"stale",time:evidence.checked_at,latency:null};
  return{state:evidence.outcome==="passed"?(evidence.kind==="access"?(evidence.scope==="selected_profile"?"profileHealthy":"healthy"):"prepared"):evidence.outcome,time:evidence.checked_at,latency:evidence.latency_ms??null};
 }

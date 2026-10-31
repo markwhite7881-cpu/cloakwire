@@ -16,6 +16,7 @@ export function useProfileProbe(source:ProfileSource|null,outbound:Outbound|null
  const [health,setHealth]=useState<ConnectionHealth|null>(null);
  const [preparing,setPreparing]=useState(false);
  const [error,setError]=useState(false);
+ const sourceRef=useRef(source);sourceRef.current=source;
  const healthRef=useRef(health);healthRef.current=health;
  const key=JSON.stringify([source,settings]);
  const keyRef=useRef(key);keyRef.current=key;
@@ -29,13 +30,19 @@ export function useProfileProbe(source:ProfileSource|null,outbound:Outbound|null
  useEffect(()=>{
   if(!inTauri)return;
   let disposed=false,events=0,listener:{unregister:()=>Promise<void>}|null=null;
-  const apply=(snapshot:HealthSnapshot,restore=false)=>{if(!disposed){events++;setHealth(gate.current.accept(snapshot.selected_profile,restore))}};
+  const apply=(snapshot:HealthSnapshot,restore=false)=>{
+   if(disposed)return;
+   events++;
+   // A native snapshot can belong to another selection or arrive before source hydration.
+   if(restore&&!sameSource(sourceRef.current,probeEvidence(snapshot.selected_profile)?.source))return;
+   setHealth(gate.current.accept(snapshot.selected_profile,restore));
+  };
   void (async()=>{
    listener=await onVpnProbe(apply);
    if(disposed){await listener.unregister();return}
    const before=events;const snapshot=await vpnProbeSnapshot();
    if(events===before)apply(snapshot,true);
-  })().catch(()=>{if(!disposed)setError(true)});
+  })().catch(()=>{/* Background snapshot availability must not interrupt the user. */});
   return()=>{disposed=true;void listener?.unregister()};
  },[inTauri]);
  const previousKey=useRef(key);
@@ -68,6 +75,8 @@ export function useProfileProbe(source:ProfileSource|null,outbound:Outbound|null
  const accepted=gate.current.accept(health);
  const evidence=probeEvidence(accepted);
  const current=evidence&&sameSource(source,evidence.source)?accepted:null;
- return {health:current,evidence,error,busy:preparing||current?.outcome==="checking",
+ const previous=gate.current.previous(source);
+ const history=gate.current.results().map(value=>({...probeEvidence(value)!,historical:true}));
+ return {health:current??previous,evidence,history,error,busy:preparing||current?.outcome==="checking",
   check,cancel:async()=>{requestEpoch.current++;const id=requestId.current??healthRef.current?.operation_id;if(id)await vpnCancelProbe(id)}};
 }

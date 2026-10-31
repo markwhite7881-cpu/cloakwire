@@ -23,7 +23,7 @@ test("edited profile cannot reuse the accepted source result",async({page},testI
  await page.evaluate(()=>{const key="singbox-client.manual-profiles.v2",store=JSON.parse(localStorage.getItem(key)!);store.records[0].outbound.uuid="changed";store.records[0].revision++;localStorage.setItem(key,JSON.stringify(store));});
  await page.reload();
  await expect(page.getByTestId("profile-health").filter({hasText:"Access verified"})).toHaveCount(0);
- await expect(page.getByTestId("profile-health").filter({hasText:"Not checked"}).first()).toBeVisible();
+ await expect(page.getByTestId("profile-health")).toHaveCount(0);
 });
 
 test("subscription refresh invalidates old evidence and reconnect action",async({page},testInfo)=>{

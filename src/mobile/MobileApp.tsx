@@ -664,7 +664,7 @@ export default function MobileApp() {
       </header>
 
       {/* Content */}
-      <ProfileHealthContext.Provider value={{sources:allSources,evidence:vpn.profileCheck??null,attempt:profileProbe.evidence}}>
+      <ProfileHealthContext.Provider value={{sources:allSources,evidence:vpn.profileCheck??null,attempt:profileProbe.evidence,history:profileProbe.history}}>
       <main
         ref={contentRef}
         className="min-h-0 flex-1 overflow-y-auto"

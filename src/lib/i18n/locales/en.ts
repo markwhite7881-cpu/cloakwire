@@ -1,5 +1,8 @@
 export const en = {
   profileEvidence: {
+    pastPassed: "Last check: reachable",
+    pastFailed: "Last check: no response",
+    pastUnavailable: "Last check unavailable",
     profileHealthy: "Access verified · selected server",
   "unknown": "Not checked",
   "stale": "Check expired",
@@ -15,9 +18,10 @@ export const en = {
   "refreshFailed": "Could not update the subscription. The current connection was kept."
 },
   profileProbe: {
-  "title": "Check selected server",
+    details: "Details",
+  "title": "Server check",
   "check": "Check server",
-  "hint": "The check keeps the current VPN connected. Its result applies to the selected server.",
+  "hint": "Run a check when you need it. The last result stays with the server.",
   "choose": "Select a specific server to check.",
   "cancel": "Cancel check"
 },

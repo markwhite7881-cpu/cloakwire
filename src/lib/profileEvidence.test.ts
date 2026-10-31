@@ -14,3 +14,10 @@ it("an isolated successful profile must not claim that the active VPN was verifi
  const evidence={source:a,kind:"access" as const,scope:"selected_profile" as const,outcome:"passed" as const,checked_at:100};
  expect(badgeForProfile(a,evidence,120).state).toBe("profileHealthy");
 });
+
+it("keeps the last selected-profile outcome as history instead of a stale warning",()=>{
+ const evidence={source:a,kind:"access" as const,scope:"selected_profile" as const,outcome:"passed" as const,checked_at:100,latency_ms:24};
+ expect(badgeForProfile(a,evidence,60100)).toEqual({state:"pastPassed",time:100,latency:24});
+ expect(badgeForProfile(a,{...evidence,historical:true},120).state).toBe("pastPassed");
+ expect(badgeForProfile(a,{...evidence,historical:true,outcome:"failed"},120).state).toBe("pastFailed");
+});
