@@ -10,6 +10,8 @@ export function ConnectionErrorCard({ error, onDismiss, actions }: { error: stri
   const [dismissedError, setDismissedError] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const details = profileCheckDetails(error, t);
+  const engineStopped = error === "engine_unavailable" || error === "Kill Switch: engine_unavailable";
+  const recoveryExhausted = error === "recovery_exhausted" || error === "Kill Switch: recovery_exhausted";
   if (dismissedError === error || isProfileCheckCancelled(error)) return null;
 
   const copyReport = async () => {
@@ -42,7 +44,7 @@ export function ConnectionErrorCard({ error, onDismiss, actions }: { error: stri
               </button>
               {copyState === "failed" && <p role="status">{t("profileCheck.copyUnavailable")}</p>}
             </>
-          ) : <p>{error}</p>}
+          ) : engineStopped || recoveryExhausted ? <><p>{t(recoveryExhausted ? "recovery.exhausted" : "recovery.engineUnavailable")}</p>{error.startsWith("Kill Switch:")&&<p>{t("recovery.trafficBlocked")}</p>}</> : <p>{error}</p>}
           {actions}
         </div>
         <button

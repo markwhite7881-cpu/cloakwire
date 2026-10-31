@@ -1,3 +1,4 @@
+import {RecoveryNotice} from "@/components/RecoverySettings";
 import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import {profileRef} from "@/lib/profileEvidence";
 import type {ReactNode} from "react";
@@ -517,6 +518,7 @@ export function HomeTab({
 
       </div>
 
+      <RecoveryNotice />
       {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} actions={errorActions} />}
 
       {/* All-servers strip — quick visual switcher. */}

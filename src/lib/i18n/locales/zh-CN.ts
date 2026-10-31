@@ -1,6 +1,19 @@
 import type { TranslationSchema } from "./en";
 
 export const zhCN: TranslationSchema = {
+  recovery: {
+  "engineUnavailable": "VPN 已停止。请手动连接以恢复连接。",
+  "trafficBlocked": "Kill Switch 仍在阻止流量。",
+  "unsupported": "此连接不支持网络变化后的自动恢复。需要时请手动重新连接。",
+  "title": "自动恢复 VPN",
+  "hint": "休眠或网络切换后重新连接同一服务器，最多尝试三次。",
+  "applyFailed": "无法应用此设置，请重试。",
+  "saveFailed": "无法保存此设置，请在重启应用后再次检查。",
+  "recovering": "正在恢复 VPN 连接…",
+  "exhausted": "无法恢复 VPN，请手动连接以重试。",
+  "permission": "恢复 VPN 需要您的授权，请手动连接。",
+  "authentication": "再次连接前请检查服务器凭据。"
+},
   profileEvidence: {
     pastPassed: "上次检查：可访问",
     pastFailed: "上次检查：无响应",

@@ -47,6 +47,7 @@ class CloakwirePlatform(private val service: CloakwireVpnService) : PlatformInte
   // ---- TUN ----------------------------------------------------------
 
   override fun openTun(options: TunOptions): Int {
+    service.recoveryTunFd()?.let{return it}
     // VpnService.Builder is a non-static inner class — construct via receiver.
     // gobind getters like getMTU() map to Kotlin property `mTU` (Kotlin only
     // lowercases the first char), so call the Java methods directly instead.

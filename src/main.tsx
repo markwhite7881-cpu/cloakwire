@@ -8,6 +8,7 @@ import "./lib/accentTheme";
 const MobileApp = React.lazy(() => import("./mobile/MobileApp"));
 
 import { I18nProvider } from "./lib/i18n";
+import {RecoverySettingsProvider} from "./components/RecoverySettings";
 
 // Android (Tauri WebView) or an explicit ?mobile=1 override for testing
 // the mobile shell in a desktop browser.
@@ -18,6 +19,7 @@ const isMobile =
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <I18nProvider>
+      <RecoverySettingsProvider mobile={isMobile}>
       {isMobile ? (
         <Suspense fallback={null}>
           <MobileApp />
@@ -25,6 +27,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       ) : (
         <App />
       )}
+      </RecoverySettingsProvider>
     </I18nProvider>
   </React.StrictMode>
 );

@@ -5,6 +5,22 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.LinkProperties
+import android.os.SystemClock
+import android.system.Os
+import android.system.OsConstants
+import android.system.StructPollfd
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.UUID
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.VpnService
@@ -73,6 +89,7 @@ class CloakwireVpnService : VpnService() {
     private const val KEY_LAST_APPS = "last_apps"
     private const val KEY_LAST_APPS_MODE = "last_apps_mode"
     private const val KEY_IS_CONNECTED = "is_user_connected"
+    internal const val KEY_RECOVERY_ENABLED = "recovery_enabled"
 
     /** Live service instance (null while stopped). */
     @Volatile var active: CloakwireVpnService? = null
@@ -130,6 +147,260 @@ class CloakwireVpnService : VpnService() {
   @Volatile private var isBlackholeActive = false
   @Volatile private var blackholeThread: Thread? = null
 
+  private val recovery=RecoveryCoordinator(false)
+  private val recoveryProbe by lazy { RecoveryProbeClient(this) }
+  @Volatile private var acceptedSnapshot:RecoverySnapshot?=null
+  @Volatile private var activeProbeSocket:Socket?=null
+  private var physicalCallback:ConnectivityManager.NetworkCallback?=null
+  private var wakeReceiver:BroadcastReceiver?=null
+  @Volatile private var reuseRecoveryTun=false
+  @Volatile private var replacingRecoveryEngine=false
+  private var recoveryTunLease:ParcelFileDescriptor?=null
+  private val recoveryTick=Runnable { runRecoveryStep() }
+  @Volatile private var pendingRecoveryPreparation=0L
+
+  internal fun pauseRecoveryForStart(request:Long) {
+    recovery.pausePreparation(request)
+    cancelRecoveryResources()
+  }
+  internal fun resumeRecoveryAfterRejectedStart(request:Long) {
+    if(recovery.resumePreparation(request,SystemClock.elapsedRealtime()))mainHandler.post {
+      if(!recovery.enabled() && sessionActive) {
+        if(acceptedSnapshot?.engine==ENGINE_XRAY && xrayEngine?.isActive==false)onEngineDied(startGeneration,-1)
+        else if(acceptedSnapshot?.engine==ENGINE_SINGBOX && singBoxEngine?.isActive!=true)failSession("engine_unavailable")
+      }else scheduleRecovery()
+    }
+  }
+  internal fun releaseRecoveryPreparation() {
+    if(recovery.releasePreparation(SystemClock.elapsedRealtime()))mainHandler.post{scheduleRecovery()}
+  }
+  private fun cancelRecoveryResources() {
+    mainHandler.removeCallbacks(recoveryTick)
+    activeProbeSocket?.let { runCatching{it.close()} };activeProbeSocket=null
+    recoveryProbe.cancel()
+  }
+
+  /** Called before new user intent waits for preflight or the service lifecycle lock. */
+  internal fun cancelRecoveryIntent() {
+    recovery.cancel()
+    cancelRecoveryResources()
+  }
+
+  internal fun setRecoveryEnabled(enabled:Boolean) {
+    if(!recovery.setEnabled(enabled,SystemClock.elapsedRealtime()))return
+    mainHandler.removeCallbacks(recoveryTick)
+    activeProbeSocket?.let{runCatching{it.close()}};activeProbeSocket=null;recoveryProbe.cancel()
+    if(enabled)mainHandler.post{scheduleRecovery()}
+  }
+
+  internal fun recoveryStatus():app.tauri.plugin.JSObject {
+    val state=recovery.status()
+    return app.tauri.plugin.JSObject().put("enabled",state.enabled).put("phase",state.phase)
+      .put("attempts",state.attempts).put("issue",state.issue?:JSONObject.NULL)
+      .put("run_id",state.runId?:JSONObject.NULL) as app.tauri.plugin.JSObject
+  }
+
+  /** libbox duplicates this FD; the original Android VPN descriptor never closes in recovery. */
+  internal fun recoveryTunFd():Int? {
+    if(!reuseRecoveryTun)return null
+    val original=tunPfd?:error("recovery_tun_unavailable")
+    return ParcelFileDescriptor.dup(original.fileDescriptor).also{recoveryTunLease=it}.fd
+  }
+
+  private fun observeRecoveryNetwork() {
+    val cm=getSystemService(ConnectivityManager::class.java)
+    fun changed() { mainHandler.post {
+      if(active!==this)return@post
+      val physical=ProbePlatform.choose(cm)
+      val stamp=physical?.let{ProbePlatform.stamp(cm,it)}
+      if(recovery.network(stamp,false,SystemClock.elapsedRealtime())) {
+        recoveryProbe.cancel();activeProbeSocket?.let{runCatching{it.close()}};activeProbeSocket=null
+      }
+      scheduleRecovery()
+    } }
+    val callback=object:ConnectivityManager.NetworkCallback() {
+      override fun onAvailable(network:Network)=changed()
+      override fun onLost(network:Network)=changed()
+      override fun onCapabilitiesChanged(network:Network,caps:NetworkCapabilities) { if(!caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN))changed() }
+      override fun onLinkPropertiesChanged(network:Network,props:LinkProperties)=changed()
+    }
+    runCatching {
+      cm.registerNetworkCallback(NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build(),callback)
+      physicalCallback=callback
+    }
+    val receiver=object:BroadcastReceiver() {
+      override fun onReceive(context:Context,intent:Intent) {
+        if(active!==this@CloakwireVpnService)return
+        recovery.wake(SystemClock.elapsedRealtime());cancelRecoveryResources();changed()
+      }
+    }
+    if(Build.VERSION.SDK_INT>=33)registerReceiver(receiver,IntentFilter(Intent.ACTION_SCREEN_ON),Context.RECEIVER_NOT_EXPORTED)
+    else @Suppress("DEPRECATION") registerReceiver(receiver,IntentFilter(Intent.ACTION_SCREEN_ON))
+    wakeReceiver=receiver
+    changed()
+  }
+
+  private fun scheduleRecovery() {
+    mainHandler.removeCallbacks(recoveryTick)
+    if(active!==this || starting)return
+    recovery.delay(SystemClock.elapsedRealtime())?.let{mainHandler.postDelayed(recoveryTick,it)}
+  }
+
+  private fun runRecoveryStep() {
+    if(active!==this || starting)return
+    val work=recovery.next(SystemClock.elapsedRealtime())
+    if(work==null) {
+      if(recovery.status().phase=="exhausted" && VpnEvents.state!=VpnEvents.STATE_ERROR)failSession("recovery_exhausted")
+      return
+    }
+    thread(name="vpn-recovery",isDaemon=true) {
+      when(work.decision) {
+        RecoveryDecision.ProbeActive -> {
+          val result=probeActive(work)
+          recovery.completeActive(work,result.outcome,result.issue,SystemClock.elapsedRealtime(),result.effective)
+        }
+        RecoveryDecision.ProbeCandidate -> {
+          val result=probeRecoveryCandidate(work)
+          recovery.completeCandidate(work,result.outcome,result.issue,SystemClock.elapsedRealtime())
+        }
+        is RecoveryDecision.Reconnect -> {
+          val success=runCatching{replaceRecoveryEngine(work)}.getOrDefault(false)
+          val current=recovery.completeRestart(work,success,SystemClock.elapsedRealtime())
+          if(!current)mainHandler.post {
+            val live=if(work.snapshot.engine==ENGINE_XRAY)xrayEngine?.isActive==true else singBoxEngine?.isActive==true
+            if(recovery.cancelledReplacementNeedsAttention(work,live) && acceptedSnapshot===work.snapshot && !starting && VpnEvents.state!=VpnEvents.STATE_ERROR)
+              failSession("engine_unavailable")
+          }
+          if(current && success)mainHandler.post {
+            if(acceptedSnapshot===work.snapshot && VpnEvents.currentRun()==work.snapshot.runId && sessionActive) {
+              VpnEvents.update(VpnEvents.STATE_RUNNING)
+            }
+          }
+        }
+        else -> {}
+      }
+      mainHandler.post {
+        if(recovery.status().phase=="exhausted" && acceptedSnapshot===work.snapshot && VpnEvents.state!=VpnEvents.STATE_ERROR)failSession("recovery_exhausted")
+        scheduleRecovery()
+      }
+    }
+  }
+
+  private data class RecoveryPath(val outbound:String,val endpoint:RecoveryRuntimeConfig.Endpoint,val sing:SingBoxEngine?,val groups:SingBoxEngine.GroupWitness?)
+  private fun ownsRecovery(work:RecoveryWork):Boolean=recovery.isCurrent(work) && acceptedSnapshot===work.snapshot && VpnEvents.currentRun()==work.snapshot.runId
+  private fun captureRecoveryPath(work:RecoveryWork):RecoveryPath? {
+    val wired=work.snapshot.runtime?:return null
+    val sing=if(work.snapshot.engine==ENGINE_SINGBOX)singBoxEngine else null
+    val groups=if(wired.dynamic)sing?.witness{ownsRecovery(work)}?:return null else null
+    val effective=if(groups!=null)RecoveryRuntimeConfig.effective(work.snapshot.config,groups.selections)?:return null else wired.outbound
+    val endpoint=wired.endpoints[effective]?:return null
+    return RecoveryPath(effective,endpoint,sing,groups)
+  }
+  private fun recoveryPathUnchanged(work:RecoveryWork,path:RecoveryPath):Boolean {
+    if(!ownsRecovery(work))return false
+    if(work.snapshot.engine==ENGINE_XRAY)return xrayEngine?.isActive==true
+    val engine=path.sing?:return false
+    if(singBoxEngine!==engine || !engine.isActive)return false
+    val before=path.groups?:return true
+    if(!engine.witnessUnchanged(before))return false
+    val after=engine.witness{ownsRecovery(work)}?:return false
+    return after.revision==before.revision && after.selections==before.selections && engine.witnessUnchanged(after) &&
+      RecoveryRuntimeConfig.effective(work.snapshot.config,after.selections)==path.outbound
+  }
+  internal fun onEffectiveOutboundChanged(engine:SingBoxEngine) {
+    if(replacingRecoveryEngine)return
+    mainHandler.post {
+      if(singBoxEngine!==engine || !sessionActive || starting || replacingRecoveryEngine || !recovery.enabled())return@post
+      recovery.wake(SystemClock.elapsedRealtime());cancelRecoveryResources();scheduleRecovery()
+    }
+  }
+  private fun probeRecoveryCandidate(work:RecoveryWork):RecoveryProbeClient.Result {
+    val unavailable=RecoveryProbeClient.Result(HealthOutcome.UNAVAILABLE,HealthIssue.UNSUPPORTED_PROBE)
+    val path=captureRecoveryPath(work)?:return unavailable
+    if(work.effective!=path.outbound)return unavailable
+    val config=runCatching{RecoveryRuntimeConfig.candidate(work.snapshot.config,work.snapshot.engine,path.outbound,path.groups?.selections?:emptyMap())}.getOrNull()?:return unavailable
+    val result=recoveryProbe.probe(work.snapshot,work.network.orEmpty(),config,path.outbound){ownsRecovery(work)}
+    if(!recoveryPathUnchanged(work,path))return unavailable
+    return result
+  }
+  private fun probeActive(work:RecoveryWork):RecoveryProbeClient.Result {
+    val deadline=SystemClock.elapsedRealtime()+ProbeState.DEADLINE_MS
+    fun current():Boolean=ownsRecovery(work) && SystemClock.elapsedRealtime()<deadline
+    if(!current())return RecoveryProbeClient.Result(HealthOutcome.CANCELLED,null)
+    val live=if(work.snapshot.engine==ENGINE_XRAY)xrayEngine?.isActive==true else singBoxEngine?.isActive==true
+    if(!live) {
+      recovery.engineDied(recovery.epoch(),SystemClock.elapsedRealtime())
+      return RecoveryProbeClient.Result(HealthOutcome.UNAVAILABLE,HealthIssue.ENGINE_UNAVAILABLE)
+    }
+    val path=captureRecoveryPath(work)?:return RecoveryProbeClient.Result(HealthOutcome.UNAVAILABLE,HealthIssue.UNSUPPORTED_PROBE)
+    val cm=getSystemService(ConnectivityManager::class.java)
+    fun sameNetwork():Boolean=ProbePlatform.choose(cm)?.let{ProbePlatform.stamp(cm,it)}==work.network
+    if(!sameNetwork())return RecoveryProbeClient.Result(HealthOutcome.UNAVAILABLE,HealthIssue.NETWORK_UNAVAILABLE)
+    val timeout=Runnable{if(ownsRecovery(work))activeProbeSocket?.let{runCatching{it.close()}}}
+    mainHandler.postDelayed(timeout,(deadline-SystemClock.elapsedRealtime()).coerceAtLeast(0))
+    val success=try {
+      runCatching {
+        if(!ProbeHttp.challenge(path.endpoint.port))return@runCatching false
+        var ok=false
+        for(fallback in listOf(false,true)) {
+          if(!current() || !sameNetwork())return@runCatching false
+          ok=runCatching{ProbeHttp.request(path.endpoint.port,path.endpoint.password,fallback){socket->activeProbeSocket=socket;if(!current())socket?.close()}}.getOrDefault(false)
+          if(ok)break
+        }
+        ok
+      }.getOrDefault(false)
+    }finally{mainHandler.removeCallbacks(timeout);activeProbeSocket=null}
+    if(!current())return RecoveryProbeClient.Result(HealthOutcome.UNAVAILABLE,HealthIssue.TIMEOUT)
+    if(!sameNetwork())return RecoveryProbeClient.Result(HealthOutcome.UNAVAILABLE,HealthIssue.NETWORK_UNAVAILABLE)
+    val stillLive=if(work.snapshot.engine==ENGINE_XRAY)xrayEngine?.isActive==true else singBoxEngine?.isActive==true
+    if(!stillLive) {
+      recovery.engineDied(recovery.epoch(),SystemClock.elapsedRealtime())
+      return RecoveryProbeClient.Result(HealthOutcome.UNAVAILABLE,HealthIssue.ENGINE_UNAVAILABLE)
+    }
+    if(!recoveryPathUnchanged(work,path))return RecoveryProbeClient.Result(HealthOutcome.UNAVAILABLE,HealthIssue.UNSUPPORTED_PROBE)
+    return RecoveryProbeClient.Result(if(success)HealthOutcome.HEALTHY else HealthOutcome.FAILED,if(success)null else HealthIssue.PROBE_TARGET_UNAVAILABLE,path.outbound)
+  }
+
+  /** Replacement preserves the same TUN, app policy, protection and accepted engine/config. */
+  private fun replaceRecoveryEngine(work:RecoveryWork):Boolean = synchronized(this) {
+    if(!recovery.isCurrent(work) || acceptedSnapshot!==work.snapshot || active!==this || tunPfd==null)return false
+    replacingRecoveryEngine=true
+    try {
+    val snapshot=work.snapshot
+    isBlackholeActive=false
+    blackholeThread?.let{it.interrupt();it.join(750);check(!it.isAlive){"recovery_blackhole_busy"}}
+    blackholeThread=null
+    if(!recovery.isCurrent(work))return false
+    val config=snapshot.runtime?.config?:snapshot.config
+    if(snapshot.engine==ENGINE_XRAY) {
+      // Only this session's process handle is retired; diagnostics own another lease.
+      runCatching{tun2socks.stop()}
+      xrayEngine?.closeBestEffort();xrayEngine=null
+      if(!recovery.isCurrent(work))return false
+      protectedProxy.start()
+      val generation=startGeneration
+      val engine=XrayEngine(this){code->onEngineDied(generation,code)}
+      xrayEngine=engine
+      engine.start(config){recovery.isCurrent(work)}
+      if(!recovery.isCurrent(work)){engine.closeBestEffort();return false}
+      check(tun2socks.start(tunPfd!!,SOCKS_INBOUND_PORT,TUN_MTU,TUN_ADDRESS)){"tun2socks failed to start"}
+      sessionActive=true;startTrafficPoller()
+    }else {
+      singBoxEngine?.closeBestEffort();singBoxEngine=null
+      if(!recovery.isCurrent(work))return false
+      val generation=startGeneration
+      val engine=SingBoxEngine(this){message->onSingBoxDied(generation,message)}
+      singBoxEngine=engine;reuseRecoveryTun=true
+      try { if(!recovery.isCurrent(work))return false;engine.start(config){recovery.isCurrent(work)} }
+      finally { reuseRecoveryTun=false;recoveryTunLease?.close();recoveryTunLease=null }
+      if(!recovery.isCurrent(work)){engine.closeBestEffort();return false}
+      sessionActive=true
+    }
+    true
+    }finally{replacingRecoveryEngine=false}
+  }
+
   /** Called by CloakwirePlatform after libbox establishes its TUN. */
   fun onTunEstablished(pfd: ParcelFileDescriptor) {
     tunPfd = pfd
@@ -146,6 +417,8 @@ class CloakwireVpnService : VpnService() {
     super.onCreate()
     active = this
     createNotificationChannel()
+    recovery.setEnabled(getSharedPreferences(PREFS,Context.MODE_PRIVATE).getBoolean(KEY_RECOVERY_ENABLED,false),SystemClock.elapsedRealtime())
+    observeRecoveryNetwork()
     // Wake the Quick Settings tile and Home Screen widgets on every state transition
     VpnEvents.setStateChangeListener {
       QuickTileService.notifyStateChanged(this)
@@ -224,7 +497,6 @@ class CloakwireVpnService : VpnService() {
     startRequest:Long?=null,
     expectedRun: String = "",
   ) {
-    val request = ++preflightGeneration
     val selectedEngine = if (engine == ENGINE_SINGBOX) ENGINE_SINGBOX else ENGINE_XRAY
     val selectedApps = apps.ifBlank { "[]" }
     val selectedMode = if (appsMode == "include") "include" else "exclude"
@@ -232,6 +504,15 @@ class CloakwireVpnService : VpnService() {
     val checkedSnapshot = preflighted && runCatching {
       source.canonicalFile.parentFile == cacheDir.canonicalFile && source.name.startsWith("vpn-checked-")
     }.getOrDefault(false)
+    // A delayed service intent cannot steal a newer manual preparation's pause/generation.
+    if(!VpnEvents.matchesRun(expectedRun) || (startRequest!=null && !AndroidProfilePreflight.starts.isCurrent(startRequest))) {
+      if(checkedSnapshot)source.delete()
+      return
+    }
+    val request=++preflightGeneration
+    val recoveryRequest=startRequest?:-request
+    pendingRecoveryPreparation=recoveryRequest
+    pauseRecoveryForStart(recoveryRequest)
     // Android requires a foreground notification promptly; an existing session
     // keeps its notification/state while the candidate is being checked.
     if (!sessionActive && !starting) startForegroundWith("Checking profile…")
@@ -248,12 +529,20 @@ class CloakwireVpnService : VpnService() {
             if (!checkedSnapshot) AndroidProfilePreflight.check(this, config, selectedEngine)
           },
           handoff = { config ->
+            val preparedRuntime=runCatching {
+              val port=ServerSocket(0,1,InetAddress.getByName("127.0.0.1")).use{it.localPort}
+              RecoveryRuntimeConfig.wire(config,selectedEngine,port,UUID.randomUUID().toString()){
+                ServerSocket(0,1,InetAddress.getByName("127.0.0.1")).use{it.localPort}
+              }?.also {
+                AndroidProfilePreflight.check(this,it.config,selectedEngine)
+              }
+            }.getOrNull()
             mainHandler.post {
               if (request != preflightGeneration) return@post
               try {
-                if(!VpnEvents.matchesRun(expectedRun)) return@post
+                if(!VpnEvents.matchesRun(expectedRun)){resumeRecoveryAfterRejectedStart(recoveryRequest);return@post}
                 val owner=if(checkedSnapshot) ProfileSource.parse(profileSource) else null
-                val accept={acceptStart(config, selectedApps, selectedMode, serverName, selectedEngine, killSwitch, blockIpv6Option,owner)}
+                val accept={acceptStart(config, selectedApps, selectedMode, serverName, selectedEngine, killSwitch, blockIpv6Option,owner,preparedRuntime,recoveryRequest)}
                 if(startRequest!=null)AndroidProfilePreflight.starts.handoff(startRequest,accept) else accept()
               } catch (error: Exception) {
                 reportPreflightFailure(request, error)
@@ -274,7 +563,9 @@ class CloakwireVpnService : VpnService() {
   private fun reportPreflightFailure(request: Long, error: Throwable) {
     val safe = ProfilePreflight.failure(error).message ?: ProfileCheckKind.FAILED.token
     mainHandler.post {
-      if (request != preflightGeneration || sessionActive || starting) return@post
+      if(request!=preflightGeneration)return@post
+      resumeRecoveryAfterRejectedStart(pendingRecoveryPreparation)
+      if(sessionActive || starting)return@post
       VpnEvents.update(VpnEvents.STATE_ERROR, safe)
       stopForeground(STOP_FOREGROUND_REMOVE)
       stopSelf()
@@ -282,113 +573,100 @@ class CloakwireVpnService : VpnService() {
   }
 
   private fun acceptStart(
-    config: String,
-    apps: String,
-    appsMode: String,
-    serverName: String = "",
-    engine: String = ENGINE_XRAY,
-    killSwitch: String = "on_drop",
-    blockIpv6Option: Boolean = true,
-    profileSource:ProfileSource?=null,
+    config:String,apps:String,appsMode:String,serverName:String="",engine:String=ENGINE_XRAY,
+    killSwitch:String="on_drop",blockIpv6Option:Boolean=true,profileSource:ProfileSource?=null,
+    runtime:RecoveryRuntimeConfig.Wired?=null,preparationRequest:Long,
   ) {
-    // Only a checked, fully prepared snapshot can replace the restart config.
-    configFile(this).writeText(config)
-    killSwitchMode = killSwitch
-    blockIpv6 = blockIpv6Option
-    isBlackholeActive = false
-    blackholeThread?.interrupt()
-    blackholeThread = null
-    val selectedEngine = if (engine == ENGINE_SINGBOX) ENGINE_SINGBOX else ENGINE_XRAY
-    val selectedApps = apps.ifBlank { "[]" }
-    val selectedAppsMode = if (appsMode == "include") "include" else "exclude"
+    val selectedEngine=if(engine==ENGINE_SINGBOX)ENGINE_SINGBOX else ENGINE_XRAY
+    val selectedApps=apps.ifBlank{"[]"}
+    val selectedAppsMode=if(appsMode=="include")"include" else "exclude"
+    val prefs=getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+    val resolvedName=serverName.ifBlank{prefs.getString(KEY_LAST_SERVER,"").orEmpty().ifBlank{extractProxyOutboundTag(config).orEmpty()}}
+    val runId=UUID.randomUUID().toString()
+    val snapshot=RecoverySnapshot(UUID.randomUUID().toString(),config,selectedApps,selectedAppsMode,selectedEngine,killSwitch,blockIpv6Option,resolvedName,profileSource,runId,runtime)
+    val store=RecoveryConfigStore(configFile(this),{file,value->
+      java.io.FileOutputStream(file).use{out->out.write(value.toByteArray(Charsets.UTF_8));out.fd.sync()}
+    }){from,to->Os.rename(from.absolutePath,to.absolutePath)}
+    // Stage/fsync outside lifecycle locks. The final atomic rename and accepted owner change
+    // share service -> coordinator lock order, so Stop/new preparation cannot publish a stale file.
+    val staged=store.stage(config)
+    try {
+    synchronized(this) {
+    var currentGen=0L
+    if(!recovery.acceptPreparation(preparationRequest,snapshot,SystemClock.elapsedRealtime()){
+      staged.publish()
+      currentGen=sessionGeneration.begin()
+    })throw ProfileCheckException(ProfileCheckKind.CANCELLED)
+    cancelRecoveryResources()
+    acceptedSnapshot=snapshot
+    killSwitchMode=killSwitch;blockIpv6=blockIpv6Option
+    isBlackholeActive=false;blackholeThread?.interrupt();blackholeThread=null
     VpnEvents.setEngine(selectedEngine)
-    getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
-      .edit()
-      .putBoolean(KEY_IS_CONNECTED, true)
-      .putString(KEY_LAST_ENGINE, selectedEngine)
-      .putString(KEY_LAST_APPS, selectedApps)
-      .putString(KEY_LAST_APPS_MODE, selectedAppsMode)
-      .apply()
-    // Surface the active server name to the Quick Settings tile as
-    // early as possible. The JS side passes it as EXTRA_SERVER_NAME;
-    // we fall back to parsing the xray config only if the caller
-    // didn't supply one (sticky restart from the tile has no extras).
-    val resolvedName = serverName.ifBlank {
-      getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
-        .getString(KEY_LAST_SERVER, "")
-        .orEmpty()
-        .ifBlank { extractProxyOutboundTag(config).orEmpty() }
-    }
-    activeServerName = resolvedName
-    if (resolvedName.isNotEmpty()) {
-      // Persist for the Quick Settings tile label so it survives
-      // accidental deletion of the xray-config.json.
-      getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
-        .edit()
-        .putString(KEY_LAST_SERVER, resolvedName)
-        .apply()
-    }
-    // Foreground must be entered quickly after startForegroundService,
-    // before any heavy work.
+    prefs.edit().putBoolean(KEY_IS_CONNECTED,true).putString(KEY_LAST_ENGINE,selectedEngine)
+      .putString(KEY_LAST_APPS,selectedApps).putString(KEY_LAST_APPS_MODE,selectedAppsMode)
+      .putString(KEY_LAST_SERVER,resolvedName).apply()
+    activeServerName=resolvedName
     startForegroundWith("Connecting…")
-    VpnEvents.acceptSource(profileSource,resolvedName)
+    VpnEvents.acceptSource(profileSource,resolvedName,runId)
     VpnEvents.update(VpnEvents.STATE_STARTING)
-    if (starting || sessionActive) {
-      // A new session replaces the old one: tear down first.
-      runCatching { teardownComponents() }
-    }
-    val currentGen = sessionGeneration.begin()
-    starting = true
-    thread(name = "vpn-start") {
-      try {
-        if (startGeneration != currentGen || !starting) return@thread
-        runVpn(config, selectedApps, selectedAppsMode, selectedEngine, currentGen)
-        if (startGeneration != currentGen || !starting) {
-          Log.i(TAG, "VPN start was cancelled during setup; tearing down components")
-          runCatching { teardownComponents() }
-          return@thread
-        }
-        VpnEvents.update(VpnEvents.STATE_RUNNING)
-        startForegroundWith("Connected")
-      } catch (e: Exception) {
-        if (startGeneration != currentGen || !starting) {
-          Log.i(TAG, "VPN start failed after cancellation, tearing down silently")
-          runCatching { teardownComponents() }
-          return@thread
-        }
-        Log.e(TAG, "VPN start failed", e)
-        val message = e.message ?: e.toString()
-        VpnEvents.update(VpnEvents.STATE_ERROR, message)
-        runCatching { teardownComponents() }
-        stopForeground(true)
-        stopSelf()
-      } finally {
-        if (startGeneration == currentGen) {
-          starting = false
+    if(starting || sessionActive)runCatching{teardownComponents()}
+    starting=true
+    thread(name="vpn-start") {
+      synchronized(this@CloakwireVpnService) {
+        var startSnapshot=snapshot
+        try {
+          if(!ownsStart(currentGen,startSnapshot))return@thread
+          try {
+            runVpn(runtime?.config?:config,selectedApps,selectedAppsMode,selectedEngine,currentGen,startSnapshot)
+          }catch(error:Exception) {
+            if(runtime==null || !ownsStart(currentGen,startSnapshot))throw error
+            teardownComponents()
+            if(!ownsStart(currentGen,startSnapshot))throw error
+            val fallback=snapshot.copy(runtime=null)
+            if(!recovery.replaceAccepted(startSnapshot,fallback){acceptedSnapshot=fallback})throw error
+            startSnapshot=fallback
+            runVpn(config,selectedApps,selectedAppsMode,selectedEngine,currentGen,startSnapshot)
+          }
+          if(!ownsStart(currentGen,startSnapshot)){teardownComponents();return@thread}
+          VpnEvents.update(VpnEvents.STATE_RUNNING)
+          startForegroundWith("Connected")
+        }catch(error:Exception) {
+          if(!ownsStart(currentGen,startSnapshot)){teardownComponents();return@thread}
+          cancelRecoveryIntent()
+          Log.e(TAG,"VPN start failed",error)
+          VpnEvents.update(VpnEvents.STATE_ERROR,error.message?:error.toString())
+          runCatching{teardownComponents()}
+          stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()
+        }finally {
+          if(startGeneration==currentGen){starting=false;mainHandler.post{scheduleRecovery()}}
         }
       }
     }
+    }
+    }finally{staged.close()}
   }
 
-  private fun runVpn(config: String, apps: String, appsMode: String, engine: String, currentGen: Long) {
+  private fun ownsStart(generation:Long,snapshot:RecoverySnapshot):Boolean = startGeneration==generation && starting && recovery.ownsAccepted(snapshot)
+
+  private fun runVpn(config: String, apps: String, appsMode: String, engine: String, currentGen: Long, snapshot:RecoverySnapshot) {
     if (engine == ENGINE_SINGBOX) {
-      runSingBoxVpn(config, currentGen)
+      runSingBoxVpn(config, currentGen,snapshot)
       return
     }
-    runXrayVpn(config, apps, appsMode, currentGen)
+    runXrayVpn(config, apps, appsMode, currentGen,snapshot)
   }
 
-  private fun runXrayVpn(config: String, apps: String, appsMode: String, currentGen: Long) {
+  private fun runXrayVpn(config: String, apps: String, appsMode: String, currentGen: Long,snapshot:RecoverySnapshot) {
     resetLogFile(logFile(this))
     logOutboundTopology(config)
 
-    if (startGeneration != currentGen || !starting) return
+    if (!ownsStart(currentGen,snapshot)) return
 
     // 2. TUN — the service owns the descriptor for the whole session.
     val pfd = establishTun(apps, appsMode)
     tunPfd = pfd
 
-    if (startGeneration != currentGen || !starting) {
+    if (!ownsStart(currentGen,snapshot)) {
       runCatching { pfd.close() }
       tunPfd = null
       return
@@ -398,7 +676,7 @@ class CloakwireVpnService : VpnService() {
     //    protect() operates on a live VPN session.
     protectedProxy.start()
 
-    if (startGeneration != currentGen || !starting) {
+    if (!ownsStart(currentGen,snapshot)) {
       runCatching { protectedProxy.stop() }
       return
     }
@@ -406,10 +684,10 @@ class CloakwireVpnService : VpnService() {
     // 4. xray sidecar (readiness-checked; throws with the sanitized
     //    tail of the engine log if the config is rejected).
     val engine = XrayEngine(this) { code -> onEngineDied(currentGen,code) }
-    engine.start(config)
+    engine.start(config){ownsStart(currentGen,snapshot)}
     xrayEngine = engine
 
-    if (startGeneration != currentGen || !starting) {
+    if (!ownsStart(currentGen,snapshot)) {
       runCatching { engine.closeBestEffort() }
       xrayEngine = null
       return
@@ -422,7 +700,7 @@ class CloakwireVpnService : VpnService() {
     if (!wired) {
       throw IllegalStateException("tun2socks failed to start")
     }
-    if (startGeneration != currentGen || !starting) {
+    if (!ownsStart(currentGen,snapshot)) {
       runCatching { tun2socks.stop() }
       return
     }
@@ -432,15 +710,15 @@ class CloakwireVpnService : VpnService() {
   }
 
   /** Start the in-process libbox engine. CloakwirePlatform owns TUN setup. */
-  private fun runSingBoxVpn(config: String, currentGen: Long) {
+  private fun runSingBoxVpn(config: String, currentGen: Long,snapshot:RecoverySnapshot) {
     resetLogFile(singboxLogFile(this))
 
-    if (startGeneration != currentGen || !starting) return
+    if (!ownsStart(currentGen,snapshot)) return
 
     val engine = SingBoxEngine(this) { message -> onSingBoxDied(currentGen,message) }
     singBoxEngine = engine
-    engine.start(config)
-    if (startGeneration != currentGen || !starting) {
+    engine.start(config){ownsStart(currentGen,snapshot)}
+    if (!ownsStart(currentGen,snapshot)) {
       runCatching { engine.closeBestEffort() }
       singBoxEngine = null
       return
@@ -457,7 +735,14 @@ class CloakwireVpnService : VpnService() {
   }
 
   private fun onSingBoxDied(generation:Long,message: String) {
-    mainHandler.post { sessionGeneration.runIfCurrent(generation) { if(sessionActive)failSession(message) } }
+    mainHandler.post { sessionGeneration.runIfCurrent(generation) {
+      if(!sessionActive)return@runIfCurrent
+      if(recovery.enabled()) {
+        if(singBoxEngine?.isActive!=true)recovery.engineDied(recovery.epoch(),SystemClock.elapsedRealtime())
+        else recovery.wake(SystemClock.elapsedRealtime())
+        scheduleRecovery()
+      }else failSession(message)
+    } }
   }
 
   /**
@@ -629,8 +914,13 @@ class CloakwireVpnService : VpnService() {
       sessionGeneration.runIfCurrent(generation) {
         if (!sessionActive) return@runIfCurrent
         val engine=xrayEngine
-        val config=runCatching { configFile(this).readText() }.getOrNull()
-        if(engine==null || config.isNullOrEmpty() || engineRestarts>=MAX_ENGINE_RESTARTS) {
+        if(recovery.enabled()) {
+          if(xrayEngine?.isActive!=true)recovery.engineDied(recovery.epoch(),SystemClock.elapsedRealtime())
+          scheduleRecovery();return@runIfCurrent
+        }
+        val snapshot=acceptedSnapshot
+        val config=snapshot?.runtime?.config?:snapshot?.config
+        if(engine==null || snapshot==null || config.isNullOrEmpty() || engineRestarts>=MAX_ENGINE_RESTARTS) {
           failSession("engine exited (code=$exitCode)")
           return@runIfCurrent
         }
@@ -638,8 +928,8 @@ class CloakwireVpnService : VpnService() {
         VpnEvents.update(VpnEvents.STATE_STARTING,"reconnecting")
         thread(name="vpn-engine-restart") {
           Thread.sleep(ENGINE_RESTART_DELAY_MS)
-          if(startGeneration!=generation || !sessionActive || xrayEngine!==engine)return@thread
-          val error=runCatching { engine.start(config) }.exceptionOrNull()
+          if(startGeneration!=generation || !sessionActive || xrayEngine!==engine || !recovery.legacyAllowed(snapshot))return@thread
+          val error=runCatching { engine.start(config){startGeneration==generation && sessionActive && xrayEngine===engine && recovery.legacyAllowed(snapshot)} }.exceptionOrNull()
           mainHandler.post {
             sessionGeneration.runIfCurrent(generation) {
               if(sessionActive && xrayEngine===engine) {
@@ -683,18 +973,22 @@ class CloakwireVpnService : VpnService() {
     blackholeThread?.interrupt()
     blackholeThread = thread(name = "vpn-blackhole-drain", isDaemon = true) {
       try {
-        val input = java.io.FileInputStream(pfd.fileDescriptor)
-        val buf = ByteArray(32768)
-        while (isBlackholeActive) {
-          val n = input.read(buf)
-          if (n < 0) break
+        val poll=StructPollfd().apply{fd=pfd.fileDescriptor;events=OsConstants.POLLIN.toShort()}
+        val buf=ByteArray(32768)
+        while(isBlackholeActive && !Thread.currentThread().isInterrupted) {
+          // Borrow the service-owned fd; no FileInputStream finalizer may close the TUN.
+          if(Os.poll(arrayOf(poll),250)<=0)continue
+          if(!isBlackholeActive || Thread.currentThread().isInterrupted)break
+          if((poll.revents.toInt() and OsConstants.POLLIN)==0)break
+          if(Os.read(pfd.fileDescriptor,buf,0,buf.size)<=0)break
         }
       } catch (_: Exception) {}
     }
   }
 
-  @Synchronized
   fun stopVpn(cancelPendingStart: Boolean = true) {
+    cancelRecoveryIntent()
+    synchronized(this) {
     ProbeCoordinator.invalidate()
     if (cancelPendingStart) AndroidProfilePreflight.starts.cancel()
     preflightGeneration++
@@ -705,6 +999,7 @@ class CloakwireVpnService : VpnService() {
     blackholeThread = null
     sessionActive = false
     activeServerName = ""
+    acceptedSnapshot=null
     VpnEvents.setEngine("")
     VpnEvents.update(VpnEvents.STATE_STOPPED)
     getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
@@ -714,6 +1009,7 @@ class CloakwireVpnService : VpnService() {
     teardownComponents()
     stopForeground(true)
     stopSelf()
+    }
   }
 
   /**
@@ -741,6 +1037,10 @@ class CloakwireVpnService : VpnService() {
   }
 
   override fun onDestroy() {
+    cancelRecoveryIntent()
+    physicalCallback?.let{runCatching{getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it)}};physicalCallback=null
+    wakeReceiver?.let{runCatching{unregisterReceiver(it)}};wakeReceiver=null
+    acceptedSnapshot=null
     ProbeCoordinator.invalidate()
     // The system can kill the service without ACTION_STOP (revoke,
     // always-on change, task removal) — make sure everything goes down.

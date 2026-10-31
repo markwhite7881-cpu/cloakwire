@@ -226,7 +226,7 @@ pub async fn start_ready_profile(
     subscriptions: State<'_, Arc<SubscriptionService>>,
     input: ReadyProfileInput,
 ) -> AppResult<ReadyProfileResult> {
-    let ticket = pm.begin_ready_profile_check();
+    let (_recovery_request, ticket) = pm.begin_manual_profile_check();
     let result =
         start_ready_profile_inner(app, pm.clone(), subscriptions, input, Some(ticket)).await;
     if pm.is_ready_profile_check_current(ticket) {
@@ -318,14 +318,13 @@ async fn start_ready_profile_inner(
     )
     .await?;
 
-    if let Some((host, http_port, socks_port)) = proxy {
-        if let Err(error) =
-            crate::process::apply_system_proxy_with_socks(&host, http_port, socks_port)
-        {
-            let _ = pm.stop().await;
-            let _ = crate::process::clear_system_proxy();
-            return Err(error);
-        }
+    if let Some(proxy) = proxy {
+        let run = status
+            .run_id
+            .as_deref()
+            .and_then(|r| r.parse().ok())
+            .unwrap_or(0);
+        pm.apply_proxy_for_run(run, proxy, check_ticket).await?;
     }
     Ok(ReadyProfileResult { status, routing })
 }
@@ -523,6 +522,7 @@ pub async fn start_managed_singbox(
     subscriptions: State<'_, Arc<SubscriptionService>>,
     input: ManagedLaunchInput,
 ) -> AppResult<ManagedLaunchResult> {
+    let (_recovery_request, check_ticket) = pm.begin_manual_profile_check();
     if input.expected_idle && pm.active_run_id() != 0 {
         return Err(AppError::Validation("profile_source_changed".into()));
     }
@@ -538,7 +538,6 @@ pub async fn start_managed_singbox(
             return Err(AppError::Validation("profile_source_changed".into()));
         }
     }
-    let check_ticket = pm.begin_ready_profile_check();
     require_revision(
         input.expected_catalog_epoch.as_deref(),
         Some(&crate::diagnostics::sources::catalog_epoch().to_string()),
@@ -760,6 +759,7 @@ pub async fn start_connection(
     config_path: String,
     controller_url: Option<String>,
 ) -> AppResult<StatusReport> {
+    let (_recovery_request, check_ticket) = pm.begin_manual_profile_check();
     let config_path = PathBuf::from(config_path);
     if !config_path.exists() {
         return Err(AppError::WriteConfig("config file does not exist".into()));
@@ -781,7 +781,8 @@ pub async fn start_connection(
         diagnostics: None,
         xray_stats: None,
     };
-    pm.start_spec_with_app(Some(&app), spec).await
+    pm.start_profile_checked_with_app(Some(&app), spec, check_ticket)
+        .await
 }
 
 #[tauri::command]
@@ -1068,12 +1069,22 @@ pub async fn select_proxy(
     group: String,
     member: String,
 ) -> AppResult<()> {
+    let (_recovery_request, intent_ticket) = pm.begin_manual_profile_check();
     let _clash_transition = pm.acquire_clash_api().await;
+    if !pm.is_ready_profile_check_current(intent_ticket) {
+        return Err(config::preflight::ProfileCheckIssue::Cancelled.into());
+    }
     let (run_id, base) = api_url(&pm).await?;
     ensure_clash_run(&pm, run_id).await?;
     let client = crate::clash_api::Client::new();
     client.select_proxy(&base, &group, &member).await?;
-    ensure_clash_run(&pm, run_id).await
+    ensure_clash_run(&pm, run_id).await?;
+    pm.recovery.target_changed(run_id);
+    pm.diagnostics.target_changed(run_id);
+    if !pm.is_ready_profile_check_current(intent_ticket) {
+        return Err(config::preflight::ProfileCheckIssue::Cancelled.into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1207,13 +1218,39 @@ pub async fn stop_traffic(pm: State<'_, Arc<ProcessManager>>) -> AppResult<()> {
 // onStop in App.tsx.
 
 #[tauri::command]
-pub async fn apply_system_proxy(host: String, port: u16) -> AppResult<()> {
-    crate::process::apply_system_proxy(&host, port)
+pub async fn apply_system_proxy(
+    host: String,
+    port: u16,
+    pm: State<'_, Arc<ProcessManager>>,
+) -> AppResult<()> {
+    let _transition = pm.acquire_clash_api().await;
+    crate::process::apply_system_proxy(&host, port)?;
+    pm.recovery
+        .capture_proxy(pm.active_run_id(), Some((host, port, port)));
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn clear_system_proxy() -> AppResult<()> {
-    crate::process::clear_system_proxy()
+pub async fn clear_system_proxy(pm: State<'_, Arc<ProcessManager>>) -> AppResult<()> {
+    let _transition = pm.acquire_clash_api().await;
+    crate::process::clear_system_proxy()?;
+    pm.recovery.capture_proxy(pm.active_run_id(), None);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_recovery_enabled(
+    pm: State<'_, Arc<ProcessManager>>,
+    enabled: bool,
+) -> Result<(), String> {
+    pm.recovery.set_enabled(enabled);
+    Ok(())
+}
+#[tauri::command]
+pub fn get_recovery_status(
+    pm: State<'_, Arc<ProcessManager>>,
+) -> crate::recovery::coordinator::RecoveryStatus {
+    pm.recovery.status()
 }
 
 // --- Windows autostart -------------------------------------------------

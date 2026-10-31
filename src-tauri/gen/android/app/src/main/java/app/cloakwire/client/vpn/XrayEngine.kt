@@ -138,12 +138,14 @@ class XrayEngine(
    * the engine log as the message.
    */
   @Synchronized
-  fun start(config: String) {
+  fun start(config: String, allowed:()->Boolean = {true}) {
 
+    check(allowed()){ "core_start_cancelled" }
     val binary = resolveBinary(context)
     closing.set(true)
     CoreProcessRecovery.reap(ownedDirectory)
     val owned=owner.start(config) { file ->
+      check(allowed()){ "core_start_cancelled" }
       ProcessBuilder(binary,"run","-c",file.absolutePath).apply {
         environment()[ENV_ASSET_DIR]=ensureGeodataDir(context)
         redirectErrorStream(true)

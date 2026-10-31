@@ -8,9 +8,12 @@ description = "Allows the Cloakwire frontend to drive the Android VpnService plu
 commands.allow = [
   "prepare",
   "beginProfilePreparation",
+  "cancelProfilePreparation",
   "start",
   "stop",
   "status",
+  "setRecoveryEnabled",
+  "recoveryStatus",
   "probe",
   "cancelProbe",
   "probeSnapshot",

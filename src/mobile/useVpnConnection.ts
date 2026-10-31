@@ -7,6 +7,7 @@ import {
   onVpnStatus,
   vpnPrepare,
   vpnBeginPreparation,
+  vpnCancelPreparation,
   vpnStart,
   vpnStatus,
   vpnStop,
@@ -174,6 +175,8 @@ export function useVpnConnection(
   const connect = useCallback(async (override?: BundleChildOverride, name?: string, request?:ConnectRequest) => {
     const assertCurrent=profilePreparation();
     const expectedRunId=request?.expectedRunId??statusRef.current.run_id??"stopped";
+    let preparationId=request?.preparationId;
+    let handedOff=false;
     setErrorContext(expectedRunId);
     const attemptProfiles=request?.profiles??profilesRef.current;
     const attemptSettings=request?.settings??settingsRef.current;
@@ -196,13 +199,14 @@ export function useVpnConnection(
     // profile to pick from.
     if (!override && attemptProfiles.length === 0) {
       setError("Add a server first (Servers tab).");
+      if(preparationId)await vpnCancelPreparation(preparationId).catch(()=>{});
       return;
     }
     setBusy(true);
     try {
       // 1. VPN permission (Android shows the system dialog on the
       //    first call; resolves prepared=false when declined).
-      const preparationId=request?.preparationId??(await vpnBeginPreparation()).request;
+      preparationId??=(await vpnBeginPreparation()).request;
       assertCurrent();
       const { prepared } = await vpnPrepare();
       if (!prepared) {
@@ -261,12 +265,15 @@ export function useVpnConnection(
         killSwitch: attemptSettings.kill_switch,
         blockIpv6: attemptSettings.block_ipv6,
       });
+      handedOff=true;
       setProfileName(resolvedName || null);
       // No shared Clash API traffic stream on Android; byte counters
       // come from the VpnService notification instead.
     } catch (e) {
       reportError(e,source,expectedRunId);
     } finally {
+      // A scoped cancel cannot retire a newer request; successful native handoff owns its cleanup.
+      if(preparationId&&!handedOff)await vpnCancelPreparation(preparationId).catch(()=>{});
       setBusy(false);
     }
   }, []);

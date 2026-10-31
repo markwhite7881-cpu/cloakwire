@@ -41,6 +41,8 @@ pub mod platform;
 #[cfg(not(target_os = "android"))]
 pub mod process;
 #[cfg(not(target_os = "android"))]
+pub mod recovery;
+#[cfg(not(target_os = "android"))]
 #[path = "subscriptions/mod.rs"]
 pub mod subscriptions;
 #[cfg(target_os = "android")]
@@ -175,6 +177,8 @@ pub fn run() {
         {
             let mgr = app.state::<Arc<ProcessManager>>();
             let mgr = Arc::clone(mgr.inner());
+            mgr.recovery
+                .spawn(Arc::downgrade(&mgr), app.handle().clone());
             mgr.spawn_watcher();
         }
         // Make sure the main window is visible and focused.
@@ -310,6 +314,8 @@ pub fn run() {
             commands::lookup_geoip,
             commands::start_traffic,
             commands::stop_traffic,
+            commands::set_recovery_enabled,
+            commands::get_recovery_status,
             commands::get_autostart,
             commands::set_autostart,
             commands::apply_system_proxy,

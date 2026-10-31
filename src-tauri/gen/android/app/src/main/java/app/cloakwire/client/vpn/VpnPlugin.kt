@@ -34,6 +34,12 @@ class SetAccentArgs {
 }
 
 @InvokeArg
+class CancelProfilePreparationArgs { var preparationId:String="" }
+
+@InvokeArg
+class SetRecoveryArgs { var enabled:Boolean=false }
+
+@InvokeArg
 class ProbeArgs { var source:String="";var operationId:String="";var engine:String="";var config:String="";var tag:String="";var issue:String="" }
 
 @InvokeArg
@@ -137,6 +143,27 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
     ProbeCoordinator.fail(args.operationId,HealthIssue.UNSUPPORTED_PROBE);invoke.resolve()
   }
 
+  @Command fun setRecoveryEnabled(invoke:Invoke) {
+    val enabled=try{invoke.parseArgs(SetRecoveryArgs::class.java).enabled}catch(_:Exception){invoke.reject("recovery_setting_failed");return}
+    // Opt-out invalidates pending native work before waiting for disk I/O.
+    val ticket=NativeRecoveryPreferences.writer.begin(enabled){value->CloakwireVpnService.active?.setRecoveryEnabled(value)}
+    thread(name="vpn-recovery-setting") {
+      try {
+        NativeRecoveryPreferences.writer.commit(ticket,{value->
+          activity.getSharedPreferences("cloakwire_state",Context.MODE_PRIVATE).edit()
+            .putBoolean(CloakwireVpnService.KEY_RECOVERY_ENABLED,value).commit()
+        }){value->CloakwireVpnService.active?.setRecoveryEnabled(value)}
+        invoke.resolve()
+      }catch(_:Exception){invoke.reject("recovery_setting_failed")}
+    }
+  }
+  @Command fun recoveryStatus(invoke:Invoke) {
+    val live=CloakwireVpnService.active
+    val status=live?.recoveryStatus()?:JSObject().put("enabled",activity.getSharedPreferences("cloakwire_state",Context.MODE_PRIVATE).getBoolean(CloakwireVpnService.KEY_RECOVERY_ENABLED,false))
+      .put("phase","idle").put("attempts",0).put("issue",JSONObject.NULL).put("run_id",JSONObject.NULL) as JSObject
+    invoke.resolve(status)
+  }
+
   // ---- prepare ------------------------------------------------------
 
   @Command
@@ -170,17 +197,23 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun start(invoke: Invoke) {
     ProbeCoordinator.invalidate()
+    val args:StartArgs
+    val request:Long
+    try {
+      args=invoke.parseArgs(StartArgs::class.java)
+      request=if(args.preparationId.isNotEmpty())args.preparationId.toLong() else AndroidProfilePreflight.starts.begin()
+      if(!AndroidProfilePreflight.starts.isCurrent(request))throw ProfileCheckException(ProfileCheckKind.CANCELLED)
+      CloakwireVpnService.active?.pauseRecoveryForStart(request)
+    }catch(error:Exception){invoke.reject(ProfilePreflight.failure(error).message?:ProfileCheckKind.FAILED.token);return}
     thread(name = "vpn-plugin-start") {
-      var request=-1L
       var errorContext="stopped"
       var source:ProfileSource?=null
       try {
         if (VpnService.prepare(activity) != null) {
+          CloakwireVpnService.active?.resumeRecoveryAfterRejectedStart(request)
           invoke.reject("VPN permission not granted — call prepare first")
           return@thread
         }
-        val args = invoke.parseArgs(StartArgs::class.java)
-        request=if(args.preparationId.isNotEmpty()) args.preparationId.toLong() else AndroidProfilePreflight.starts.begin()
         if(!AndroidProfilePreflight.starts.isCurrent(request))throw ProfileCheckException(ProfileCheckKind.CANCELLED)
         errorContext=args.expectedRunId.ifEmpty { VpnEvents.currentRun() }
         source=ProfileSource.parse(args.source)
@@ -228,6 +261,7 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
         )
         invoke.resolve()
       } catch (error: Exception) {
+        CloakwireVpnService.active?.resumeRecoveryAfterRejectedStart(request)
         if (AndroidProfilePreflight.starts.isCurrent(request)) {
           val safe=ProfilePreflight.failure(error).message ?: ProfileCheckKind.FAILED.token
           VpnEvents.recordCheck(source,"failed",safe,errorContext)
@@ -236,6 +270,7 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
           invoke.reject(ProfileCheckKind.CANCELLED.token)
         }
       } catch (_: LinkageError) {
+        CloakwireVpnService.active?.resumeRecoveryAfterRejectedStart(request)
         if (AndroidProfilePreflight.starts.isCurrent(request)) {VpnEvents.recordCheck(source,"failed",ProfileCheckKind.UNAVAILABLE.token,errorContext);invoke.reject(ProfileCheckKind.UNAVAILABLE.token)}
         else invoke.reject(ProfileCheckKind.CANCELLED.token)
       }
@@ -244,15 +279,32 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
 
   @Command fun beginProfilePreparation(invoke:Invoke) {
     ProbeCoordinator.invalidate()
-    val result=JSObject();result.put("request",AndroidProfilePreflight.starts.begin().toString());invoke.resolve(result)
+    val request=AndroidProfilePreflight.starts.begin()
+    CloakwireVpnService.active?.pauseRecoveryForStart(request)
+    val result=JSObject();result.put("request",request.toString());invoke.resolve(result)
+  }
+  @Command fun cancelProfilePreparation(invoke:Invoke) {
+    try {
+      val args=invoke.parseArgs(CancelProfilePreparationArgs::class.java)
+      val request=args.preparationId.toLongOrNull()?:throw ProfileCheckException(ProfileCheckKind.CANCELLED)
+      try {
+        AndroidProfilePreflight.starts.handoff(request) {
+          AndroidProfilePreflight.starts.cancel()
+          CloakwireVpnService.active?.resumeRecoveryAfterRejectedStart(request)
+        }
+      }catch(_:ProfileCheckException){ /* A newer request or Stop already owns the intent. */ }
+      invoke.resolve()
+    }catch(error:Exception){invoke.reject(ProfilePreflight.failure(error).message?:ProfileCheckKind.CANCELLED.token)}
   }
   @Command fun invalidateProfileStarts(invoke:Invoke) {
     ProbeCoordinator.invalidate()
     AndroidProfilePreflight.starts.cancel()
+    CloakwireVpnService.active?.releaseRecoveryPreparation()
     invoke.resolve(JSObject())
   }
   @Command
   fun stop(invoke: Invoke) {
+    CloakwireVpnService.active?.cancelRecoveryIntent()
     ProbeCoordinator.invalidate()
     AndroidProfilePreflight.starts.cancel()
     try {

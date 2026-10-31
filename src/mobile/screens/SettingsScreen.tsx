@@ -1,3 +1,4 @@
+import {RecoverySetting} from "@/components/RecoverySettings";
 import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useState } from "react";
 import { RefreshCw, Terminal } from "lucide-react";
@@ -149,6 +150,7 @@ export function SettingsScreen({
       <SectionCard>
         <SectionHeader title={t("settings.title")} />
         <div className="divide-y divide-white/5">
+          <RecoverySetting />
           <SettingRow
             label={t("settings.autoConnect")}
             hint="Connect on app start."

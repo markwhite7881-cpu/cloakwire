@@ -153,6 +153,7 @@ impl Drop for PendingDiagnosticStart {
 /// Centralised state shared across Tauri commands.
 pub struct ProcessManager {
     pub diagnostics: Arc<crate::diagnostics::active::SessionDiagnostics>,
+    pub recovery: Arc<crate::recovery::coordinator::RecoveryCoordinator>,
     /// Currently running child process, if any.
     child: Mutex<Option<ChildSlot>>,
     pending_diagnostic_start: AtomicU64,
@@ -202,6 +203,7 @@ impl Default for ProcessManager {
     fn default() -> Self {
         Self {
             diagnostics: Arc::new(crate::diagnostics::active::SessionDiagnostics::default()),
+            recovery: Arc::new(crate::recovery::coordinator::RecoveryCoordinator::default()),
             child: Mutex::new(None),
             pending_diagnostic_start: AtomicU64::new(0),
             aux_child: Mutex::new(None),
@@ -233,17 +235,34 @@ impl ProcessManager {
         Self::default()
     }
 
-    pub fn begin_ready_profile_check(&self) -> u64 {
+    fn issue_ready_ticket(&self) -> u64 {
         self.ready_catalog_epoch.store(
             crate::diagnostics::sources::catalog_epoch(),
             Ordering::Release,
         );
         self.ready_check_epoch.fetch_add(1, Ordering::AcqRel) + 1
     }
+    pub fn begin_ready_profile_check(&self) -> u64 {
+        self.recovery.profile_check(|| self.issue_ready_ticket())
+    }
+    pub fn begin_manual_profile_check(
+        self: &Arc<Self>,
+    ) -> (crate::recovery::coordinator::ManualRequest, u64) {
+        self.recovery
+            .manual_profile_check(|| self.issue_ready_ticket())
+    }
     pub fn is_ready_profile_check_current(&self, ticket: u64) -> bool {
         self.ready_check_epoch.load(Ordering::Acquire) == ticket
             && self.ready_catalog_epoch.load(Ordering::Acquire)
                 == crate::diagnostics::sources::catalog_epoch()
+    }
+
+    pub(crate) fn is_launch_check_current(&self, epoch: u64, recovering: bool) -> bool {
+        if recovering {
+            self.ready_check_epoch.load(Ordering::Acquire) == epoch
+        } else {
+            self.is_ready_profile_check_current(epoch)
+        }
     }
 
     pub async fn set_kill_switch_mode(&self, mode: crate::config::KillSwitchMode) {
@@ -296,15 +315,50 @@ impl ProcessManager {
         args: Vec<OsString>,
         env: Vec<(String, String)>,
     ) -> AppResult<()> {
+        self.start_aux_child_inner(run_id, binary, args, env, false)
+            .await
+    }
+    async fn start_aux_child_inner(
+        self: &Arc<Self>,
+        run_id: u64,
+        binary: PathBuf,
+        args: Vec<OsString>,
+        env: Vec<(String, String)>,
+        background: bool,
+    ) -> AppResult<()> {
         if !self.is_active_run(run_id).await {
             return Ok(());
         }
         #[cfg(all(target_os = "macos", not(test)))]
         {
-            if let Err(e) = crate::platform::macos::ensure_binary_elevated(&binary).await {
+            if background {
+                if !crate::platform::macos::is_binary_elevated(&binary) {
+                    return Err(AppError::TunCapabilities(
+                        "recovery_permission_required".into(),
+                    ));
+                }
+            } else if let Err(e) = crate::platform::macos::ensure_binary_elevated(&binary).await {
                 return Err(AppError::TunCapabilities(e));
             }
         }
+        #[cfg(not(all(target_os = "macos", not(test))))]
+        let _ = background;
+        let auxiliary_config = args
+            .iter()
+            .position(|a| a == "-c")
+            .and_then(|i| args.get(i + 1))
+            .map(PathBuf::from)
+            .and_then(|path| {
+                std::fs::read(&path)
+                    .ok()
+                    .map(|bytes| (path, Arc::new(bytes)))
+            });
+        let captured = crate::recovery::coordinator::Auxiliary {
+            binary: binary.clone(),
+            args: args.clone(),
+            env: env.clone(),
+            config: auxiliary_config,
+        };
         let mut cmd = Command::new(&binary);
         cmd.args(&args)
             .envs(env.iter().map(|(k, v)| (k, v)))
@@ -372,6 +426,7 @@ impl ProcessManager {
             }
         }
         *aux_slot = Some(ChildSlot { run_id, child });
+        self.recovery.capture_auxiliary(run_id, captured);
         Ok(())
     }
 
@@ -444,7 +499,9 @@ impl ProcessManager {
         app: Option<&AppHandle>,
         spec: LaunchSpec,
     ) -> AppResult<StatusReport> {
-        self.start_spec_with_check(app, spec, None).await
+        let ticket = self.begin_ready_profile_check();
+        self.start_spec_with_check(app, spec, Some(ticket), None)
+            .await
     }
 
     pub async fn start_profile_checked_with_app(
@@ -453,7 +510,8 @@ impl ProcessManager {
         spec: LaunchSpec,
         ticket: u64,
     ) -> AppResult<StatusReport> {
-        self.start_spec_with_check(app, spec, Some(ticket)).await
+        self.start_spec_with_check(app, spec, Some(ticket), None)
+            .await
     }
 
     async fn start_spec_with_check(
@@ -461,10 +519,50 @@ impl ProcessManager {
         app: Option<&AppHandle>,
         mut spec: LaunchSpec,
         ticket: Option<u64>,
+        recovery: Option<(
+            crate::recovery::intent::Token,
+            crate::recovery::coordinator::Snapshot,
+        )>,
     ) -> AppResult<StatusReport> {
         let mut _clash_transition = self.acquire_transition().await;
         if ticket.is_some_and(|ticket| !self.is_ready_profile_check_current(ticket)) {
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+        }
+        if let Some((token, snapshot)) = &recovery {
+            if !self.recovery.current(*token) {
+                return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+            }
+            // Background recovery must never request elevation. The ordinary
+            // lifecycle below retains all existing process/proxy/cleanup policy.
+            if crate::platform::macos::config_requires_tun(&spec.config_path)
+                && !crate::platform::macos::is_binary_elevated(&spec.binary)
+            {
+                return Err(AppError::TunCapabilities(
+                    "recovery_permission_required".into(),
+                ));
+            }
+            if let Some(auxiliary) = &snapshot.auxiliary {
+                if !crate::platform::macos::is_binary_elevated(&auxiliary.binary) {
+                    return Err(AppError::TunCapabilities(
+                        "recovery_permission_required".into(),
+                    ));
+                }
+            }
+            if !self.recovery.physical_matches(*token, true).await {
+                return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+            }
+            self.recovery.mark_restarting(*token);
+            if self.child.lock().await.is_some() {
+                self.stop_with_check_locked(None).await?;
+            }
+            if !self.recovery.current(*token) {
+                return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+            }
+            std::fs::write(&spec.config_path, snapshot.config.as_slice()).map_err(AppError::Io)?;
+            if let Some((path, bytes)) = snapshot.auxiliary.as_ref().and_then(|a| a.config.as_ref())
+            {
+                std::fs::write(path, bytes.as_slice()).map_err(AppError::Io)?;
+            }
         }
         let startup_epoch = self.ready_check_epoch.load(Ordering::Acquire);
         {
@@ -486,7 +584,9 @@ impl ProcessManager {
         };
         self.push_log(LogStream::System, label).await;
         if spec.engine == EngineKind::Singbox {
-            if let Err(message) = check_tun_capabilities(&spec.binary, &spec.config_path).await {
+            if let Err(message) =
+                check_tun_capabilities(&spec.binary, &spec.config_path, recovery.is_none()).await
+            {
                 self.abort_start(run_id).await;
                 self.push_log(
                     LogStream::System,
@@ -510,15 +610,33 @@ impl ProcessManager {
                 finished: false,
             }
         });
+        if !self.is_launch_check_current(startup_epoch, recovery.is_some())
+            || recovery
+                .as_ref()
+                .is_some_and(|(token, _)| !self.recovery.current(*token))
+        {
+            self.abort_start(run_id).await;
+            return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+        }
+        if let Some((token, _)) = &recovery {
+            if !self.recovery.physical_matches(*token, false).await {
+                self.abort_start(run_id).await;
+                return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+            }
+        }
         self.spawn_main_child(&spec, run_id).await?;
         if let Some(port) = optional_port {
             // Readiness is outside the transition gate: Stop/new-start wins.
             drop(_clash_transition);
             let ready = self
-                .optional_listener_ready(run_id, startup_epoch, port)
+                .optional_listener_ready(run_id, startup_epoch, port, recovery.is_some())
                 .await;
             _clash_transition = self.acquire_transition().await;
-            if self.active_run_id() != run_id || !self.is_ready_profile_check_current(startup_epoch)
+            if self.active_run_id() != run_id
+                || !self.is_launch_check_current(startup_epoch, recovery.is_some())
+                || recovery
+                    .as_ref()
+                    .is_some_and(|(token, _)| !self.recovery.current(*token))
             {
                 self.discard_starting_child(run_id).await?;
                 return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
@@ -528,7 +646,7 @@ impl ProcessManager {
                 if let Some(guard) = startup_guard.take() {
                     guard.finish();
                 }
-                if !self.is_ready_profile_check_current(startup_epoch) {
+                if !self.is_launch_check_current(startup_epoch, recovery.is_some()) {
                     return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
                 }
                 // The original passed preflight. One owned startup fallback;
@@ -548,7 +666,11 @@ impl ProcessManager {
                 self.spawn_main_child(&spec, run_id).await?;
             }
         }
-        if optional_port.is_some() && !self.is_ready_profile_check_current(startup_epoch) {
+        if !self.is_launch_check_current(startup_epoch, recovery.is_some())
+            || recovery
+                .as_ref()
+                .is_some_and(|(token, _)| !self.recovery.current(*token))
+        {
             self.discard_starting_child(run_id).await?;
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
@@ -561,6 +683,58 @@ impl ProcessManager {
         }
         if app.is_some() {
             self.diagnostics.spawn_monitor(Arc::downgrade(self), run_id);
+        }
+        if let Some((token, snapshot)) = &recovery {
+            if let Some(auxiliary) = &snapshot.auxiliary {
+                if !self.recovery.current(*token) {
+                    self.discard_starting_child(run_id).await?;
+                    return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+                }
+                if let Err(error) = self
+                    .start_aux_child_inner(
+                        run_id,
+                        auxiliary.binary.clone(),
+                        auxiliary.args.clone(),
+                        auxiliary.env.clone(),
+                        true,
+                    )
+                    .await
+                {
+                    let _ = self.stop_with_check_locked(None).await;
+                    return Err(error);
+                }
+            }
+        }
+        if recovery
+            .as_ref()
+            .is_some_and(|(token, _)| !self.recovery.current(*token))
+        {
+            let _ = self.stop_with_check_locked(None).await;
+            return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+        }
+        if let Some((_, snapshot)) = &recovery {
+            if let Some((host, http, socks)) = &snapshot.proxy {
+                if let Err(error) = apply_system_proxy_with_socks(host, *http, *socks) {
+                    let _ = self.stop_with_check_locked(None).await;
+                    return Err(error);
+                }
+            }
+        }
+        let mut captured = crate::recovery::coordinator::Snapshot::capture(&spec);
+        if let (Some(snapshot), Some((_, old))) = (&mut captured, &recovery) {
+            snapshot.proxy = old.proxy.clone();
+            snapshot.auxiliary = old.auxiliary.clone();
+        }
+        let proof = if let Some((token, _)) = &recovery {
+            crate::recovery::coordinator::Acceptance::Recovery(*token)
+        } else {
+            crate::recovery::coordinator::Acceptance::Manual(
+                ticket.expect("manual launch owns a ready-check ticket"),
+            )
+        };
+        if !self.recovery.accept_checked(run_id, captured, proof) {
+            let _ = self.stop_with_check_locked(None).await;
+            return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
         if spec.engine == EngineKind::Xray {
             if let Some(stats_spec) = spec.xray_stats {
@@ -597,6 +771,49 @@ impl ProcessManager {
             }
         }
         Ok(report)
+    }
+
+    pub(crate) async fn apply_proxy_for_run(
+        self: &Arc<Self>,
+        run: u64,
+        proxy: (String, u16, u16),
+        ticket: u64,
+    ) -> AppResult<()> {
+        let _transition = self.acquire_transition().await;
+        if self.active_run_id() != run || !self.is_ready_profile_check_current(ticket) {
+            return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+        }
+        if let Err(error) = apply_system_proxy_with_socks(&proxy.0, proxy.1, proxy.2) {
+            let _ = self.stop_with_check_locked(None).await;
+            return Err(error);
+        }
+        self.recovery.capture_proxy(run, Some(proxy));
+        Ok(())
+    }
+
+    pub(crate) async fn restart_recovery(
+        self: &Arc<Self>,
+        app: Option<&AppHandle>,
+        token: crate::recovery::intent::Token,
+        snapshot: crate::recovery::coordinator::Snapshot,
+    ) -> AppResult<StatusReport> {
+        self.start_spec_with_check(app, snapshot.spec.clone(), None, Some((token, snapshot)))
+            .await
+    }
+
+    pub(crate) async fn recovery_engine_dead(&self, run: u64) -> bool {
+        let mut child = self.child.lock().await;
+        if let Some(slot) = child.as_mut() {
+            return slot.run_id == run && matches!(slot.child.try_wait(), Ok(Some(_)));
+        }
+        drop(child);
+        let active = self.diagnostics.snapshot();
+        self.active_run_id() == 0
+            && active.ended_unexpectedly
+            && active
+                .session
+                .as_ref()
+                .is_some_and(|s| s.identity.run_id.as_deref() == Some(&run.to_string()))
     }
 
     async fn spawn_main_child(self: &Arc<Self>, spec: &LaunchSpec, run_id: u64) -> AppResult<()> {
@@ -678,10 +895,16 @@ impl ProcessManager {
         drop(status);
         Ok(())
     }
-    async fn optional_listener_ready(&self, run: u64, epoch: u64, port: u16) -> bool {
+    async fn optional_listener_ready(
+        &self,
+        run: u64,
+        epoch: u64,
+        port: u16,
+        recovering: bool,
+    ) -> bool {
         let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
         loop {
-            if self.active_run_id() != run || !self.is_ready_profile_check_current(epoch) {
+            if self.active_run_id() != run || !self.is_launch_check_current(epoch, recovering) {
                 return false;
             }
             let pid = {
@@ -771,9 +994,16 @@ impl ProcessManager {
     /// Stop the running sing-box. Graceful: send SIGTERM/taskkill, then
     /// escalate to SIGKILL after `DEFAULT_TERMINATE_TIMEOUT`.
     pub async fn stop(self: &Arc<Self>) -> AppResult<StatusReport> {
-        self.diagnostics.retire(self.active_run_id(), true);
-        self.ready_check_epoch.fetch_add(1, Ordering::AcqRel);
-        self.stop_with_check(None).await
+        let observed_run = self.active_run_id();
+        let epoch = self
+            .recovery
+            .stop_with(|| self.ready_check_epoch.fetch_add(1, Ordering::AcqRel) + 1);
+        self.diagnostics.retire(observed_run, true);
+        let _transition = self.acquire_transition().await;
+        if self.ready_check_epoch.load(Ordering::Acquire) != epoch {
+            return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
+        }
+        self.stop_with_check_locked(None).await
     }
 
     pub async fn stop_after_profile_check(
@@ -785,6 +1015,13 @@ impl ProcessManager {
 
     async fn stop_with_check(self: &Arc<Self>, ticket: Option<u64>) -> AppResult<StatusReport> {
         let _clash_transition = self.acquire_transition().await;
+        self.stop_with_check_locked(ticket).await
+    }
+
+    async fn stop_with_check_locked(
+        self: &Arc<Self>,
+        ticket: Option<u64>,
+    ) -> AppResult<StatusReport> {
         if ticket.is_some_and(|ticket| !self.is_ready_profile_check_current(ticket)) {
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
@@ -1084,8 +1321,13 @@ impl ProcessManager {
     /// for manual recovery; the spawned child (if any) is dropped, which
     /// triggers `kill_on_drop` on the underlying Command.
     pub async fn reset(&self) {
-        self.ready_check_epoch.fetch_add(1, Ordering::AcqRel);
-        let _clash_transition = self.acquire_transition().await;
+        let epoch = self
+            .recovery
+            .stop_with(|| self.ready_check_epoch.fetch_add(1, Ordering::AcqRel) + 1);
+        let _transition = self.acquire_transition().await;
+        if self.ready_check_epoch.load(Ordering::Acquire) != epoch {
+            return;
+        }
         self.reset_with_proxy_cleanup(clear_system_proxy).await;
     }
 
@@ -1656,17 +1898,25 @@ async fn set_tun_dns_from_config(
     }
 }
 
-async fn check_tun_capabilities(binary: &Path, config_path: &Path) -> Result<(), String> {
+async fn check_tun_capabilities(
+    binary: &Path,
+    config_path: &Path,
+    allow_elevation: bool,
+) -> Result<(), String> {
     if !crate::platform::macos::config_requires_tun(config_path) {
         return Ok(());
     }
     #[cfg(all(target_os = "macos", not(test)))]
     {
-        crate::platform::macos::ensure_binary_elevated(binary).await?;
+        if allow_elevation {
+            crate::platform::macos::ensure_binary_elevated(binary).await?;
+        } else if !crate::platform::macos::is_binary_elevated(binary) {
+            return Err("recovery_permission_required".into());
+        }
     }
     #[cfg(not(all(target_os = "macos", not(test))))]
     {
-        let _ = binary;
+        let _ = (binary, allow_elevation);
     }
     Ok(())
 }

@@ -45,6 +45,8 @@ public final class ProbeActivity extends Activity {
             ConnectivityManager cm = getSystemService(ConnectivityManager.class);
             Network initial = cm.getActiveNetwork();
             NetworkCapabilities nc = caps(cm, initial);
+            if (getIntent().getBooleanExtra("recoveryIdentity", false))
+                result.put("networkHandle", initial == null ? JSONObject.NULL : Long.toString(initial.getNetworkHandle()));
             result.put("defaultIsVpn", nc != null && nc.hasTransport(NetworkCapabilities.TRANSPORT_VPN));
             Network physical = null;
             for (Network n : cm.getAllNetworks()) {

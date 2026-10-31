@@ -67,10 +67,41 @@ class SingBoxEngine(
     @Synchronized get() = server?.ready() == true
 
   private var platform: CloakwirePlatform? = null
+  internal data class GroupWitness(val selections:Map<String,String>,val revision:Long)
+  private val groupState=RecoveryGroupState()
+  private val witnessReader=BoundedNativeProfileCheck()
+  private fun selections(groups:OutboundGroupIterator?):Map<String,String> {
+    val result=linkedMapOf<String,String>()
+    if(groups!=null)while(groups.hasNext()) {
+      val group=groups.next()
+      result[group.tag]=group.selected
+    }
+    return result
+  }
+  internal fun witness(isCurrent:()->Boolean):GroupWitness? {
+    val owned=server?:return null
+    if(closing.get() || !isCurrent())return null
+    val revision=groupState.revision()
+    var fresh:Map<String,String>?=null
+    try {
+      witnessReader.check(2000) {
+        check(!closing.get() && server===owned && isCurrent())
+        val control=Libbox.newStandaloneCommandClient()
+        try { fresh=selections(control.groups) }
+        finally {runCatching{control.disconnect()}}
+        check(!closing.get() && server===owned && isCurrent())
+      }
+    }catch(_:Exception){return null}
+    if(closing.get() || server!==owned || !isCurrent() || groupState.revision()!=revision)return null
+    return fresh?.let{GroupWitness(it,revision)}
+  }
+  internal fun witnessUnchanged(witness:GroupWitness):Boolean = !closing.get() && groupState.revision()==witness.revision
+
 
   /** Start libbox with a complete sing-box configuration. */
   @Synchronized
-  fun start(config: String) {
+  fun start(config: String,allowed:()->Boolean={true}) {
+    check(allowed()){ "core_start_cancelled" }
     closeBestEffortLocked()
     setupOnce(service)
     closing.set(false)
@@ -86,13 +117,16 @@ class SingBoxEngine(
         // CloakwirePlatform.openTun(), not by desktop auto-redirect.
         autoRedirect = false
       }
+      check(allowed()){ "core_start_cancelled" }
       next.startOrReloadService(config, overrides)
+      check(allowed()){ "core_start_cancelled" }
       check(next.ready()) { "sing-box did not become ready" }
 
       // Connect CommandClient for real-time status and traffic monitoring
       try {
         val clientOpts = CommandClientOptions().apply {
           addCommand(Libbox.CommandStatus)
+          addCommand(Libbox.CommandGroup)
           statusInterval = 1_000_000_000L
         }
         val commandClient = Libbox.newCommandClient(ClientHandler(), clientOpts)
@@ -147,7 +181,11 @@ class SingBoxEngine(
     override fun updateClashMode(newMode: String?) {}
     override fun writeConnectionEvents(events: ConnectionEvents?) {}
     override fun writeDNSQuery(query: DnsQuery?) {}
-    override fun writeGroups(groups: OutboundGroupIterator?) {}
+    override fun writeGroups(groups: OutboundGroupIterator?) {
+      if(closing.get())return
+      val next=selections(groups)
+      if(groupState.update(next))service.onEffectiveOutboundChanged(this@SingBoxEngine)
+    }
     override fun writeLogs(logs: LogIterator?) {}
     override fun writeOutbounds(outbounds: OutboundGroupItemIterator?) {}
     override fun writeStatus(message: StatusMessage?) {

@@ -1,7 +1,7 @@
 import {useProfileProbe} from "./useProfileProbe";
 import {ProfileProbeCard} from "./components/ProfileProbeCard";
 import {profilePreparation} from "@/lib/profilePreparations";
-import {vpnBeginPreparation} from "@/lib/vpn";
+import {vpnBeginPreparation,vpnCancelPreparation} from "@/lib/vpn";
 import {ProfileHealthContext} from "@/components/ProfileHealthBadge";
 import {ProfileErrorActions} from "@/components/ProfileErrorActions";
 import {useProfileErrorActions} from "@/hooks/useProfileErrorActions";
@@ -586,8 +586,10 @@ export default function MobileApp() {
     const ownerContext=expectedRunId??vpn.runId??"stopped";
     const source=target??(activeBundle?readySources.find(source=>source.profile_ref.kind==="ready"&&source.profile_ref.subscription_id===activeBundle.subscriptionId&&source.profile_ref.child_key===activeBundle.childKey)??null:profileSources[selectedIndex]??null);
     vpn.clearError();setSelectionBusy(true);
+    let preparationId:string|undefined;
+    let delegated=false;
     try{
-      const preparationId=("__TAURI_INTERNALS__" in window)?(await vpnBeginPreparation()).request:undefined;
+      preparationId=("__TAURI_INTERNALS__" in window)?(await vpnBeginPreparation()).request:undefined;
       assertCurrent();
       if(source&&source.profile_ref.kind!=="manual")await api.validateSubscriptionSource(source);
       assertCurrent();
@@ -596,6 +598,7 @@ export default function MobileApp() {
         const child=await api.getActiveChildConfig(ref.subscription_id,settings.routing,ref.child_key);
         if(child.child_key!==ref.child_key||(source&&child.source_revision!==source.source_revision))throw Error(t("profileEvidence.changed"));
         assertCurrent();
+        delegated=true;
         await vpn.connect({engine:child.engine,config:child.config,name:child.child_name},child.child_name,{source,settings,expectedRunId:ownerContext,preparationId});
       }else{
         const index=target?findSourceIndex(profileSources,target):selectedIndex;
@@ -603,10 +606,14 @@ export default function MobileApp() {
         const picked=profiles[index];
         const attemptProfiles=picked?[picked,...profiles.filter((_,i)=>i!==index)]:profiles;
         const attemptSettings={...settings,default_outbound:picked&&isSupported(picked)?picked.tag:null};
+        delegated=true;
         await vpn.connect(undefined,picked?profileLabel(picked):undefined,{source,profiles:attemptProfiles,settings:attemptSettings,expectedRunId:ownerContext,preparationId});
       }
     }catch(error){vpn.reportError(humanError(error)==="profile_source_changed"?t("profileEvidence.changed"):error,source,ownerContext)}
-    finally{setSelectionBusy(false)}
+    finally{
+      if(preparationId&&!delegated)await vpnCancelPreparation(preparationId).catch(()=>{});
+      setSelectionBusy(false);
+    }
   };
   const cardActions=useProfileErrorActions({
     contextKey:vpn.runId??"stopped",

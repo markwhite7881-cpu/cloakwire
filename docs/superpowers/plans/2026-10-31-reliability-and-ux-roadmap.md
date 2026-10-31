@@ -47,7 +47,7 @@
 
 ## Текущее выполнение
 
-В локальной ветке реализованы данные/импорт/режимы, desktop active-session health, карточки действий и Android selected-profile проверка. Полные платформенные матрицы, Android active-session health, recovery и выпуск не завершены. Последний checkpoint: [Android profile probe](../../testing/android-profile-probe-2026-10-31.md); исходный этап: [baseline](../../testing/implementation-stage-2026-10-31.md).
+В локальной ветке реализованы данные/импорт/режимы, desktop active-session health, карточки действий и Android selected-profile проверка. Код ограниченного восстановления C1–C3 реализован; Android получил необходимую внутреннюю проверку активной сессии для recovery. Полные платформенные матрицы, отдельный продуктовый Android active-session health и выпуск не завершены. Последний checkpoint: [Android profile probe](../../testing/android-profile-probe-2026-10-31.md); исходный этап: [baseline](../../testing/implementation-stage-2026-10-31.md).
 
 ## Порядок работ и контрольные точки
 
@@ -118,3 +118,5 @@ Android D3 состоит из двух частей: сначала scoped proc
 Коррекция UX 2026-11-01 по обратной связи пользователя: Android хранит последние измерения по серверам, показывает сетевую проверку отдельно от preflight и не заполняет непроверенные строки служебными подписями. [Проверки и границы](../../testing/android-probe-ux-2026-11-01.md).
 
 Коррекция Android reconnect 2026-11-01: подтверждена и устранена ошибка первой попытки применения выбранного сервера (преждевременный Stop делал expectedRunId устаревшим). Реальное переключение с HTTPS на телефоне и сохранность исходного состояния проверены. [Причина и результаты](../../testing/android-reconnect-2026-11-01.md).
+
+Контрольная точка 2026-11-01: добавлено выключенное по умолчанию восстановление после сна/смены сети на Windows/macOS/Android. Безопасные native suites и Android-сценарии Xray/sing-box прошли; desktop system matrix и полный C4–C5 остаются открыты. [Подробный отчёт](../../testing/connection-recovery-2026-11-01.md).

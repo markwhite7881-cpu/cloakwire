@@ -1,4 +1,17 @@
 export const en = {
+  recovery: {
+  "engineUnavailable": "The VPN stopped. Connect manually to restore the connection.",
+  "trafficBlocked": "Traffic remains blocked by Kill Switch.",
+  "unsupported": "Automatic network recovery is unavailable for this connection. You can reconnect manually.",
+  "title": "Automatic VPN recovery",
+  "hint": "Reconnect to the same server after sleep or a network change. Up to three attempts.",
+  "applyFailed": "Could not apply this setting. Try again.",
+  "saveFailed": "Could not save this setting. Check it again after restarting the app.",
+  "recovering": "Restoring the VPN connection…",
+  "exhausted": "Could not restore the VPN. Connect manually to try again.",
+  "permission": "VPN recovery needs your permission. Connect manually.",
+  "authentication": "Check the server credentials before connecting again."
+},
   profileEvidence: {
     pastPassed: "Last check: reachable",
     pastFailed: "Last check: no response",

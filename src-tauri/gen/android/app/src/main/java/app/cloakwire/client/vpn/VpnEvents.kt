@@ -38,9 +38,9 @@ object VpnEvents {
     checkEvidence=source?.let { ProfileCheckEvidence(it,outcome,System.currentTimeMillis(),error,context) }
     emit()
   }
-  @Synchronized internal fun acceptSource(source:ProfileSource?,name:String) {
+  @Synchronized internal fun acceptSource(source:ProfileSource?,name:String,acceptedRun:String=java.util.UUID.randomUUID().toString()) {
     ProbeCoordinator.invalidate()
-    acceptedSource=source;profileName=name;runId=java.util.UUID.randomUUID().toString()
+    acceptedSource=source;profileName=name;runId=acceptedRun
   }
   @Synchronized internal fun currentRun():String=runId?:"stopped"
   @Synchronized internal fun matchesRun(expected:String):Boolean = expected.isEmpty() || expected==(runId?:"stopped")

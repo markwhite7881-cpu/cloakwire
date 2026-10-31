@@ -1,3 +1,4 @@
+import {RecoveryNotice} from "@/components/RecoverySettings";
 import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import type {ReactNode} from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -395,6 +396,7 @@ export function HomeScreen({
         </div>
       </div>
 
+      <RecoveryNotice />
       {probeCard}
 
       {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}

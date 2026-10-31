@@ -23,3 +23,20 @@ describe("ConnectionErrorCard", () => {
 it("does not show an error card for an explicitly cancelled check", () => {
   expect(renderToStaticMarkup(<ConnectionErrorCard error="profile_check_cancelled" />)).toBe("");
 });
+
+for (const error of ["engine_unavailable", "Kill Switch: engine_unavailable"]) {
+ it("explains manual reconnect after interrupted recovery: "+error,()=>{
+  const html=renderToStaticMarkup(<ConnectionErrorCard error={error}/>);
+  expect(html).toContain("The VPN stopped. Connect manually to restore the connection.");
+  expect(html).not.toContain("engine_unavailable");
+  if(error.startsWith("Kill Switch:"))expect(html).toContain("Traffic remains blocked by Kill Switch.");
+ });
+}
+
+for(const error of ["recovery_exhausted","Kill Switch: recovery_exhausted"]) {
+ it("explains exhausted recovery without a raw token: "+error,()=>{
+  const html=renderToStaticMarkup(<ConnectionErrorCard error={error}/>);
+  expect(html).toContain("Could not restore the VPN. Connect manually to try again.");
+  expect(html).not.toContain("recovery_exhausted");
+ });
+}

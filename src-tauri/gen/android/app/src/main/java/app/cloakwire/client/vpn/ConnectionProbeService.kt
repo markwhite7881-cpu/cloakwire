@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONObject
 
 /** One disposable process owns all diagnostic Go globals, sockets, files and child processes. */
-class ConnectionProbeService:Service() {
+open class ConnectionProbeService:Service() {
  private val main=Handler(Looper.getMainLooper())
  private val cancelled=AtomicBoolean(false)
  private val begun=AtomicBoolean(false)

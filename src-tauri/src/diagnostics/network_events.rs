@@ -7,11 +7,22 @@ use std::sync::{
 static STARTED: OnceLock<()> = OnceLock::new();
 static READY: AtomicBool = AtomicBool::new(false);
 static EPOCH: AtomicU64 = AtomicU64::new(1);
+static WAKE_EPOCH: AtomicU64 = AtomicU64::new(1);
+pub(crate) fn wake_generation() -> u64 {
+    WAKE_EPOCH.load(Ordering::SeqCst)
+}
+pub(crate) fn wake() {
+    WAKE_EPOCH.fetch_add(1, Ordering::SeqCst);
+    changed();
+}
 fn changed() {
     EPOCH.fetch_add(1, Ordering::SeqCst);
 }
 pub fn generation() -> Option<u64> {
-    STARTED.get_or_init(start);
+    STARTED.get_or_init(|| {
+        start();
+        crate::recovery::subscribe_wake();
+    });
     READY
         .load(Ordering::SeqCst)
         .then(|| EPOCH.load(Ordering::SeqCst))

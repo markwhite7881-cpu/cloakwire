@@ -1,3 +1,4 @@
+import {RecoverySetting} from "@/components/RecoverySettings";
 import { useEffect, useState } from "react";
 import {
   Check,
@@ -265,6 +266,7 @@ export function ConfigBuilder({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        <RecoverySetting />
         {/* Tunnel mode picker */}
         <div className="space-y-1.5">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">

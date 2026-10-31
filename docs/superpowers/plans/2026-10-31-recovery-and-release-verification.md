@@ -12,7 +12,7 @@
 
 **Spec:** ../specs/2026-10-31-connection-reliability-and-ux-design.md
 
-**Status:** реализация начата. C1–C5 не завершены; recovery не включён. Доступны baseline и безопасные тесты. Системная/устройственная и пакетная приёмка остаётся впереди. [Результаты](../../testing/implementation-stage-2026-10-31.md).
+**Status:** C1 и код C2–C3 реализованы в feature branch; новая настройка выключена по умолчанию. Windows/macOS native checks, Android JVM/APK и описанные испытания телефона прошли. Полная системная матрица C2/C3 и выпускные C4–C5 остаются открыты. [Результаты recovery](../../testing/connection-recovery-2026-11-01.md).
 
 ## Global Constraints
 
@@ -33,12 +33,12 @@
 Native coordinator хранит desired_session snapshot и generation. Browser не запускает retry timers.
 **Constants:** enabled=false для legacy/default; debounce 2000ms; retry delays [2000,5000,15000]ms; max attempts=3; stable reset=60000ms; only one transition.
 
-- [ ] Tests disabled_preserves_current_behavior; manual_stop_cancels_all; wake_does_not_connect_if_user_stopped; burst_events_coalesce; new_network_does_not_reset_retry_budget; authentication_failure_does_not_retry; candidate_probe_success_does_not_mark_active_session_recovered.
-- [ ] Rust cargo test recovery:: и JVM RecoveryPolicyTest должны сначала FAIL.
-- [ ] Определить reconnect evidence: dead accepted engine либо два active_session failures для current network при доступной physical network и successful selected_profile probe; неопределённый health/test-site failure не достаточен.
-- [ ] Реализовать policy как чистые переходы с clock argument и тестировать без ожидания реальных 2/5/15 секунд.
-- [ ] User Stop/permission revoke/new connect меняют epoch до ожидания любых I/O; действие старого epoch не имеет права вызвать start/reset.
-- [ ] Native/JVM/frontend suites; коммит feat: define bounded connection recovery policy.
+- [x] Tests disabled_preserves_current_behavior; manual_stop_cancels_all; wake_does_not_connect_if_user_stopped; burst_events_coalesce; new_network_does_not_reset_retry_budget; authentication_failure_does_not_retry; candidate_probe_success_does_not_mark_active_session_recovered.
+- [x] Rust cargo test recovery:: и JVM RecoveryPolicyTest должны сначала FAIL.
+- [x] Определить reconnect evidence: dead accepted engine либо два active_session failures для current network при доступной physical network и successful selected_profile probe; неопределённый health/test-site failure не достаточен.
+- [x] Реализовать policy как чистые переходы с clock argument и тестировать без ожидания реальных 2/5/15 секунд.
+- [x] User Stop/permission revoke/new connect меняют epoch до ожидания любых I/O; действие старого epoch не имеет права вызвать start/reset.
+- [x] Native/JVM/frontend suites; коммит feat: define bounded connection recovery policy.
 
 ### C2. События Windows/macOS и desktop coordinator
 
@@ -46,11 +46,11 @@ Native coordinator хранит desired_session snapshot и generation. Browser 
 **Interfaces:** NativeNetworkEvent={kind:"wake"|"network_changed"|"network_lost",generation:string}; subscribe_network_events(callback)->SubscriptionGuard; RecoveryCoordinator::on_event(event) и cancel(intent_epoch).
 **Dependency:** C1, D2/D4/D5; основной путь start/stop не копируется в recovery.
 
-- [ ] Tests stale_wake_cannot_restart_new_profile; healthy_active_session_no_restart; disappeared_interface_waits; stop_during_backoff_has_no_spawn; recovery_uses_accepted_snapshot_not_unsaved_ui_settings; failures_do_not_switch_to_another_server.
-- [ ] Подключить Windows resume/power + physical route changes и macOS wake/path notifications; существующий native event bridge остаётся источником, setInterval в React не заменяет эти события.
-- [ ] После debounce запустить active probe. Если подтверждён нужный reconnect, получить существующий lifecycle gate и повторно проверить epoch непосредственно перед start.
-- [ ] Не открывать новые окна UAC/повторные циклы admin approval из background retry; если требуются права — остановить recovery и показать действие пользователю.
-- [ ] Сохранить текущую фактическую cleanup policy: Windows firewall isolation не включать, macOS не объявлять постоянный killswitch только по флагу. Не обещать блокировку утечек, которой нет в baseline.
+- [x] Tests stale_wake_cannot_restart_new_profile; healthy_active_session_no_restart; disappeared_interface_waits; stop_during_backoff_has_no_spawn; recovery_uses_accepted_snapshot_not_unsaved_ui_settings; failures_do_not_switch_to_another_server.
+- [x] Подключить Windows resume/power + physical route changes и macOS wake/path notifications; существующий native event bridge остаётся источником, setInterval в React не заменяет эти события.
+- [x] После debounce запустить active probe. Если подтверждён нужный reconnect, получить существующий lifecycle gate и повторно проверить epoch непосредственно перед start.
+- [x] Не открывать новые окна UAC/повторные циклы admin approval из background retry; если требуются права — остановить recovery и показать действие пользователю.
+- [x] Сохранить текущую фактическую cleanup policy: Windows firewall isolation не включать, macOS не объявлять постоянный killswitch только по флагу. Не обещать блокировку утечек, которой нет в baseline.
 - [ ] В выделенной Windows VM/macOS: сон→wake, Ethernet↔Wi-Fi, сеть отсутствует/вернулась, 3 failures, Stop и выбор нового профиля в каждой фазе. Зафиксировать routes/proxy/processes до/после.
 - [ ] Native suites + core matrix; коммит feat: recover desktop sessions after network changes.
 
@@ -60,10 +60,10 @@ Native coordinator хранит desired_session snapshot и generation. Browser 
 **Interfaces:** coordinator владеет session generation, captured accepted snapshot и policy C1; network events исходят из non-VPN Network callbacks. Engine-death recovery и network recovery используют один budget/owner.
 **Dependency:** D3 scoped process cleanup, C1, D5 active identity.
 
-- [ ] Tests old_engine_death_thread_cannot_restart_new_session; probe_and_session_children_not_killed_cross_owner; vpn_network_ignored; recreation_reads_native_state; user_stop_releases_pending_work; network_identity_replaced_not_reused; stopped_service_not_restarted_by_callback.
-- [ ] Получить FAIL; заменить sessionActive-only guard на epoch/snapshot; связать существующий ограниченный onEngineDied restart с coordinator.
-- [ ] Смена сети сначала даёт libbox текущий physical interface и шанс восстановиться; активный успешный probe отменяет лишний restart.
-- [ ] При сохранённом Android blackhole/TUN новый recovery не вызывает обычный teardownComponents и не открывает прямой трафик до готовности замены. Учитывать фактические kill_switch/block_ipv6 настройки без изменения defaults.
+- [x] Tests old_engine_death_thread_cannot_restart_new_session; probe_and_session_children_not_killed_cross_owner; vpn_network_ignored; recreation_reads_native_state; user_stop_releases_pending_work; network_identity_replaced_not_reused; stopped_service_not_restarted_by_callback.
+- [x] Получить FAIL; заменить sessionActive-only guard на epoch/snapshot; связать существующий ограниченный onEngineDied restart с coordinator.
+- [x] Смена сети сначала даёт libbox текущий physical interface и шанс восстановиться; активный успешный probe отменяет лишний restart.
+- [x] При сохранённом Android blackhole/TUN новый recovery не вызывает обычный teardownComponents и не открывает прямой трафик до готовности замены. Учитывать фактические kill_switch/block_ipv6 настройки без изменения defaults.
 - [ ] Реальное устройство: Wi-Fi↔mobile, screen off/on, network lost, active VPN include/exclude, always-on/lockdown allowed/unavailable. Неподдержанную проверку показывать явно, не помечать healthy.
 - [ ] JVM tests, assembleDebug, instrumentation/device report; коммит feat: recover Android sessions with one lifecycle owner.
 
@@ -100,3 +100,5 @@ Native coordinator хранит desired_session snapshot и generation. Browser 
 Каждый task — отдельный проверенный коммит. Diagnostics, UI import/routing и recovery отделены; recovery отключается настройкой и может быть откатан без отката UI. Для data rollback использовать актуальный legacy mirror и reconciliation из B1, не старую резервную копию.
 
 Build cache один на совместимый target/toolchain; хранить отчёты и финальные тестовые пакеты, не плодить архивы всех промежуточных source/target. Удаление пользовательских release/cache folders не входит в эту работу. Сначала показывать проверяемый список disposable paths, если очистка понадобится.
+
+Checkpoint 2026-11-01: исходники C1–C3 интегрированы одной атомарной поставкой, поскольку UI setting/ACL и native команды должны совпадать. Native/JVM suites и debug APK прошли; реальные устройства проверены только в объёме отчёта. Незакрытые matrix-checkbox выше сохранены намеренно. Публичный релиз не выполнялся.

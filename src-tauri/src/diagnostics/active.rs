@@ -268,6 +268,9 @@ impl SessionDiagnostics {
     pub fn cancel(&self, operation: &str) -> bool {
         self.coordinator.cancel(operation)
     }
+    pub(crate) fn recovery_identity_matches(&self, expected: &SessionIdentity) -> bool {
+        self.current(expected)
+    }
     fn current(&self, expected: &SessionIdentity) -> bool {
         self.synchronize_epoch();
         let state = self.state.lock().unwrap_or_else(|p| p.into_inner());
@@ -457,6 +460,7 @@ impl SessionDiagnostics {
                             TargetWitness::Matches => this.target_availability(run, true),
                             TargetWitness::Unavailable => this.target_availability(run, false),
                             TargetWitness::Changed => {
+                                manager.recovery.target_changed(run);
                                 this.target_changed(run);
                                 true
                             }

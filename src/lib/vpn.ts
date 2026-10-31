@@ -39,6 +39,7 @@ export interface AppEntry {
 /** Ask the OS for VPN permission. Resolves `{ prepared: false }`
  *  when the user declined (or the dialog is still pending). */
 export const vpnBeginPreparation=()=>invoke<{request:string}>("plugin:vpn|beginProfilePreparation");
+export const vpnCancelPreparation=(preparationId:string)=>invoke<void>("plugin:vpn|cancelProfilePreparation",{preparationId});
 export const vpnPrepare = () =>
   invoke<{ prepared: boolean }>("plugin:vpn|prepare");
 

@@ -27,3 +27,14 @@ test("an invalid replacement keeps the current VPN available",async({page},info)
  expect(await page.evaluate(()=>(window as any).mobileStatus)).toMatchObject({state:"running",run_id:"run-a",profile_name:"First"});
  expect(await page.evaluate(()=>(window as any).nativeCalls.filter((c:string)=>c==="plugin:vpn|stop"))).toEqual([]);
 });
+
+for(const failure of ["generate","permission"] as const){
+ test("failed "+failure+" releases only its own native preparation without stopping the VPN",async({page},info)=>{
+  await openFixture(page,info,{mobileLifecycle:true,running:true,selectedFirst:true,tab:"home",preparationFailure:failure});
+  await pickSecond(page);await page.getByRole("button",{name:"Reconnect now",exact:true}).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>(window as any).nativeRequests.filter((r:any)=>r.cmd==="plugin:vpn|cancelProfilePreparation").map((r:any)=>r.args.preparationId))).toEqual(["1"]);
+  expect(await page.evaluate(()=>(window as any).mobileStatus)).toMatchObject({state:"running",run_id:"run-a",profile_name:"First"});
+  expect(await page.evaluate(()=>(window as any).nativeCalls.filter((c:string)=>c==="plugin:vpn|stop"||c==="plugin:vpn|start"))).toEqual([]);
+ });
+}

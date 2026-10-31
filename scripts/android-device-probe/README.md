@@ -38,3 +38,5 @@ The optional standalone Activity flag `--ez physicalControl true` compares fixed
 The helper Activity requires Android DUMP permission (ADB shell/system). Optional `--ez xrayControl true --es testIPv4 <resolved-gstatic-IPv4>` separates default-VPN UDP and TLS transport from device DNS. TLS still checks www.gstatic.com normally; the supplied address is not written to reports.
 
 Use `scripts/android-xray-isolation-check.mjs` for temporary-Xray ownership checks. Its loopback HTTP fixture is lifetime evidence, not an external health check. Both isolation runners require a working VPN and authorized device; they do not change its config.
+
+The optional test flag --ez recoveryIdentity true records the opaque Android Network handle so recovery checks can verify that the VPN network was retained across a core replacement. It contains no address or profile data.

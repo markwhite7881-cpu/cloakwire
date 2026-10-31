@@ -46,6 +46,8 @@
 
         <service android:name=".vpn.ConnectionProbeService"
             android:exported="false" android:process=":profile_diagnostics" />
+        <service android:name=".vpn.RecoveryProbeService"
+            android:exported="false" android:process=":recovery_probe" />
         <!-- Quick Settings tile: power icon when off, pause icon when
              on, label = active server name. Tap toggles the VPN. -->
         <service
