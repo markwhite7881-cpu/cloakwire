@@ -37,7 +37,6 @@ object LatencyTester {
   private const val TIMEOUT_MS = 5_000
   private const val PARALLELISM = 6
   private const val STARTUP_WAIT_MS = 1_200L
-  private const val CONFIG_FILE_NAME = "xray-latency-test.json"
 
   /**
    * Run the test. `config` is the full tester config JSON from Rust;
@@ -48,9 +47,11 @@ object LatencyTester {
     val results = JSONArray()
     if (entries.length() == 0) return results
 
-    val configFile = File(context.filesDir, CONFIG_FILE_NAME)
-    val process = try {
-      configFile.writeText(config)
+    val directory=File(context.cacheDir,"xray-probes")
+    CoreProcessRecovery.reap(directory)
+    val owner=CoreProcessOwner(directory)
+    val owned = try {
+      owner.start(config) { configFile ->
       val pb = ProcessBuilder(
         File(context.applicationInfo.nativeLibraryDir, XrayEngine.BINARY_NAME).absolutePath,
         "run", "-c", configFile.absolutePath,
@@ -59,11 +60,15 @@ object LatencyTester {
         File(context.filesDir, "xray-assets").absolutePath
       pb.redirectErrorStream(true)
       pb.start()
+      }
     } catch (e: Exception) {
       Log.w(TAG, "tester spawn failed: ${e.message}")
       return failAll(entries)
     }
 
+    try {CoreProcessRecovery.record(owned.configFile,File(context.applicationInfo.nativeLibraryDir,XrayEngine.BINARY_NAME).absolutePath)} catch(e:Exception) {owner.close();throw e}
+    val process=owned.process
+    val drain=Thread({runCatching { process.inputStream.use { input -> val buffer=ByteArray(4096);while(input.read(buffer)>=0){} } }}, "latency-output").apply {isDaemon=true;start()}
     try {
       // Give the inbounds a moment to come up. A readiness probe per
       // port would be nicer, but a fixed short wait keeps the runner
@@ -105,11 +110,8 @@ object LatencyTester {
       }
       executor.shutdownNow()
     } finally {
-      runCatching { process.destroy() }
-      runCatching {
-        if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroyForcibly()
-      }
-      runCatching { configFile.delete() }
+      owner.close()
+      runCatching { drain.join(250) }
     }
     return results
   }

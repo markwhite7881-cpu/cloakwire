@@ -37,7 +37,6 @@ class XrayEngine(
   companion object {
     private const val TAG = "XrayEngine"
     const val BINARY_NAME = "libxray.so"
-    private const val CONFIG_FILE_NAME = "xray-session.json"
     private const val ENV_ASSET_DIR = "XRAY_LOCATION_ASSET"
     /** How long a freshly spawned process gets to prove it stays up. */
     private const val READINESS_PROBE_MS = 1_500L
@@ -121,36 +120,11 @@ class XrayEngine(
     }
 
 
-    /**
-     * Terminate any lingering libxray.so processes belonging to our app.
-     * Scans /proc for non-self processes executing libxray.so or referencing
-     * the xray session config and signals SIGKILL, with a pkill fallback.
-     */
-    fun killOrphanProcesses() {
-      val myPid = android.os.Process.myPid()
-      try {
-        val procDir = File("/proc")
-        val pidDirs = procDir.listFiles { file -> file.isDirectory && file.name.all { it.isDigit() } } ?: emptyArray()
-        for (dir in pidDirs) {
-          val pid = dir.name.toIntOrNull() ?: continue
-          if (pid == myPid) continue
-          val cmdlineFile = File(dir, "cmdline")
-          if (!cmdlineFile.exists()) continue
-          val cmdline = runCatching { cmdlineFile.readText() }.getOrDefault("")
-          if (cmdline.contains(BINARY_NAME) || cmdline.contains("libxray.so") || cmdline.contains(CONFIG_FILE_NAME)) {
-            Log.w(TAG, "Killing orphan Xray process (pid=$pid, cmdline=$cmdline)")
-            android.os.Process.sendSignal(pid, android.os.Process.SIGNAL_KILL)
-          }
-        }
-      } catch (e: Exception) {
-        Log.w(TAG, "killOrphanProcesses proc scan error: ${e.message}")
-      }
-      runCatching {
-        Runtime.getRuntime().exec(arrayOf("pkill", "-9", "-f", BINARY_NAME)).waitFor()
-      }
-    }
+
   }
 
+  private val ownedDirectory=File(context.filesDir,"xray-sessions")
+  private val owner=CoreProcessOwner(ownedDirectory)
   @Volatile private var process: Process? = null
   private val closing = AtomicBoolean(false)
 
@@ -165,23 +139,18 @@ class XrayEngine(
    */
   @Synchronized
   fun start(config: String) {
-    closeBestEffortLocked()
-    killOrphanProcesses()
 
     val binary = resolveBinary(context)
-    val configFile = File(context.filesDir, CONFIG_FILE_NAME)
-    configFile.writeText(config)
-
-    val pb = ProcessBuilder(binary, "run", "-c", configFile.absolutePath)
-    pb.environment()[ENV_ASSET_DIR] = ensureGeodataDir(context)
-    pb.redirectErrorStream(true)
-
-    val proc = try {
-      pb.start()
-    } catch (e: Exception) {
-      configFile.delete()
-      throw e
+    closing.set(true)
+    CoreProcessRecovery.reap(ownedDirectory)
+    val owned=owner.start(config) { file ->
+      ProcessBuilder(binary,"run","-c",file.absolutePath).apply {
+        environment()[ENV_ASSET_DIR]=ensureGeodataDir(context)
+        redirectErrorStream(true)
+      }.start()
     }
+    try {CoreProcessRecovery.record(owned.configFile,binary)} catch(e:Exception) {owned.close();throw e}
+    val proc=owned.process
     process = proc
     closing.set(false)
 
@@ -196,7 +165,7 @@ class XrayEngine(
     if (!proc.isAlive) {
       val code = proc.exitValue()
       drain.join(300)
-      configFile.delete()
+      owned.close()
       process = null
       throw IllegalStateException(
         "xray rejected the config (exit=$code): ${lastLogTail()}"
@@ -206,8 +175,8 @@ class XrayEngine(
     Thread({
       val exit = runCatching { proc.waitFor() }.getOrDefault(-1)
       runCatching { drain.join(300) }
-      runCatching { configFile.delete() }
-      if (!closing.get()) {
+      runCatching { owned.close() }
+      if (!closing.get() && process===proc) {
         Log.w(TAG, "xray exited unexpectedly (code=$exit)")
         onDied(exit)
       }
@@ -222,18 +191,8 @@ class XrayEngine(
 
   private fun closeBestEffortLocked() {
     closing.set(true)
-    val proc = process
+    owner.close()
     process = null
-    if (proc != null) {
-      runCatching { proc.destroy() }
-      runCatching {
-        if (!proc.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)) {
-          proc.destroyForcibly()
-        }
-      }
-    }
-    killOrphanProcesses()
-    runCatching { File(context.filesDir, CONFIG_FILE_NAME).delete() }
   }
 
   /**

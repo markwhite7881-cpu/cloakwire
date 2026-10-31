@@ -94,6 +94,16 @@ Checkpoint 2026-10-31: private process/config owner, cancellation/deadline clean
 - [ ] Проверить sing-box-specific Hysteria2/TUIC профили собственным ядром на стенде; Xray ready config отдельно. always-on/lockdown restriction отдаёт unavailable, не successful direct fallback.
 - [ ] JVM suite, Android assembleDebug, device matrix; коммит feat: add isolated Android connection checks.
 
+#### Контрольная точка D3: процессная изоляция
+
+- [x] Удалить глобальную очистку Xray по имени; ввести owned process/config и проверяемые orphan leases.
+- [x] Защитить отложенный restart и его callbacks поколением сессии, проверить повторное использование PID и разделение владельцев.
+- [x] На реальном Android AAR проверить два libbox-процесса, отдельный command channel/пути, запрет TUN, DNS/TCP/UDP через физическую Network.
+- [x] Проверить отмену, гибель Binder-клиента, аварию diagnostics и сохранение HTTPS-трафика другого UID.
+- [ ] Завершить production adapter и оставшуюся D3-матрицу (lockdown, смена сети, старшие/младшие ОС, profile ownership, Stop, Hysteria2/TUIC).
+
+Экспериментальная служба находится только в debug. [Отчёт и ограничения](../../testing/android-isolation-2026-10-31.md). Общие пункты D3 выше не отмечаются целиком выполненными, пока объединённые зависимости не закрыты.
+
 ### D4. Безопасная классификация ошибок работающей сессии
 
 **Files:** создать src-tauri/src/diagnostics/issues.rs, src/lib/connectionIssues.ts и .test.ts, Kotlin vpn/ConnectionIssues.kt и test; изменить process.rs logging hook, SingBoxEngine.kt log hook, XrayEngine.kt stderr hook, VpnEvents.kt, src/lib/profileCheck.ts.

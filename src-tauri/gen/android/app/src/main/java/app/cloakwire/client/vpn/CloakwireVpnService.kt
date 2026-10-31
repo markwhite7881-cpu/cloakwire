@@ -121,7 +121,8 @@ class CloakwireVpnService : VpnService() {
   @Volatile private var sessionActive = false
   @Volatile private var engineRestarts = 0
   @Volatile private var starting = false
-  @Volatile private var startGeneration = 0L
+  private val sessionGeneration=SessionGeneration(this)
+  private val startGeneration:Long get()=sessionGeneration.current()
   @Volatile private var preflightGeneration = 0L
   private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
   @Volatile private var killSwitchMode = "on_drop"
@@ -336,7 +337,7 @@ class CloakwireVpnService : VpnService() {
       // A new session replaces the old one: tear down first.
       runCatching { teardownComponents() }
     }
-    val currentGen = ++startGeneration
+    val currentGen = sessionGeneration.begin()
     starting = true
     thread(name = "vpn-start") {
       try {
@@ -404,7 +405,7 @@ class CloakwireVpnService : VpnService() {
 
     // 4. xray sidecar (readiness-checked; throws with the sanitized
     //    tail of the engine log if the config is rejected).
-    val engine = XrayEngine(this, ::onEngineDied)
+    val engine = XrayEngine(this) { code -> onEngineDied(currentGen,code) }
     engine.start(config)
     xrayEngine = engine
 
@@ -436,7 +437,7 @@ class CloakwireVpnService : VpnService() {
 
     if (startGeneration != currentGen || !starting) return
 
-    val engine = SingBoxEngine(this, ::onSingBoxDied)
+    val engine = SingBoxEngine(this) { message -> onSingBoxDied(currentGen,message) }
     singBoxEngine = engine
     engine.start(config)
     if (startGeneration != currentGen || !starting) {
@@ -455,8 +456,8 @@ class CloakwireVpnService : VpnService() {
     if (file.exists()) file.delete()
   }
 
-  private fun onSingBoxDied(message: String) {
-    if (sessionActive) failSession(message)
+  private fun onSingBoxDied(generation:Long,message: String) {
+    mainHandler.post { sessionGeneration.runIfCurrent(generation) { if(sessionActive)failSession(message) } }
   }
 
   /**
@@ -623,29 +624,31 @@ class CloakwireVpnService : VpnService() {
    * budget is exhausted, error the session out — a dead engine with a
    * live TUN would black-hole all captured traffic.
    */
-  private fun onEngineDied(exitCode: Int) {
-    if (!sessionActive) return
-    val engine = xrayEngine
-    val config = runCatching { configFile(this).readText() }.getOrNull()
-    if (engine == null || config.isNullOrEmpty()) {
-      failSession("engine exited (code=$exitCode)")
-      return
-    }
-    if (engineRestarts >= MAX_ENGINE_RESTARTS) {
-      failSession("engine exited repeatedly (code=$exitCode)")
-      return
-    }
-    engineRestarts++
-    Log.w(TAG, "engine died (code=$exitCode) — restarting ($engineRestarts/$MAX_ENGINE_RESTARTS)")
-    VpnEvents.update(VpnEvents.STATE_STARTING, "reconnecting")
-    thread(name = "vpn-engine-restart") {
-      Thread.sleep(ENGINE_RESTART_DELAY_MS)
-      if (!sessionActive) return@thread
-      try {
-        engine.start(config)
-        VpnEvents.update(VpnEvents.STATE_RUNNING)
-      } catch (e: Exception) {
-        failSession(e.message ?: "engine restart failed")
+  private fun onEngineDied(generation:Long,exitCode: Int) {
+    mainHandler.post {
+      sessionGeneration.runIfCurrent(generation) {
+        if (!sessionActive) return@runIfCurrent
+        val engine=xrayEngine
+        val config=runCatching { configFile(this).readText() }.getOrNull()
+        if(engine==null || config.isNullOrEmpty() || engineRestarts>=MAX_ENGINE_RESTARTS) {
+          failSession("engine exited (code=$exitCode)")
+          return@runIfCurrent
+        }
+        engineRestarts++
+        VpnEvents.update(VpnEvents.STATE_STARTING,"reconnecting")
+        thread(name="vpn-engine-restart") {
+          Thread.sleep(ENGINE_RESTART_DELAY_MS)
+          if(startGeneration!=generation || !sessionActive || xrayEngine!==engine)return@thread
+          val error=runCatching { engine.start(config) }.exceptionOrNull()
+          mainHandler.post {
+            sessionGeneration.runIfCurrent(generation) {
+              if(sessionActive && xrayEngine===engine) {
+                if(error==null)VpnEvents.update(VpnEvents.STATE_RUNNING)
+                else failSession(error.message?:"engine restart failed")
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -694,7 +697,7 @@ class CloakwireVpnService : VpnService() {
   fun stopVpn(cancelPendingStart: Boolean = true) {
     if (cancelPendingStart) AndroidProfilePreflight.starts.cancel()
     preflightGeneration++
-    startGeneration++
+    sessionGeneration.begin()
     starting = false
     isBlackholeActive = false
     blackholeThread?.interrupt()
@@ -734,14 +737,13 @@ class CloakwireVpnService : VpnService() {
     runCatching { protectedProxy.stop() }
     tunPfd?.let { runCatching { it.close() } }
     tunPfd = null
-    XrayEngine.killOrphanProcesses()
   }
 
   override fun onDestroy() {
     // The system can kill the service without ACTION_STOP (revoke,
     // always-on change, task removal) — make sure everything goes down.
     preflightGeneration++
-    startGeneration++
+    sessionGeneration.begin()
     starting = false
     teardownComponents()
     active = null
