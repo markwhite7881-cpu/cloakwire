@@ -1,3 +1,4 @@
+import { humanError } from "@/lib/profileCheck";
 import { useEffect, useState } from "react";
 import { Clipboard, Loader2, Plus } from "lucide-react";
 import { Sheet } from "./Sheet";
@@ -113,7 +114,7 @@ export function AddSubscriptionSheet({
       if (result.outbounds.length === 0 && result.subscriptions.length === 0) {
         setError(
           result.failures[0]
-            ? String(result.failures[0].error)
+            ? humanError(result.failures[0].error)
             : t("servers.unsupportedLinkOrUrl"),
         );
         setBusy(false);

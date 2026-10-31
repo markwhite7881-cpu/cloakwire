@@ -1,7 +1,7 @@
 import {expect,type Page,type TestInfo} from "playwright/test";
 export const v1="singbox-client.manual-profiles.v1",v2="singbox-client.manual-profiles.v2";
 export const settingsKey="singbox-client.settings.v2";
-export async function openFixture(page:Page,testInfo:TestInfo,options:{running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
+export async function openFixture(page:Page,testInfo:TestInfo,options:{parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
   const mobile=testInfo.project.name==="mobile";
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text());});
@@ -20,6 +20,7 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{running?:
     w.__TAURI_EVENT_PLUGIN_INTERNALS__={unregisterListener:()=>{}};
     w.__TAURI_INTERNALS__={transformCallback:()=>1,unregisterCallback:()=>{},invoke:async(cmd:string)=>{
       w.nativeCalls.push(cmd);
+      if(cmd==="parse_input"&&options.parseFailure)return {outbounds:[],subscriptions:[],failures:[{line:1,input:"vless://SYNTHETIC",error:{kind:"parse",message:"Invalid port number"}}]};
       if(cmd==="parse_input")return {outbounds:[fixture("Provider label","NEW_SECRET")],subscriptions:[],failures:[]};
       if(cmd==="list_processes")return [{pid:123,name:"fixture.exe"}];
       if(cmd==="plugin:vpn|listApps")return [{packageName:"fixture.app",label:"Fixture app"}];

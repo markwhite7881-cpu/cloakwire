@@ -32,3 +32,15 @@ test("import Cancel, explicit update and storage failure retry",async({page},inf
     assert.equal((await page.evaluate(()=>window.nativeCalls)).some(x=>x==='start_managed_singbox'||x==='plugin:vpn|start'),false);
     await verify();
 });
+
+test("structured parse failure remains readable and preserves input",async({page},info)=>{
+ const {mobile,verify}=await openFixture(page,info,{single:true,parseFailure:true});
+ if(mobile)await page.getByRole("button",{name:"Add Subscription",exact:true}).click();
+ await page.locator("textarea").first().fill("vless://SYNTHETIC");
+ await page.getByRole("button",{name:mobile?"Add":"Add Server",exact:true}).click();
+ await expect(page.getByText(/Invalid port number/).first()).toBeVisible();
+ await expect(page.getByText("[object Object]",{exact:true})).toHaveCount(0);
+ await expect(page.locator("textarea").first()).toHaveValue("vless://SYNTHETIC");
+ expect((await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),v2)).records).toHaveLength(1);
+ await verify();
+});
