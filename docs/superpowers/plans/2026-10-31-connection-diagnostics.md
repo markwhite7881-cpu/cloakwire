@@ -10,7 +10,7 @@
 
 **Spec:** ../specs/2026-10-31-connection-reliability-and-ux-design.md
 
-**Status:** план для проверки; реализация не начата. Порядок зависимостей задаёт 2026-10-31-reliability-and-ux-roadmap.md.
+**Status:** реализация начата. D0: безопасная часть готова. D1: контракты/координатор готовы. D2: только преобразования копий конфигураций. Native probes/интеграция и D3–D5 не завершены. [Результаты](../../testing/implementation-stage-2026-10-31.md).
 
 ## Global Constraints
 
@@ -57,11 +57,11 @@
 - start_profile_probe(target:ProbeTarget) -> operation_id; cancel_profile_probe(operation_id) -> (); get_connection_health() -> snapshot. Событие connection_health содержит только DTO.
 - applyHealthEvent(current, event, expected:SessionIdentity): ConnectionHealth принимает событие только для актуальной identity.
 
-- [ ] Tests reject_stale_run_revision_and_network; stop_invalidates_probe; identical_request_coalesces; two_requested_profiles_do_not_cross; snapshot_survives_ui_resubscribe. Assert старое событие не заменяет здоровый новый run.
-- [ ] Запустить npm test -- src/lib/connectionHealth.test.ts и cargo test --manifest-path src-tauri/Cargo.toml diagnostics::; убедиться в ожидаемом провале.
-- [ ] Реализовать отдельный coordinator с одной активной probe, отменой, deadline 12s и cleanup budget 2s; не удерживать semaphore основного lifecycle во время сетевого ожидания.
-- [ ] Добавить контрактные JSON fixtures без секретов и проверить одинаковую сериализацию Rust/TS/Kotlin; issues/actions только enum.
-- [ ] Запустить targeted checks и npm test/build; коммит feat: add session-owned connection health contracts.
+- [x] Tests reject_stale_run_revision_and_network; stop_invalidates_probe; identical_request_coalesces; two_requested_profiles_do_not_cross; snapshot_survives_ui_resubscribe. Assert старое событие не заменяет здоровый новый run.
+- [x] Запустить npm test -- src/lib/connectionHealth.test.ts и cargo test --manifest-path src-tauri/Cargo.toml diagnostics::; убедиться в ожидаемом провале.
+- [x] Реализовать отдельный coordinator с одной активной probe, отменой, deadline 12s и cleanup budget 2s; не удерживать semaphore основного lifecycle во время сетевого ожидания.
+- [x] Добавить контрактные JSON fixtures без секретов и проверить одинаковую сериализацию Rust/TS/Kotlin; issues/actions только enum.
+- [x] Запустить targeted checks и npm test/build; коммит feat: add session-owned connection health contracts.
 
 ### D2. Реальные desktop probes
 

@@ -10,7 +10,7 @@
 
 **Spec:** ../specs/2026-10-31-connection-reliability-and-ux-design.md
 
-**Status:** план для проверки; реализация не начата. Порядок зависимостей задаёт 2026-10-31-reliability-and-ux-roadmap.md.
+**Status:** реализация начата. C1–C5 не завершены; recovery не включён. Доступны baseline и безопасные тесты. Системная/устройственная и пакетная приёмка остаётся впереди. [Результаты](../../testing/implementation-stage-2026-10-31.md).
 
 ## Global Constraints
 
