@@ -1,0 +1,14 @@
+{
+  "profile_ref": { "kind": "manual", "id": "fixture-manual" },
+  "profile_revision": "4",
+  "run_id": "18446744073709551615",
+  "network_generation": "9007199254740993",
+  "effective_outbound_revision": null,
+  "operation_id": "fixture-operation",
+  "scope": "active_session",
+  "stage": "complete",
+  "outcome": "healthy",
+  "issue": null,
+  "checked_at": "2026-10-31T12:00:00Z",
+  "latency_ms": 35
+}

@@ -32,6 +32,7 @@ pub mod config;
 #[cfg(not(target_os = "android"))]
 pub mod engine;
 pub mod error;
+pub mod diagnostics;
 #[cfg(not(target_os = "android"))]
 pub mod killswitch;
 pub mod parser;
@@ -252,7 +253,10 @@ pub fn run() {
 
     #[cfg(not(target_os = "android"))]
     builder
+        .manage(diagnostics::coordinator::ProbeCoordinator::default())
         .invoke_handler(tauri::generate_handler![
+            diagnostics::get_connection_health,
+            diagnostics::cancel_profile_probe,
             commands::ping,
             commands::get_binary_info,
             commands::get_singbox_version,

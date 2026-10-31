@@ -5,6 +5,7 @@
  * that as a JS Error so `try/catch` still works in the React code.
  */
 import { invoke } from "@tauri-apps/api/core";
+import type { HealthSnapshot } from "./connectionHealth";
 import type {
   ActiveChildConfig,
   AddSubscriptionInput,
@@ -57,6 +58,8 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 }
 
 export const api = {
+  getConnectionHealth: () => call<HealthSnapshot>("get_connection_health"),
+  cancelProfileProbe: (operationId: string) => call<boolean>("cancel_profile_probe", { operationId }),
   ping: () => call<string>("ping"),
 
   getBinaryInfo: () => call<BinaryInfo>("get_binary_info"),
