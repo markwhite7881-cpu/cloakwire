@@ -427,3 +427,31 @@ mod native_check_tests {
         assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 2);
     }
 }
+
+#[cfg(all(test, any(windows, target_os = "macos")))]
+mod generated_core_baseline_tests {
+    use super::*;
+    #[tokio::test]
+    #[ignore = "requires bundled desktop cores; check only, no network mutation"]
+    async fn generated_vless_profile_passes_bundled_singbox_check() {
+        use crate::config::{Config, GeneratorSettings, TunnelMode};
+        let target = match (std::env::consts::OS, std::env::consts::ARCH) {
+            ("windows", "x86_64") => "x86_64-pc-windows-msvc.exe",
+            ("macos", "aarch64") => "aarch64-apple-darwin",
+            ("macos", "x86_64") => "x86_64-apple-darwin",
+            _ => panic!("unsupported test platform"),
+        };
+        let outbound = crate::parser::parse_link(
+            "vless://11111111-1111-4111-8111-111111111111@127.0.0.1:12345?encryption=none&type=tcp#fixture"
+        ).unwrap();
+        let settings = GeneratorSettings { tunnel_mode: TunnelMode::SystemProxy, ..Default::default() };
+        let value = Config::build(&[outbound], &settings);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("generated.json");
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        crate::engine::singbox::validate_config(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries").join(format!("sing-box-{target}")),
+            &path,
+        ).await.unwrap();
+    }
+}

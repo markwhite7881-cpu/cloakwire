@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "commit": "f541c288b9303fe98f06cfe5f312ba16d210fd08",
+  "tracked_changes": false,
+  "suite": "core",
+  "core_sha256": {
+    "sing-box": "225722d039c6a58749c90212429643f16896c564fde5d622caa56a80090433b7",
+    "xray": "15c2d007954ac53ba69b80ec91242786b3c0b71d52649165b4ca1d5cc96ef8f1"
+  },
+  "cases": [
+    {
+      "case": "valid-config",
+      "engine": "sing-box",
+      "platform": "win32",
+      "architecture": "x64",
+      "status": "passed",
+      "issue": null
+    },
+    {
+      "case": "malformed-config",
+      "engine": "sing-box",
+      "platform": "win32",
+      "architecture": "x64",
+      "status": "passed",
+      "issue": null
+    },
+    {
+      "case": "vless-loopback",
+      "engine": "sing-box",
+      "platform": "win32",
+      "architecture": "x64",
+      "status": "passed",
+      "issue": null
+    },
+    {
+      "case": "wrong-user",
+      "engine": "sing-box",
+      "platform": "win32",
+      "architecture": "x64",
+      "status": "passed",
+      "issue": null
+    },
+    {
+      "case": "valid-config",
+      "engine": "xray",
+      "platform": "win32",
+      "architecture": "x64",
+      "status": "passed",
+      "issue": null
+    },
+    {
+      "case": "malformed-config",
+      "engine": "xray",
+      "platform": "win32",
+      "architecture": "x64",
+      "status": "passed",
+      "issue": null
+    },
+    {
+      "case": "vless-loopback",
+      "engine": "xray",
+      "platform": "win32",
+      "architecture": "x64",
+      "status": "passed",
+      "issue": null
+    },
+    {
+      "case": "wrong-user",
+      "engine": "xray",
+      "platform": "win32",
+      "architecture": "x64",
+      "status": "passed",
+      "issue": null
+    }
+  ]
+}
