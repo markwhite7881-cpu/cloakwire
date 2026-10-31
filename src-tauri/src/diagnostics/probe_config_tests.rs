@@ -170,3 +170,53 @@ fn duplicate_tags_detour_cycles_and_reserved_inbound_are_rejected() {
         Err(HealthIssue::UnsupportedProbe)
     );
 }
+
+#[test]
+fn xray_secondary_dialers_socket_overrides_and_hostname_bootstrap_are_unavailable() {
+    let base = json!({"outbounds":[{"protocol":"vless","tag":"one","settings":{"vnext":[{"address":"192.0.2.1","port":443,"users":[{"id":"synthetic","encryption":"none"}]}]}}]});
+    for stream in [
+        json!({"network":"xhttp","xhttpSettings":{"downloadSettings":{"address":"192.0.2.2","port":443}}}),
+        json!({"network":"xhttp","xhttpSettings":{"extra":{"downloadSettings":{"address":"192.0.2.2","port":443}}}}),
+        json!({"network":"splithttp","splithttpSettings":{"downloadSettings":{"address":"192.0.2.2","port":443}}}),
+        json!({"sockopt":{"customSockopt":[{"system":"windows","network":"tcp","level":"0","opt":"31","type":"int","value":"0"}]}}),
+        json!({"sockopt":{"addressPortStrategy":"SrvPort"}}),
+    ] {
+        let mut candidate = base.clone();
+        candidate["outbounds"][0]["streamSettings"] = stream;
+        assert_eq!(
+            prepare_xray_probe(&candidate, "one", "fixture-if", 1234, "private"),
+            Err(HealthIssue::UnsupportedProbe)
+        );
+        assert!(
+            inject_active_xray_probe(&candidate, "one", 1234, "private").is_ok(),
+            "ordinary provider semantics must be retained for active copies"
+        );
+    }
+    let mut hostname = base.clone();
+    hostname["outbounds"][0]["settings"]["vnext"][0]["address"] = json!("fixture.invalid");
+    hostname["dns"] = json!({"hosts":{"fixture.invalid":"192.0.2.1"}});
+    assert_eq!(
+        prepare_xray_probe(&hostname, "one", "fixture-if", 1234, "private"),
+        Err(HealthIssue::UnsupportedProbe)
+    );
+}
+
+#[test]
+fn singbox_dynamic_ech_must_not_bootstrap_through_system_dns() {
+    let base = json!({"outbounds":[{"type":"vless","tag":"one","server":"192.0.2.1","server_port":443,"uuid":"synthetic"}]});
+    let mut endpoint = base.clone();
+    endpoint["outbounds"][0]["tls"] =
+        json!({"enabled":true,"server_name":"fixture.invalid","ech":{"enabled":true}});
+    assert_eq!(
+        prepare_singbox_probe(&endpoint, "one", "fixture-if", 1234, "private"),
+        Err(HealthIssue::UnsupportedProbe)
+    );
+    let mut dns = base.clone();
+    dns["dns"] = json!({"servers":[{"type":"https","tag":"resolver","server":"192.0.2.53","tls":{"enabled":true,"server_name":"resolver.invalid","ech":{"enabled":true}}}]});
+    assert_eq!(
+        prepare_singbox_probe(&dns, "one", "fixture-if", 1234, "private"),
+        Err(HealthIssue::UnsupportedProbe)
+    );
+    endpoint["outbounds"][0]["tls"]["ech"]["config"] = json!(["synthetic-explicit-ech-config"]);
+    assert!(prepare_singbox_probe(&endpoint, "one", "fixture-if", 1234, "private").is_ok());
+}

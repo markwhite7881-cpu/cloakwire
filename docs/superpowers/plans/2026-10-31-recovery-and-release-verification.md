@@ -1,5 +1,7 @@
 # Recovery and release verification Implementation Plan
 
+**Уточнение пользователя, 2026-10-31:** отключение VPN при принудительном закрытии/пересоздании Android-задачи — ожидаемое поведение. Сохранить его; не блокировать дальнейший план и не восстанавливать соединение вопреки этому намерению. Обычное восстановление экрана/подписки на состояние проверяется отдельно.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Восстанавливать выбранное соединение после сна/смены сети и выпускать изменения только после системной матрицы.

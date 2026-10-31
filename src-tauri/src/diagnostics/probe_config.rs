@@ -213,6 +213,34 @@ fn visit_singbox(
     keep.insert(tag.to_owned());
     Ok(())
 }
+// ECH without supplied material performs its own DNS exchange, including an
+// implicit system resolver when the provider did not configure one.
+fn dynamic_ech(value: &Value) -> bool {
+    match value {
+        Value::Object(object) => {
+            if let Some(ech) = object.get("ech") {
+                let explicit = ech["config"].as_array().is_some_and(|v| !v.is_empty())
+                    || ech["config"].as_str().is_some_and(|v| !v.is_empty())
+                    || ech["config_path"].as_str().is_some_and(|v| !v.is_empty());
+                if ech["enabled"] == true && !explicit {
+                    return true;
+                }
+            }
+            object.values().any(dynamic_ech)
+        }
+        Value::Array(items) => items.iter().any(dynamic_ech),
+        _ => false,
+    }
+}
+fn has_key(value: &Value, key: &str) -> bool {
+    match value {
+        Value::Object(object) => {
+            object.contains_key(key) || object.values().any(|v| has_key(v, key))
+        }
+        Value::Array(items) => items.iter().any(|v| has_key(v, key)),
+        _ => false,
+    }
+}
 pub fn prepare_singbox_probe(
     original: &Value,
     tag: &str,
@@ -222,6 +250,9 @@ pub fn prepare_singbox_probe(
 ) -> Result<Value> {
     physical(interface)?;
     target(original, tag, "type", false)?;
+    if dynamic_ech(original) {
+        return unsupported();
+    }
     if !empty_feature(original, "services") || !empty_feature(original, "endpoints") {
         return unsupported();
     }
@@ -379,16 +410,15 @@ pub fn prepare_xray_probe(
                     let host = server["address"]
                         .as_str()
                         .ok_or(HealthIssue::UnsupportedProbe)?;
-                    if host.parse::<std::net::IpAddr>().is_err()
-                        && original["dns"]["hosts"][host]
-                            .as_str()
-                            .and_then(|h| h.parse::<std::net::IpAddr>().ok())
-                            .is_none()
-                    {
+                    // Xray AsIs may ignore dns.hosts and use the OS resolver.
+                    if host.parse::<std::net::IpAddr>().is_err() {
                         return unsupported();
                     }
                 }
             }
+        }
+        if has_key(&item["streamSettings"], "downloadSettings") {
+            return unsupported();
         }
         let mut item = item.clone();
         let root = item.as_object_mut().ok_or(HealthIssue::UnsupportedProbe)?;
@@ -406,9 +436,15 @@ pub fn prepare_xray_probe(
             .get("interface")
             .and_then(Value::as_str)
             .is_some_and(|s| s != interface)
-            || ["mark", "bindToDevice", "tcpFastOpen"]
-                .iter()
-                .any(|key| sockopt.contains_key(*key))
+            || [
+                "mark",
+                "bindToDevice",
+                "tcpFastOpen",
+                "customSockopt",
+                "addressPortStrategy",
+            ]
+            .iter()
+            .any(|key| sockopt.contains_key(*key))
         {
             return unsupported();
         }

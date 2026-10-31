@@ -10,7 +10,7 @@
 
 **Spec:** ../specs/2026-10-31-connection-reliability-and-ux-design.md
 
-**Status:** реализация начата. D0: безопасная часть готова. D1: контракты/координатор готовы. D2: только преобразования копий конфигураций. Native probes/интеграция и D3–D5 не завершены. [Результаты](../../testing/implementation-stage-2026-10-31.md).
+**Status:** реализация начата. D0: безопасная часть готова. D1: контракты/координатор готовы. D2: реализован внутренний desktop adapter и проверен lifecycle настоящих ядер; isolated Xray закрыт через unsupported_probe до доказанной привязки интерфейса. Active-session probe, системная матрица и интеграция остаются незавершёнными, как и D3–D5. [Desktop checkpoint](../../testing/desktop-probe-2026-10-31.md). [Результаты](../../testing/implementation-stage-2026-10-31.md).
 
 ## Global Constraints
 
@@ -65,6 +65,8 @@
 
 ### D2. Реальные desktop probes
 
+Checkpoint 2026-10-31: private process/config owner, cancellation/deadline cleanup, authenticated socket readiness, bounded collision retry, fixed HTTPS client and read-only physical discovery implemented. Independent review fixed five isolation/ownership issues. Production Xray probes unavailable because the bundled core ignores binding errors; test-only loopback runs do not bypass this production gate. Active-session attribution and full OS isolation remain open.
+
 **Files:** создать src-tauri/src/diagnostics/{desktop.rs,probe_config.rs,network.rs,targets.rs}; изменить engine/singbox.rs, engine/xray.rs, subscriptions/mod.rs, config/ready.rs и xray/mod.rs; tests в новых модулях и scripts/connection-matrix.
 **Interfaces:** prepare_probe(target, resolved_snapshot, physical_network) -> ProbeConfigLease; DesktopProbe::run(request, cancellation) -> ConnectionHealth; ProbeConfigLease владеет temp directory, log sinks и созданными process handles.
 **Decision:** использовать существующие serializers. Копию provider-конфига преобразовать минимально: private loopback inbound, путь проверки к доказанному proxy target, сохранённые detour/DNS dependencies; если целевой outbound неоднозначен — unsupported_probe.
@@ -72,7 +74,7 @@
 - [ ] Tests profile_a_test_cannot_succeed_through_active_b; ready_detour_dns_dependencies_survive; probe_never_writes_system_proxy; missing_interface_unavailable; selector_pinned_for_probe_without_persisting; reserved_port_collision_retries_bounded; child_removed_on_cancel_and_timeout.
 - [ ] На synthetic core fixture проверить FAIL для несуществующего target/probe implementation, затем реализовать startup readiness по socket, а не fixed sleep.
 - [ ] Реализовать network binding для актуального физического интерфейса Windows/macOS. Прямой тест не наследует HTTP_PROXY/system proxy; traffic к server IP не захватывается активным TUN.
-- [ ] Реализовать HTTPS targets/expected status/response bound по спецификации; в live adapter не принимать 3xx за успех и не отключать сертификаты.
+- [x] Реализовать HTTPS targets/expected status/response bound по спецификации; в live adapter не принимать 3xx за успех и не отключать сертификаты.
 - [ ] Добавить ActiveSessionProbe::run(identity, cancellation), который обращается к текущему процессу через controller/private authenticated inbound. В runtime-копии private inbound/rule match исключительно свой tag, проходят preflight и не меняют обычные rules. Tests temporary_core_success_does_not_mark_active_healthy; auto_member_changed_invalidates_result; active_probe_only_matches_private_inbound.
 - [ ] Протестировать DNS и ошибку Reality отдельно от доступности test-site; unsupported provider shape не проходит зелёным.
 - [ ] Проверить sing-box и Xray с VPN off/on в выделенной Windows VM и macOS; основная сессия, selected outbound и OS routes до/после идентичны.

@@ -37,6 +37,9 @@ impl ProbeLease {
     pub fn operation_id(&self) -> &str {
         &self.id
     }
+    pub(crate) fn scope(&self) -> HealthScope {
+        self.scope
+    }
     pub fn identity(&self) -> &SessionIdentity {
         &self.identity
     }

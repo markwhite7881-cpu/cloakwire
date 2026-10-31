@@ -22,3 +22,25 @@ pub fn cancel_profile_probe(
 pub mod probe_config;
 #[cfg(test)]
 mod probe_config_tests;
+
+#[cfg(not(target_os = "android"))]
+pub mod owned_core;
+#[cfg(all(test, not(target_os = "android")))]
+mod owned_core_tests;
+#[cfg(not(target_os = "android"))]
+pub mod targets;
+#[cfg(all(test, not(target_os = "android")))]
+mod targets_tests;
+
+#[cfg(not(target_os = "android"))]
+pub mod network;
+#[cfg(all(test, not(target_os = "android")))]
+mod network_tests;
+
+#[cfg(not(target_os = "android"))]
+pub mod desktop;
+#[cfg(all(test, not(target_os = "android")))]
+mod desktop_tests;
+
+#[cfg(all(test, not(target_os = "android")))]
+mod desktop_native_tests;
