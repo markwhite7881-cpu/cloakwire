@@ -87,7 +87,7 @@ try{
  const ready=await result("ready");
  report.physicalNetwork={active:ready.physicalIsActive===true,wifi:ready.physicalIsWifi===true,cellular:ready.physicalIsCellular===true};
  check("separate_process_and_private_command_channel",ready.pid!==Number(pid)&&ready.commandConnected&&ready.privatePaths);
- check("physical_socket_binding_and_dns",ready.boundSockets>=2&&ready.dnsResolved&&ready.udpRelay&&ready.https204);
+ check("physical_socket_binding_and_dns",ready.boundSockets>=2&&ready.dnsResolved&&ready.platformDnsLookups>0&&ready.udpRelay&&ready.https204);
  check("active_session_unchanged_during_probe",await unchanged());
  check("ordinary_app_https_while_probe_active",await traffic(ready.pid)&&await unchanged());
  await launch("cancel");

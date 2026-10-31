@@ -34,3 +34,7 @@ node --test scripts/android-device-check-helpers.test.mjs
 Android API references: [Network.openConnection](https://developer.android.com/reference/android/net/Network#openConnection(java.net.URL)), [NetworkCapabilities](https://developer.android.com/reference/android/net/NetworkCapabilities).
 
 The optional standalone Activity flag `--ez physicalControl true` compares fixed HTTPS/DNS requests on physical networks without libbox. It reports booleans only. This deliberately bypasses the default route where Android permits it; another UID's VPN/lockdown policy can prevent these requests. A failed control does not identify the root cause. It is a diagnostic aid, not part of the normal routing matrix.
+
+The helper Activity requires Android DUMP permission (ADB shell/system). Optional `--ez xrayControl true --es testIPv4 <resolved-gstatic-IPv4>` separates default-VPN UDP and TLS transport from device DNS. TLS still checks www.gstatic.com normally; the supplied address is not written to reports.
+
+Use `scripts/android-xray-isolation-check.mjs` for temporary-Xray ownership checks. Its loopback HTTP fixture is lifetime evidence, not an external health check. Both isolation runners require a working VPN and authorized device; they do not change its config.

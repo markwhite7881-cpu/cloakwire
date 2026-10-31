@@ -54,7 +54,17 @@ public final class ProbeActivity extends Activity {
                 if (physical == null || c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) physical = n;
                 if (c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) break;
             }
-            result.put("https204", request(null, "https://www.gstatic.com/generate_204", 204, false) != null);
+            if (getIntent().getBooleanExtra("xrayControl", false)) {
+                result.put("vpnUdpDns", udpDns(null, java.net.InetAddress.getByName("1.1.1.1")));
+                java.net.InetAddress target = null;
+                String testAddress = getIntent().getStringExtra("testIPv4");
+                if (testAddress != null && testAddress.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}"))
+                    target = java.net.InetAddress.getByName(testAddress);
+                if (!(target instanceof java.net.Inet4Address)) target = null;
+                result.put("vpnIpv4Tls204", target != null && tls204(target));
+            } else {
+                result.put("https204", request(null, "https://www.gstatic.com/generate_204", 204, false) != null);
+            }
             if (getIntent().getBooleanExtra("physicalControl", false)) {
                 // Reproduce the old enumeration-first choice and compare the Wi-Fi-preferred path.
                 Network control = null;
@@ -133,11 +143,28 @@ public final class ProbeActivity extends Activity {
         } catch (Exception ignored) { return null; }
         finally { if (c != null) { sockets.remove(c); c.disconnect(); } }
     }
+    private boolean tls204(java.net.InetAddress address) {
+        // Resolve on the physical network solely to isolate DNS from the VPN TCP test.
+        // This socket itself follows the app's ordinary default VPN route.
+        try (java.net.Socket socket = new java.net.Socket()) {
+            socket.connect(new java.net.InetSocketAddress(address,443),5000);
+            javax.net.ssl.SSLSocketFactory factory = (javax.net.ssl.SSLSocketFactory) javax.net.ssl.SSLSocketFactory.getDefault();
+            try (javax.net.ssl.SSLSocket tls = (javax.net.ssl.SSLSocket) factory.createSocket(socket,"www.gstatic.com",443,true)) {
+                javax.net.ssl.SSLParameters parameters = tls.getSSLParameters();
+                parameters.setEndpointIdentificationAlgorithm("HTTPS"); tls.setSSLParameters(parameters);
+                tls.setSoTimeout(5000);tls.startHandshake();
+                tls.getOutputStream().write("GET /generate_204 HTTP/1.1\r\nHost: www.gstatic.com\r\nConnection: close\r\n\r\n".getBytes(StandardCharsets.US_ASCII));
+                tls.getOutputStream().flush();
+                String line = new java.io.BufferedReader(new java.io.InputStreamReader(tls.getInputStream(),StandardCharsets.US_ASCII)).readLine();
+                return line != null && line.matches("HTTP/1\\.[01] 204(?: .*)?");
+            }
+        } catch (Exception ignored) { return false; }
+    }
     private boolean udpDns(Network network, java.net.InetAddress dns) {
         // Fixed public test question; only response validity enters the report.
         byte[] query = {0x43,0x57,1,0,0,1,0,0,0,0,0,0,3,119,119,119,7,103,115,116,97,116,105,99,3,99,111,109,0,0,1,0,1};
         try (java.net.DatagramSocket socket = new java.net.DatagramSocket()) {
-            network.bindSocket(socket);
+            if (network != null) network.bindSocket(socket);
             socket.setSoTimeout(5000);
             socket.connect(dns, 53);
             socket.send(new java.net.DatagramPacket(query, query.length));

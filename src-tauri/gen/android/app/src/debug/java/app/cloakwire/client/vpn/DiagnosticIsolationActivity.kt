@@ -32,9 +32,9 @@ class DiagnosticIsolationActivity : Activity() {
     bound=bindService(Intent(this,DiagnosticIsolationService::class.java),connection,BIND_AUTO_CREATE)
     if(!bound) {File(filesDir,"diagnostics-isolation-result.json").writeText("""{"state":"failed","stage":"bind"}""");finish()}
   }
-  override fun onNewIntent(intent:Intent) {super.onNewIntent(intent);mode=intent.getStringExtra("mode")?:"hold";send()}
+  override fun onNewIntent(intent:Intent) {super.onNewIntent(intent);setIntent(intent);mode=intent.getStringExtra("mode")?:"hold";send()}
   private fun send() {
-    remote?.send(Message.obtain(null,1).apply {replyTo=replies;data=Bundle().apply {putString("mode",mode)}})
+    remote?.send(Message.obtain(null,1).apply {replyTo=replies;data=Bundle().apply {putString("mode",mode);putInt("fixturePort",intent.getIntExtra("fixturePort",0))}})
   }
   private fun detach() {if(bound){bound=false;runCatching {unbindService(connection)}}}
   override fun onDestroy(){detach();super.onDestroy()}

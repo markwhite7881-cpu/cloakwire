@@ -102,6 +102,8 @@ Checkpoint 2026-10-31: private process/config owner, cancellation/deadline clean
 - [x] Проверить отмену, гибель Binder-клиента, аварию diagnostics и сохранение HTTPS-трафика другого UID.
 - [ ] Завершить production adapter и оставшуюся D3-матрицу (lockdown, смена сети, старшие/младшие ОС, profile ownership, Stop, Hysteria2/TUIC).
 
+Дополнение 2026-10-31: исправлены platform DNS экспериментального probe и потеря Reality fingerprint в Android Xray mapper. На окончательной сборке оба рабочих ядра прошли libbox isolation 13/13 и temporary Xray lifetime 8/8; маршрутизация 8/8. Эта матрица закрывает контрольную точку на подключённом Android 16, но не общие пункты D3.
+
 Экспериментальная служба находится только в debug. [Отчёт и ограничения](../../testing/android-isolation-2026-10-31.md). Общие пункты D3 выше не отмечаются целиком выполненными, пока объединённые зависимости не закрыты.
 
 ### D4. Безопасная классификация ошибок работающей сессии

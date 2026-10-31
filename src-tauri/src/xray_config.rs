@@ -473,6 +473,11 @@ fn stream_settings(transport: &Transport, tls: &TlsCfg) -> Value {
             if let Some(sni) = &tls.server_name {
                 reality_settings.insert("serverName".into(), json!(sni));
             }
+            if let Some(fp) = &tls.fingerprint {
+                if !fp.is_empty() {
+                    reality_settings.insert("fingerprint".into(), json!(fp));
+                }
+            }
             reality_settings.insert("publicKey".into(), json!(reality.public_key));
             reality_settings.insert("shortId".into(), json!(reality.short_id));
             if let Some(spider) = &reality.spider_x {
@@ -600,6 +605,21 @@ mod tests {
         assert_eq!(stream["realitySettings"]["publicKey"], json!("PUB"));
         assert_eq!(stream["realitySettings"]["shortId"], json!("0123"));
         assert!(stream.get("tlsSettings").is_none());
+    }
+
+    #[test]
+    fn reality_fingerprint_survives_link_import_for_session_and_latency() {
+        let outbound = crate::parser::parse_link(
+            "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=reality&sni=www.example.com&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=0123&fp=firefox&type=tcp#fixture",
+        ).unwrap();
+        let session = link_config(&[outbound.clone()]).unwrap();
+        let latency = test_config(&[outbound]).unwrap();
+        for config in [&session, &latency.config] {
+            assert_eq!(
+                config["outbounds"][0]["streamSettings"]["realitySettings"]["fingerprint"],
+                json!("firefox"),
+            );
+        }
     }
 
     #[test]

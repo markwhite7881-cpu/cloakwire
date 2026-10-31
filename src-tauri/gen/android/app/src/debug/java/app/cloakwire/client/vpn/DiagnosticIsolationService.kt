@@ -15,17 +15,19 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import org.json.JSONObject
 
-/** Debug-only real-AAR feasibility test. Never loads a user profile or calls VpnService. */
+/** Debug-only real-AAR feasibility test. No user profiles, VPN establishment, or VPN teardown. */
 class DiagnosticIsolationService:Service() {
   private val main=Handler(Looper.getMainLooper())
   private val cancelled=AtomicBoolean(false)
   private val begun=AtomicBoolean(false)
   private val boundSockets=AtomicInteger();private val tun=AtomicInteger()
+  private val platformDnsLookups=AtomicInteger()
   private var reply:Messenger?=null
   private var death:IBinder.DeathRecipient?=null
   @Volatile private var server:CommandServer?=null
   @Volatile private var client:CommandClient?=null
   @Volatile private var request:java.net.HttpURLConnection?=null
+  @Volatile private var worker:Thread?=null
   @Volatile private var stage="initial"
   private var root:File?=null
   @Volatile private var physicalIsActive=false
@@ -42,7 +44,10 @@ class DiagnosticIsolationService:Service() {
         reply?.binder?.linkToDeath(death!!,0)
         val mode=message.data.getString("mode")?:"hold"
         main.postDelayed({close("timeout")},20_000)
-        Thread({run(mode)},"isolated-libbox").start()
+        val fixturePort=message.data.getInt("fixturePort")
+        val task=Thread({run(mode,fixturePort)},"isolated-probe")
+        worker=task
+        if(!cancelled.get())task.start()
       }
     }
     true
@@ -58,6 +63,7 @@ class DiagnosticIsolationService:Service() {
   }
   private fun close(state:String?) {
     if(!cancelled.compareAndSet(false,true))return
+    worker?.interrupt()
     main.postDelayed({android.os.Process.killProcess(android.os.Process.myPid())},1500)
     Thread({
       runCatching {request?.disconnect()}
@@ -69,8 +75,21 @@ class DiagnosticIsolationService:Service() {
       main.postDelayed({android.os.Process.killProcess(android.os.Process.myPid())},100)
     },"isolation-close").start()
   }
-  private fun run(mode:String) {
+  private fun run(mode:String,fixturePort:Int) {
     try {
+      if(cancelled.get())return
+      if(mode=="xray-latency") {
+        stage="owned_xray"
+        check(fixturePort in 1024..65535)
+        val port=ServerSocket(0,1,java.net.InetAddress.getByName("127.0.0.1")).use{it.localPort}
+        // Shell-only local HTTP fixture; no arbitrary configuration or remote target is accepted.
+        val config="""{"log":{"loglevel":"none"},"inbounds":[{"protocol":"socks","listen":"127.0.0.1","port":$port,"settings":{"auth":"noauth"}}],"outbounds":[{"protocol":"freedom","settings":{"redirect":"127.0.0.1:$fixturePort"}}]}"""
+        val entries=org.json.JSONArray().put(JSONObject().put("tag","owned-fixture").put("port",port))
+        val result=LatencyTester.run(this,config,entries)
+        val success=result.length()==1 && !result.getJSONObject(0).isNull("ms") && result.getJSONObject(0).getLong("ms")>=0
+        if(!cancelled.get())reply("latency_done",JSONObject().put("success",success))
+        close(null);return
+      }
       stage="physical_network"
       val cm=getSystemService(ConnectivityManager::class.java)
       val active=cm.activeNetwork
@@ -88,6 +107,20 @@ class DiagnosticIsolationService:Service() {
       val props=cm.getLinkProperties(network)?:error("no_link_properties")
       val nic=java.net.NetworkInterface.getByName(props.interfaceName)?:error("no_interface")
       val dns=props.dnsServers.firstOrNull()?.hostAddress?.substringBefore('%')?:error("no_dns")
+      if(mode=="control-xray") {
+        stage="socket_control"
+        val report=DiagnosticSocketControl.run(network,dns,false,true)
+        report.put("xrayUdp",runCatching { udpDns(10808,"1.1.1.1") }.getOrDefault(false))
+        reply("control",report);close(null);return
+      }
+      if(mode=="control-bound" || mode=="control-protected" || mode=="control-scoped") {
+        stage="socket_control"
+        val raw=props.dnsServers.first()
+        reply("control",DiagnosticSocketControl.run(network,if(mode=="control-scoped")raw.hostAddress!! else dns,mode=="control-protected")
+          .put("networkDnsIpv6",raw is java.net.Inet6Address).put("networkDnsLinkLocal",raw.isLinkLocalAddress)
+          .put("networkDnsScoped",raw.hostAddress!!.contains('%')))
+        close(null);return
+      }
       val tag="isolation-"+UUID.randomUUID()
       val dir=File(cacheDir,tag).apply {check(mkdirs())}
       root=dir
@@ -132,6 +165,7 @@ class DiagnosticIsolationService:Service() {
             override fun exchange(ctx:ExchangeContext,bytes:ByteArray){throw IllegalStateException("raw_dns_unsupported")}
             override fun lookup(ctx:ExchangeContext,net:String,name:String) {
               check(!cancelled.get())
+              platformDnsLookups.incrementAndGet()
               val addresses=network.getAllByName(name).filter{net!="ip4"||it is java.net.Inet4Address}.filter{net!="ip6"||it is java.net.Inet6Address}
               check(!cancelled.get())
               ctx.success(addresses.joinToString("\n"){it.hostAddress?:""})
@@ -157,7 +191,7 @@ class DiagnosticIsolationService:Service() {
       val port=ServerSocket(0,1,java.net.InetAddress.getByName("127.0.0.1")).use{it.localPort}
       val inbound=if(mode=="tun")"""{"type":"tun","address":["172.30.255.1/30"]}"""
         else """{"type":"mixed","listen":"127.0.0.1","listen_port":$port}"""
-      val config="""{"log":{"disabled":true},"dns":{"servers":[{"type":"udp","tag":"wire","server":"$dns"}]},"inbounds":[$inbound],"outbounds":[{"type":"direct","tag":"$tag"}],"route":{"auto_detect_interface":true,"default_domain_resolver":"wire","final":"$tag"}}"""
+      val config="""{"log":{"disabled":true},"dns":{"servers":[{"type":"local","tag":"wire"}]},"inbounds":[$inbound],"outbounds":[{"type":"direct","tag":"$tag"}],"route":{"auto_detect_interface":true,"default_domain_resolver":"wire","final":"$tag"}}"""
       Libbox.checkConfig(config)
       val core=Libbox.newCommandServer(handler,platform);server=core
       if(cancelled.get())return
@@ -178,14 +212,15 @@ class DiagnosticIsolationService:Service() {
       val dnsResolved=network.getAllByName("www.gstatic.com").isNotEmpty()
       stage="udp"
       val beforeUdp=boundSockets.get()
-      val udpRelay=udpDns(port,dns)
+      // This fixed fixture tests UDP transport; system DNS resolution stays on Network.
+      val udpRelay=udpDns(port,"1.1.1.1")
       check(udpRelay && boundSockets.get()>beforeUdp)
       stage="https"
       val connection=URL("https://www.gstatic.com/generate_204").openConnection(java.net.Proxy(java.net.Proxy.Type.HTTP,InetSocketAddress("127.0.0.1",port))) as java.net.HttpURLConnection
       request=connection;connection.connectTimeout=5000;connection.readTimeout=5000;connection.instanceFollowRedirects=false
       val ok=try{connection.responseCode==204}finally{connection.disconnect();request=null}
       check(ok&&boundSockets.get()>=2&&commandConnected)
-      if(!cancelled.get())reply("ready",JSONObject().put("https204",ok).put("dnsResolved",dnsResolved).put("udpRelay",udpRelay).put("commandConnected",commandConnected).put("privatePaths",dir.canonicalPath.startsWith(cacheDir.canonicalPath+File.separator)))
+      if(!cancelled.get())reply("ready",JSONObject().put("https204",ok).put("dnsResolved",dnsResolved).put("platformDnsLookups",platformDnsLookups.get()).put("udpRelay",udpRelay).put("commandConnected",commandConnected).put("privatePaths",dir.canonicalPath.startsWith(cacheDir.canonicalPath+File.separator)))
     } catch(e:Throwable) {
       if(!cancelled.get())reply("failed",JSONObject().put("stage",stage).put("reason",e.javaClass.simpleName))
       close(null)

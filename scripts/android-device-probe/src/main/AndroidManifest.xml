@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <application android:label="Cloakwire device test" android:testOnly="true"
         android:allowBackup="false" android:usesCleartextTraffic="false">
-        <activity android:name=".ProbeActivity" android:exported="true"
+        <activity android:name=".ProbeActivity" android:exported="true" android:permission="android.permission.DUMP"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
 </manifest>
