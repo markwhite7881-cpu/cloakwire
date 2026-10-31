@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.10] - 2026-11-01
+
+### English
+- Added connection health information and per-server check results, with refresh and reconnect actions in error cards.
+- Android server checks run on demand, retain results when switching servers, and use isolated sing-box/Xray diagnostics.
+- Fixed Android server switching so a valid replacement connects on the first attempt; rejected profiles preserve the running VPN.
+- Improved manual-profile identity and repeated import: compare changes, update the chosen profile, or keep a separate copy.
+- Clarified application routing modes and preserved existing custom/provider rules.
+- Added optional automatic VPN recovery on Windows, macOS and Android. It is off by default, keeps the accepted server and settings, limits retries, and respects manual disconnect.
+- Preserved Reality fingerprints through profile generation and isolated checks.
+
+### Русский
+- Добавлены сведения о состоянии соединения и результаты проверки в списке серверов, обновление и переподключение из карточки ошибки.
+- Проверка серверов на Android запускается вручную, сохраняет результаты при смене сервера и использует изолированную диагностику sing-box/Xray.
+- Исправлена смена сервера на Android: корректное подключение применяется с первой попытки, а отклонённый профиль сохраняет работающий VPN.
+- Улучшены идентификация ручных профилей и повторный импорт: можно сравнить изменения, обновить выбранный профиль или сохранить отдельную копию.
+- Уточнены режимы маршрутизации по приложениям с сохранением пользовательских правил и правил провайдера.
+- Добавлено автовосстановление VPN на Windows, macOS и Android. По умолчанию выключено; сохраняет принятый сервер и настройки, ограничивает попытки и учитывает ручное отключение.
+- Сохраняется Reality fingerprint при генерации профилей и изолированной проверке.
+
+### 简体中文
+- 新增连接健康信息和服务器列表中的检测结果，并在错误卡片中提供刷新及重新连接操作。
+- Android 服务器检测由用户手动启动，切换服务器后保留结果，并使用隔离的 sing-box/Xray 诊断。
+- 修复 Android 切换服务器需要再次操作的问题；有效配置首次即可连接，无效配置保留当前 VPN。
+- 改进手动配置的身份识别和重复导入：可比较更改、更新选中的配置或另存一份。
+- 明确应用分流模式，同时保留用户自定义规则及提供商规则。
+- Windows、macOS 和 Android 新增可选的 VPN 自动恢复。默认关闭，保持已接受的服务器和设置，限制重试次数，并遵守手动断开操作。
+- 在配置生成和隔离检测过程中保留 Reality 指纹。
+
+---
+
 ## [1.4.9] - 2026-10-30
 
 ### English

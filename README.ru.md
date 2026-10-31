@@ -27,26 +27,27 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ Загрузка релизов (v1.4.9)
+## ⚡ Загрузка релизов (v1.4.10)
 
 | Платформа | Установщик | Альтернатива | Архитектура |
 |---|---|---|---|
-| **Windows** | [Скачать .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_x64-setup.exe) | [Скачать .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_x64_en-US.msi) | x64 (Intel / AMD) |
-| **macOS Apple Silicon** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_aarch64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_aarch64.app.zip) | arm64 (Apple Silicon) |
-| **macOS Intel** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_x64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_x64.app.zip) | x86_64 |
-| **Android** | [Скачать .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/Cloakwire_1.4.9_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
+| **Windows** | [Скачать .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_x64-setup.exe) | [Скачать .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_x64_en-US.msi) | x64 (Intel / AMD) |
+| **macOS Apple Silicon** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_aarch64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_aarch64.app.zip) | arm64 (Apple Silicon) |
+| **macOS Intel** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_x64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_x64.app.zip) | x86_64 |
+| **Android** | [Скачать .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 Все семь пакетов релиза, включая Android, имеют подписи **Minisign** `.sig`. Контрольные суммы SHA-256 опубликованы в [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.9/SHA256SUMS.txt).
+> 🔒 Все семь пакетов релиза, включая Android, имеют подписи **Minisign** `.sig`. Контрольные суммы SHA-256 опубликованы в [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/SHA256SUMS.txt).
 
-## 🚀 Что нового в 1.4.9
+## 🚀 Что нового в 1.4.10
 
-- Готовые профили подписок проверяются своим ядром перед подключением на Windows, macOS и Android.
-- При ошибке профиля показываются понятная причина, дальнейшие действия и отчёт для копирования без конфигурации провайдера.
-- Некорректный профиль отклоняется до замены активного подключения; отмена проверки не запускает VPN.
-- Проверки выпуска охватывают все пакеты, подписи обновлений, контрольные суммы и базы GeoIP для Android.
-- Интерфейс Windows, macOS и Android и диагностические отчёты используют синхронизированную версию приложения.
+- Добавлены сведения о состоянии соединения и результаты проверки в списке серверов, обновление и переподключение из карточки ошибки.
+- Проверка серверов на Android запускается вручную, сохраняет результаты при смене сервера и использует изолированную диагностику sing-box/Xray.
+- Исправлена смена сервера на Android: корректное подключение применяется с первой попытки, а отклонённый профиль сохраняет работающий VPN.
+- Улучшены идентификация ручных профилей и повторный импорт: можно сравнить изменения, обновить выбранный профиль или сохранить отдельную копию.
+- Уточнены режимы маршрутизации по приложениям с сохранением пользовательских правил и правил провайдера.
+- Добавлено автовосстановление VPN на Windows, macOS и Android. По умолчанию выключено; сохраняет принятый сервер и настройки, ограничивает попытки и учитывает ручное отключение.
 
-[Полная история изменений](CHANGELOG.md) · [v1.4.9](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.4.9)
+[Полная история изменений](CHANGELOG.md) · [v1.4.10](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.4.10)
 
 ## Быстрый старт
 
@@ -94,7 +95,7 @@ Minisign защищает загрузки механизма обновлени
 Пример: проверьте установщик Windows и сравните результат с `SHA256SUMS.txt`:
 
 ```powershell
-(Get-FileHash Cloakwire_1.4.9_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+(Get-FileHash Cloakwire_1.4.10_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
 ## 🔧 Форматы ссылок на подключения
