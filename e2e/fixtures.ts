@@ -1,7 +1,7 @@
 import {expect,type Page,type TestInfo} from "playwright/test";
 export const v1="singbox-client.manual-profiles.v1",v2="singbox-client.manual-profiles.v2";
 export const settingsKey="singbox-client.settings.v2";
-export async function openFixture(page:Page,testInfo:TestInfo,options:{profileProbe?:boolean;staleProbe?:boolean;revisionDelay?:number;subscription?:boolean;boundSource?:boolean;startError?:boolean;health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
+export async function openFixture(page:Page,testInfo:TestInfo,options:{mobileLifecycle?:boolean;profileProbe?:boolean;staleProbe?:boolean;revisionDelay?:number;subscription?:boolean;boundSource?:boolean;startError?:boolean;health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
   const mobile=testInfo.project.name==="mobile";
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text());});
@@ -22,6 +22,20 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{profilePr
     w.__TAURI_EVENT_PLUGIN_INTERNALS__={unregisterListener:()=>{}};
     w.__TAURI_INTERNALS__={transformCallback:()=>1,unregisterCallback:()=>{},invoke:async(cmd:string,args:any={})=>{
       w.nativeCalls.push(cmd);w.nativeRequests.push({cmd,args});
+      if(options.mobileLifecycle&&mobile){
+        const current=()=>w.mobileStatus??={state:options.running?"running":"stopped",run_id:options.running?"run-a":null,message:null,since:Date.now(),engine:"sing-box",profile_name:"First"};
+        const emit=()=>w.statusListener?.onmessage(current());
+        if(cmd==="plugin:vpn|register_listener"&&args.event==="status"){w.statusListener=args.handler;return null;}
+        if(cmd==="plugin:vpn|status")return current();
+        if(cmd==="plugin:vpn|stop"){w.mobileStatus={...current(),state:"stopped",run_id:null};emit();return null;}
+        if(cmd==="plugin:vpn|start"){
+          await new Promise(r=>setTimeout(r,100));
+          if(args.expectedRunId!==(current().run_id??"stopped"))throw "profile_check_failed";
+          if(options.startError)throw "profile_check_invalid";
+          w.mobileStatus={state:"running",run_id:"run-b",message:null,since:Date.now(),engine:args.engine==="xray"?"xray":"sing-box",profile_name:args.name,source:JSON.parse(args.source)};
+          emit();return null;
+        }
+      }
       if(options.profileProbe){
         const snapshot=()=>({selected_profile:w.selectedProbe??null,active_session:null});
         if(cmd==="plugin:vpn|register_listener"&&args.event==="probe"){w.probeListener=args.handler;return null;}

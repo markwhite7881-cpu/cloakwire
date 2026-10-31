@@ -20,7 +20,6 @@ import {
 import cloakwireLogo from "@/assets/cloakwire-logo.png";
 import { api } from "@/lib/api";
 import { humanError, isProfileCheckCancelled, profileCheckDetails } from "@/lib/profileCheck";
-import { reconnectSelectedProfile } from "@/lib/reconnectState";
 import { useGeoIp } from "@/hooks/useGeoIp";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useManualProfiles } from "@/hooks/useManualProfiles";
@@ -123,7 +122,7 @@ export default function MobileApp() {
   // the user can see *why* a reconnect failed instead of just
   // "Reconnect failed. Try again." 2026-08-21.
   const [reconnectError, setReconnectError] = useState<string | null>(null);
-  const reconnectPhase = useRef<"idle" | "disconnecting" | "connecting">("idle");
+  const reconnectPhase = useRef<"idle" | "connecting">("idle");
   const contentRef = useRef<HTMLElement | null>(null);
   const touchStart = useRef<TouchStart | null>(null);
 
@@ -415,20 +414,10 @@ export default function MobileApp() {
     setReconnectFailed(false);
     setReconnectError(null);
     try {
-      await reconnectSelectedProfile({
-        readyProfile: !!activeBundle,
-        stop: async () => {
-          if (vpn.state === "running") {
-            reconnectPhase.current = "disconnecting";
-            await vpn.disconnect();
-            await new Promise((resolve) => window.setTimeout(resolve, 50));
-          }
-        },
-        start: async () => {
-          reconnectPhase.current = "connecting";
-          await connectWithSelection();
-        },
-      });
+      // Android validates every candidate while the accepted run is still alive.
+      // The service replaces it only after preflight; a separate Stop would invalidate expectedRunId.
+      reconnectPhase.current = "connecting";
+      await connectWithSelection();
     } catch (e) {
       reconnectPhase.current = "idle";
       setReconnectInProgress(false);
