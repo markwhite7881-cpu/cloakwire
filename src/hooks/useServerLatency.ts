@@ -14,10 +14,10 @@
 //      the same host, which is what actually drives proxy speed.
 //
 // The probe is parallel (one shot per server, ~2s timeout) and
-// re-runs every 10 s so the values stay current as the network
-// drifts.
+// refreshes once per hour, reusing endpoint results across tab changes.
 
 import { useEffect, useRef, useState } from "react";
+import { ServerLatencyCache, SERVER_CHECK_INTERVAL_MS } from "@/lib/serverLatencyCache";
 import { api } from "@/lib/api";
 import { isSupported } from "@/lib/outbound";
 import type { Outbound } from "@/lib/types";
@@ -39,7 +39,7 @@ export interface LatencyState {
   loading: boolean;
 }
 
-const PROBE_INTERVAL_MS = 10_000;
+const latencyCache = new ServerLatencyCache();
 const PROBE_TIMEOUT_MS = 2_000;
 const BATCH_SIZE = 12;
 const MAX_PROBED_PROFILES = 100;
@@ -81,8 +81,7 @@ export function useServerLatency(
         const chunk = supported.slice(i, i + BATCH_SIZE);
         const results = await Promise.allSettled(
           chunk.map((p) =>
-            api
-              .pingEndpoint(p.server, p.port, PROBE_TIMEOUT_MS)
+            latencyCache.get(p.server, p.port, () => api.pingEndpoint(p.server, p.port, PROBE_TIMEOUT_MS))
               .then((d) => ({ tag: p.tag, ms: d }))
               .catch(() => ({ tag: p.tag, ms: null as number | null })),
           ),
@@ -98,14 +97,17 @@ export function useServerLatency(
       setLoading(false);
     };
 
-    // Kick off immediately and then every 10s.
-    void probe();
-    timer = window.setInterval(() => void probe(), PROBE_INTERVAL_MS);
+    // Cached on remount; only new/expired endpoints cause network traffic.
+    const run = async () => {
+      await probe();
+      if (!cancelled) timer = window.setTimeout(() => void run(), SERVER_CHECK_INTERVAL_MS);
+    };
+    void run();
     return () => {
       cancelled = true;
-      if (timer != null) window.clearInterval(timer);
+      if (timer != null) window.clearTimeout(timer);
     };
-  }, [profiles.length]);
+  }, [profiles]);
 
   return { byTag, loading };
 }

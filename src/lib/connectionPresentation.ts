@@ -17,8 +17,10 @@ export function presentConnection(status:StatusReport,snapshot:DesktopHealthSnap
     const candidate=snapshot.health;
     if(running&&candidate?.scope==="active_session"&&sameSessionIdentity(candidate,session)){
       if(candidate.outcome==="checking"){health=candidate;state="checking";}
-      else if(isHealthFresh(candidate,session,now)){
+      else if(candidate.checked_at && Date.parse(candidate.checked_at)<=now && ["healthy","failed","unavailable"].includes(candidate.outcome)){
+        // Retain the dated result; only fresh evidence can claim current health.
         health=candidate;
+        if(isHealthFresh(candidate,session,now))
         state=candidate.outcome==="healthy"?"healthy":candidate.outcome==="failed"?"degraded":"unavailable";
       }
     }

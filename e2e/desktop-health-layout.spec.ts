@@ -16,7 +16,8 @@ for(const item of cases)test(`health card fits ${item.locale} ${item.theme} ${it
   await expect(card).toBeVisible();
   await page.evaluate(zoom=>{document.documentElement.style.zoom=String(zoom);},item.zoom);
   await page.evaluate(()=>{(window as any).fixtureHealth.session.display_name="Long accepted server · Длинное название · 很长的服务器名称 ".repeat(3);});
-  await expect(card).toContainText("Long accepted server");
+  if(item.health==="healthy"||item.health==="checking")await expect(card).toHaveAttribute("title",/Long accepted server/);
+  else await expect(card).toContainText("Long accepted server");
   expect(await card.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
   const buttons=card.getByRole("button");
   for(const button of await buttons.all()){

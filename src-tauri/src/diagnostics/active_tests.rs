@@ -196,3 +196,48 @@ fn singbox_retry_from_sync_command_does_not_panic() {
 fn xray_retry_from_sync_command_does_not_panic() {
     retry_from_sync_command(EngineKind::Xray);
 }
+
+#[test]
+fn automatic_probes_are_hourly_even_after_network_or_target_changes() {
+    let state = SessionDiagnostics::default();
+    state.accept(1, EngineKind::Singbox, Some(draft("hourly")));
+    let now = tokio::time::Instant::now();
+    assert!(state.automatic_probe_due(1, now));
+    let identity = state.snapshot().session.unwrap().identity;
+    state.begin(&identity).unwrap();
+    assert!(!state.automatic_probe_due(1, now + std::time::Duration::from_secs(3599)));
+    assert!(state.automatic_probe_due(1, now + std::time::Duration::from_secs(3601)));
+    state.observe_network(1, Some("changed".into()));
+    state.target_changed(1);
+    assert!(!state.automatic_probe_due(1, now + std::time::Duration::from_secs(3599)));
+    let current = state.snapshot().session.unwrap().identity;
+    assert!(
+        state.begin(&current).unwrap().lease.is_some(),
+        "manual Retry remains available"
+    );
+    state.accept(2, EngineKind::Xray, Some(draft("new-session")));
+    assert!(!state.automatic_probe_due(1, now));
+    assert!(state.automatic_probe_due(2, now));
+}
+
+#[tokio::test]
+async fn completed_manual_retry_invalidates_an_earlier_automatic_due_hint() {
+    let state = SessionDiagnostics::default();
+    state.accept(1, EngineKind::Singbox, Some(draft("admission")));
+    let id = state.snapshot().session.unwrap().identity;
+    assert!(state.automatic_probe_due(1, tokio::time::Instant::now()));
+    let manual = state.begin(&id).unwrap().lease.unwrap();
+    state
+        .coordinator
+        .execute(manual, async { ProbeResult::healthy(1) }, async {})
+        .await;
+    assert!(state.begin_with_interval(&id, true).is_err());
+    assert_eq!(
+        state.snapshot().health.unwrap().outcome,
+        HealthOutcome::Healthy
+    );
+    assert!(
+        state.begin(&id).is_ok(),
+        "manual checks bypass the automatic interval"
+    );
+}

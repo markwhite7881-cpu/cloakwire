@@ -35,3 +35,5 @@ describe("accepted desktop session presentation",()=>{
   });
   it("stopped sessions never retain a green badge",()=>expect(presentConnection({...status,status:"stopped"},snapshot,now).state).toBe("stopped"));
 });
+
+it("retains the dated last result without claiming it is a fresh check",()=>{const view=presentConnection(status,snapshot,now+3600000);expect(view.state).toBe("running");expect(view.health?.checked_at).toBe(health.checked_at);expect(view.health?.latency_ms).toBe(12);});

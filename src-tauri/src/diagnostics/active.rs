@@ -36,6 +36,7 @@ struct ActiveState {
     target_lost: bool,
     issue: Option<RuntimeIssue>,
     ended_unexpectedly: bool,
+    last_probe: Option<tokio::time::Instant>,
 }
 pub struct SessionDiagnostics {
     state: Mutex<ActiveState>,
@@ -246,9 +247,24 @@ impl SessionDiagnostics {
         }
         self.coordinator.invalidate();
     }
-    pub(crate) fn begin(&self, expected: &SessionIdentity) -> Result<BeginProbe, HealthIssue> {
-        self.synchronize_epoch();
+    pub(crate) fn automatic_probe_due(&self, run: u64, now: tokio::time::Instant) -> bool {
         let state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        state.run == run
+            && run != 0
+            && state
+                .last_probe
+                .is_none_or(|last| now.saturating_duration_since(last) >= Duration::from_secs(3600))
+    }
+    pub(crate) fn begin(&self, expected: &SessionIdentity) -> Result<BeginProbe, HealthIssue> {
+        self.begin_with_interval(expected, false)
+    }
+    pub(crate) fn begin_with_interval(
+        &self,
+        expected: &SessionIdentity,
+        automatic: bool,
+    ) -> Result<BeginProbe, HealthIssue> {
+        self.synchronize_epoch();
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         if state.run == 0
             || !state
                 .session
@@ -257,9 +273,22 @@ impl SessionDiagnostics {
         {
             return Err(HealthIssue::UnsupportedProbe);
         }
-        Ok(self
+        // Admission and deadline update share the lock: a manual request may
+        // have completed since the monitor last observed its due hint.
+        if automatic
+            && state
+                .last_probe
+                .is_some_and(|last| last.elapsed() < Duration::from_secs(3600))
+        {
+            return Err(HealthIssue::UnsupportedProbe);
+        }
+        let begin = self
             .coordinator
-            .begin(expected.clone(), HealthScope::ActiveSession))
+            .begin(expected.clone(), HealthScope::ActiveSession);
+        if begin.lease.is_some() {
+            state.last_probe = Some(tokio::time::Instant::now());
+        }
+        Ok(begin)
     }
     fn owned(&self, run: u64) -> bool {
         let s = self.state.lock().unwrap_or_else(|p| p.into_inner());
@@ -314,7 +343,7 @@ impl SessionDiagnostics {
         manager: Arc<ProcessManager>,
         expected: SessionIdentity,
     ) -> Result<String, HealthIssue> {
-        self.request_inner(manager, expected, TargetSet::default())
+        self.request_inner(manager, expected, TargetSet::default(), false)
     }
     #[cfg(test)]
     pub(crate) fn request_fixture(
@@ -324,15 +353,20 @@ impl SessionDiagnostics {
         targets: TargetSet,
     ) -> Result<String, HealthIssue> {
         assert!(targets.only_loopback_fixture());
-        self.request_inner(manager, expected, targets)
+        self.request_inner(manager, expected, targets, false)
     }
     fn request_inner(
         self: &Arc<Self>,
         manager: Arc<ProcessManager>,
         expected: SessionIdentity,
         targets: TargetSet,
+        automatic: bool,
     ) -> Result<String, HealthIssue> {
-        let begin = self.begin(&expected)?;
+        let begin = if automatic {
+            self.begin_with_interval(&expected, true)?
+        } else {
+            self.begin(&expected)?
+        };
         let operation = begin.operation_id.clone();
         if let Some(lease) = begin.lease {
             let this = self.clone();
@@ -445,9 +479,6 @@ impl SessionDiagnostics {
                         }
                         this.observe_network(run, network);
                     }
-                    if let Some(session) = this.session_for_run(run) {
-                        let _ = this.request(manager.clone(), session.identity);
-                    }
                 } else if last_target_check.elapsed() >= Duration::from_secs(2) {
                     last_target_check = tokio::time::Instant::now();
                     let wiring = {
@@ -458,20 +489,30 @@ impl SessionDiagnostics {
                             .clone()
                     };
                     if let Some(wiring) = wiring {
-                        let request = match wiring.target_witness().await {
-                            TargetWitness::Matches => this.target_availability(run, true),
-                            TargetWitness::Unavailable => this.target_availability(run, false),
+                        match wiring.target_witness().await {
+                            TargetWitness::Matches => {
+                                this.target_availability(run, true);
+                            }
+                            TargetWitness::Unavailable => {
+                                this.target_availability(run, false);
+                            }
                             TargetWitness::Changed => {
                                 manager.recovery.target_changed(run);
                                 this.target_changed(run);
-                                true
                             }
                         };
-                        if request {
-                            if let Some(session) = this.session_for_run(run) {
-                                let _ = this.request(manager.clone(), session.identity);
-                            }
-                        }
+                    }
+                }
+                // Network/member changes invalidate stale evidence but do not trigger
+                // repeated server probes. Manual requests bypass this hourly gate.
+                if this.automatic_probe_due(run, tokio::time::Instant::now()) {
+                    if let Some(session) = this.session_for_run(run) {
+                        let _ = this.request_inner(
+                            manager.clone(),
+                            session.identity,
+                            TargetSet::default(),
+                            true,
+                        );
                     }
                 }
                 drop(manager);

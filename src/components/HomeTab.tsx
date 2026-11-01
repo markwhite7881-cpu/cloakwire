@@ -145,7 +145,7 @@ export function HomeTab({
 
   const healthView=presentConnection(status,diagnostics,Date.now());
   const headline = (() => {
-    if (statusLabel === "running") return t(`health.${healthView.state}`);
+    if (statusLabel === "running") return t("health.running");
     if (statusLabel === "starting") return t("common.connecting");
     if (statusLabel === "stopping") return t("common.stopping");
     if (healthView.state === "crashed") return t("health.crashed");
