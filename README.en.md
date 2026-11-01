@@ -27,27 +27,26 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ Downloads (v1.4.10)
+## ⚡ Downloads (v1.4.11)
 
 | Platform | Installer | Alternative | Architecture |
 |---|---|---|---|
-| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_x64_en-US.msi) | x64 (Intel / AMD) |
-| **macOS Apple Silicon** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_aarch64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_aarch64.app.zip) | arm64 (Apple Silicon) |
-| **macOS Intel** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_x64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_x64.app.zip) | x86_64 |
-| **Android** | [Download .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/Cloakwire_1.4.10_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
+| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64_en-US.msi) | x64 (Intel / AMD) |
+| **macOS Apple Silicon** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_aarch64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_aarch64.app.zip) | arm64 (Apple Silicon) |
+| **macOS Intel** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64.app.zip) | x86_64 |
+| **Android** | [Download .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 All seven release packages, including Android, have **Minisign** `.sig` files. SHA-256 checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.10/SHA256SUMS.txt).
+> 🔒 All seven release packages, including Android, have **Minisign** `.sig` files. SHA-256 checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/SHA256SUMS.txt).
 
-## 🚀 What's new in 1.4.10
+## 🚀 What's new in 1.4.11
 
-- Added connection health information and per-server check results, with refresh and reconnect actions in error cards.
-- Android server checks run on demand, retain results when switching servers, and use isolated sing-box/Xray diagnostics.
-- Fixed Android server switching so a valid replacement connects on the first attempt; rejected profiles preserve the running VPN.
-- Improved manual-profile identity and repeated import: compare changes, update the chosen profile, or keep a separate copy.
-- Clarified application routing modes and preserved existing custom/provider rules.
-- Added optional automatic VPN recovery on Windows, macOS and Android. It is off by default, keeps the accepted server and settings, limits retries, and respects manual disconnect.
+- Fixed a desktop crash when clicking “Check again” with an active sing-box or Xray connection.
+- Kept the main desktop status stable while VPN is running, independently of background check results.
+- Scheduled routine desktop connection checks and server latency measurements hourly; latency results are reused across tab changes, while manual checks remain available.
+- Replaced the normal desktop diagnostic card with a compact row containing the last check time, latency and check button; actionable error details remain visible.
+- Retained dated check results without presenting old measurements as fresh verification.
 
-[Full history](CHANGELOG.md) · [v1.4.10](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.4.10)
+[Full history](CHANGELOG.md) · [v1.4.11](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.4.11)
 
 ## Quick start
 
@@ -95,7 +94,7 @@ Minisign protects updater downloads. Windows packages are distributed without Au
 Example: check the Windows installer and compare the result with `SHA256SUMS.txt`:
 
 ```powershell
-(Get-FileHash Cloakwire_1.4.10_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+(Get-FileHash Cloakwire_1.4.11_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
 ## 🔧 Share-link formats

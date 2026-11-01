@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.11] - 2026-11-01
+
+### English
+- Fixed a desktop crash when clicking “Check again” with an active sing-box or Xray connection.
+- Kept the main desktop status stable while VPN is running, independently of background check results.
+- Scheduled routine desktop connection checks and server latency measurements hourly; latency results are reused across tab changes, while manual checks remain available.
+- Replaced the normal desktop diagnostic card with a compact row containing the last check time, latency and check button; actionable error details remain visible.
+- Retained dated check results without presenting old measurements as fresh verification.
+
+### Русский
+- Исправлено падение приложения на ПК при нажатии «Проверить ещё раз» с активным подключением sing-box или Xray.
+- Основной статус на ПК остаётся стабильным, пока VPN работает, независимо от фоновых проверок.
+- Плановые проверки соединения и замеры задержки серверов на ПК выполняются раз в час; результаты замеров сохраняются при смене вкладки, ручная проверка остаётся доступной.
+- Обычная карточка диагностики на ПК заменена компактной строкой со временем последней проверки, задержкой и кнопкой; при ошибке сохраняются причина и действия.
+- Сохраняется датированный результат последней проверки без представления старых замеров как свежего подтверждения связи.
+
+### 简体中文
+- 修复桌面端在 sing-box 或 Xray 连接运行时点击“再次检测”导致应用崩溃的问题。
+- VPN 运行期间，桌面主状态保持稳定，不再随后台检测结果切换。
+- 桌面端例行连接检测和服务器延迟测量改为每小时一次；切换标签页时复用延迟结果，仍可随时手动检测。
+- 将桌面常规诊断卡片缩减为包含上次检测时间、延迟和检测按钮的紧凑行；错误原因及可执行操作仍然显示。
+- 保留带时间的检测结果，不将旧测量结果显示为当前连接验证。
+
+---
+
 ## [1.4.10] - 2026-11-01
 
 ### English
