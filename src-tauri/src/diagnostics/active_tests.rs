@@ -155,3 +155,44 @@ async fn explicit_retry_can_refresh_failed_discovery_under_the_same_epoch() {
             .await
     );
 }
+
+// Tauri synchronous commands run outside an entered Tokio runtime.
+// Async-only tests used to hide the panic behind the Retry button.
+fn retry_from_sync_command(engine: EngineKind) {
+    assert!(tokio::runtime::Handle::try_current().is_err());
+    let manager = Arc::new(crate::process::ProcessManager::new());
+    manager
+        .diagnostics
+        .accept(1, engine, Some(draft("sync-retry")));
+    let identity = manager.diagnostics.snapshot().session.unwrap().identity;
+    let operation = manager
+        .diagnostics
+        .request(manager.clone(), identity.clone())
+        .unwrap();
+    assert!(!operation.is_empty());
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    loop {
+        if let Some(health) = manager.diagnostics.snapshot().health {
+            if health.outcome != HealthOutcome::Checking {
+                assert_eq!(health.identity, identity);
+                assert_eq!(health.issue, Some(HealthIssue::EngineUnavailable));
+                break;
+            }
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "retry must finish on the application runtime"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
+#[test]
+fn singbox_retry_from_sync_command_does_not_panic() {
+    retry_from_sync_command(EngineKind::Singbox);
+}
+
+#[test]
+fn xray_retry_from_sync_command_does_not_panic() {
+    retry_from_sync_command(EngineKind::Xray);
+}

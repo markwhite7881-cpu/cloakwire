@@ -336,7 +336,9 @@ impl SessionDiagnostics {
         let operation = begin.operation_id.clone();
         if let Some(lease) = begin.lease {
             let this = self.clone();
-            tokio::spawn(async move {
+            // Retry is also called from a synchronous Tauri command (UI thread).
+            // Use the application runtime; tokio::spawn would panic without an entered runtime.
+            tauri::async_runtime::spawn(async move {
                 let run = expected
                     .run_id
                     .as_deref()

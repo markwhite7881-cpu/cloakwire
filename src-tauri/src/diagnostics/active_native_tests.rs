@@ -110,22 +110,18 @@ async fn accepted_process_publishes_health_and_cancellation_keeps_main_core_aliv
             .diagnostics
             .observe_network(run, Some("loopback-fixture".into()));
         let session = manager.diagnostics.session_for_run(run).unwrap();
-        let operation = manager
-            .diagnostics
-            .request_fixture(
-                manager.clone(),
-                session.identity.clone(),
-                TargetSet::fixture(&url, &url),
-            )
-            .unwrap();
-        let repeated = manager
-            .diagnostics
-            .request_fixture(
-                manager.clone(),
-                session.identity.clone(),
-                TargetSet::fixture(&url, &url),
-            )
-            .unwrap();
+        let operation = request_from_ui_thread(
+            manager.clone(),
+            session.identity.clone(),
+            TargetSet::fixture(&url, &url),
+        )
+        .unwrap();
+        let repeated = request_from_ui_thread(
+            manager.clone(),
+            session.identity.clone(),
+            TargetSet::fixture(&url, &url),
+        )
+        .unwrap();
         assert_eq!(operation, repeated);
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
@@ -150,25 +146,21 @@ async fn accepted_process_publishes_health_and_cancellation_keeps_main_core_aliv
         .await
         .unwrap();
         assert!(manager.probe_run_alive(run).await);
-        let pending = manager
-            .diagnostics
-            .request_fixture(
-                manager.clone(),
-                session.identity.clone(),
-                TargetSet::fixture(&url, &url),
-            )
-            .unwrap();
+        let pending = request_from_ui_thread(
+            manager.clone(),
+            session.identity.clone(),
+            TargetSet::fixture(&url, &url),
+        )
+        .unwrap();
         assert!(manager.diagnostics.cancel(&pending));
         assert!(manager.probe_run_alive(run).await);
         manager.diagnostics.retire(run, true);
-        assert!(manager
-            .diagnostics
-            .request_fixture(
-                manager.clone(),
-                session.identity,
-                TargetSet::fixture(&url, &url)
-            )
-            .is_err());
+        assert!(request_from_ui_thread(
+            manager.clone(),
+            session.identity,
+            TargetSet::fixture(&url, &url)
+        )
+        .is_err());
         manager.terminate_test_child().await;
         assert!(!manager.probe_run_alive(run).await);
     }
@@ -253,4 +245,19 @@ async fn diagnostic_collision_falls_back_to_original_and_preserves_foreign_liste
     }
     target.abort();
     assert!(upstream.stop(Duration::from_secs(2)).await);
+}
+
+fn request_from_ui_thread(
+    manager: std::sync::Arc<crate::process::ProcessManager>,
+    identity: super::types::SessionIdentity,
+    targets: TargetSet,
+) -> Result<String, super::types::HealthIssue> {
+    std::thread::spawn(move || {
+        assert!(tokio::runtime::Handle::try_current().is_err());
+        manager
+            .diagnostics
+            .request_fixture(manager.clone(), identity, targets)
+    })
+    .join()
+    .expect("the synchronous Retry command must not panic")
 }
