@@ -18,7 +18,6 @@ import {
   Power,
   Server,
   ShieldCheck,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   X,
@@ -26,7 +25,6 @@ import {
 import { Button } from "@/components/Button";
 import { ConnectionErrorCard } from "@/components/ConnectionErrorCard";
 import { Card } from "@/components/Card";
-import { Badge } from "@/components/Badge";
 import { FlagIcon } from "@/components/FlagIcon";
 import { useTrafficStream } from "@/hooks/useTrafficStream";
 import { useSessionTimer } from "@/hooks/useSessionTimer";
@@ -319,14 +317,8 @@ export function HomeTab({
             <div className="mt-4 space-y-1">
               <div className="flex items-center justify-center gap-2">
                 <h1 className="text-xl font-bold tracking-tight text-foreground">{headline}</h1>
-                {isRunning && (
-                  <Badge variant="default" className="badge-theme text-[10px]">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    {t("traffic.liveBadge")}
-                  </Badge>
-                )}
               </div>
-              <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              {(!isRunning||isXrayRunning||activeName)&&<p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 {isRunning
                   ? isXrayRunning
                     ? <>
@@ -334,17 +326,17 @@ export function HomeTab({
                         <FlagIcon code={activeXrayDisplay.code} size={14} className="self-center" />
                         <span className="font-medium text-foreground">{status.profile_name ?? activeXrayDisplay.label}</span>
                       </>
-                    : activeName && activeFlag
+                    : activeName
                       ? <>
                           <span>{t("home.via")}</span>
-                          <FlagIcon code={activeFlag.code} size={14} className="self-center" />
+                          {activeFlag&&<FlagIcon code={activeFlag.code} size={14} className="self-center" />}
                           <span className="font-medium text-foreground">{activeName}</span>
                         </>
-                      : t("home.singboxRunning")
+                      : null
                   : profiles.length === 0
                     ? t("servers.noServers")
                     : t("home.tapToConnect")}
-              </p>
+              </p>}
               {isRunning && (
                 <div className="flex items-center justify-center gap-1.5 pt-1">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground shadow-sm">

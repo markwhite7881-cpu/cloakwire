@@ -10,7 +10,6 @@ import {
   Power,
   Server,
   Shield,
-  Sparkles,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -251,7 +250,7 @@ export function HomeScreen({
   return (
     <div className="flex flex-col gap-4 p-4 pb-8">
       {/* ─── Bento 1: Primary Hero Connection Card ────────────────── */}
-      <div className="bento-card relative flex flex-col justify-between overflow-hidden rounded-3xl p-5 shadow-xl">
+      <div className="bento-card relative flex flex-col justify-between overflow-clip rounded-3xl p-5 shadow-xl">
         <div
           className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full blur-3xl"
           style={{ background: "rgba(var(--accent-glow-rgb), 0.12)" }}
@@ -347,12 +346,6 @@ export function HomeScreen({
           <div className="mt-4 space-y-1">
             <div className="flex items-center justify-center gap-2">
               <h1 className="text-xl font-bold tracking-tight text-foreground">{headline}</h1>
-              {isRunning && (
-                <span className="inline-flex items-center gap-1 rounded-full badge-theme px-2 py-0.5 text-[10px]">
-                  <Sparkles className="h-2.5 w-2.5" />
-                  live
-                </span>
-              )}
             </div>
 
             <button
@@ -362,7 +355,7 @@ export function HomeScreen({
             >
               {isRunning ? (
                 <>
-                  <span>via</span>
+                  <span>{t("home.via")}</span>
                   {connectedFlag && <FlagIcon code={connectedFlag.code} size={14} className="self-center" />}
                   <span className="font-medium text-foreground">{connectedName}</span>
                 </>
@@ -389,6 +382,8 @@ export function HomeScreen({
           </div>
         </div>
 
+        {probeCard}
+
         {/* Hero Footer */}
         <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-3 text-[11px] font-mono text-muted-foreground/70">
           <span>{t("home.tunMode")}</span>
@@ -397,7 +392,6 @@ export function HomeScreen({
       </div>
 
       <RecoveryNotice />
-      {probeCard}
 
       {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
 

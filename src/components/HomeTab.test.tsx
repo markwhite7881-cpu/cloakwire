@@ -168,7 +168,7 @@ describe("HomeTab profile validation feedback", () => {
   });
 });
 
-it("uses the actual running ready profile name after another candidate fails", () => {
+it.each(["proxy",null])("uses the actual running ready profile name after another candidate fails (outbound %s)", (activeOutbound) => {
   const html = renderToStaticMarkup(
     <HomeTab
       status={{ status: "running", pid: 1, uptime_secs: 5, last_exit_code: null, last_error: null, engine: "singbox", profile_name: "Current ready profile" }}
@@ -179,7 +179,7 @@ it("uses the actual running ready profile name after another candidate fails", (
       configName={null}
       profiles={[{ kind: "ready_config", subscriptionId: "sub", key: "new", name: "New candidate", engine: "singbox" }]}
       selectedIndex={0}
-      activeOutbound="proxy"
+      activeOutbound={activeOutbound}
       readyProfileMetadata={new Map()}
       subscriptionNames={new Map()}
       geoipByIp={{}}
