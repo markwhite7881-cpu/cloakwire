@@ -1,6 +1,7 @@
 import type { TranslationSchema } from "./en";
 
 export const zhCN: TranslationSchema = {
+  atlas: {"globe":"可用国家或地区","unknown":"国家或地区未知","pick":"选择服务器","recent":"最近使用的服务器"},
   recovery: {
   "engineUnavailable": "VPN 已停止。请手动连接以恢复连接。",
   "trafficBlocked": "Kill Switch 仍在阻止流量。",

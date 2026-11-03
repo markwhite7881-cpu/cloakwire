@@ -1,4 +1,5 @@
 export const en = {
+  atlas: {"globe":"Available countries","unknown":"Country unknown","pick":"Select a server","recent":"Recent servers"},
   recovery: {
   "engineUnavailable": "The VPN stopped. Connect manually to restore the connection.",
   "trafficBlocked": "Traffic remains blocked by Kill Switch.",

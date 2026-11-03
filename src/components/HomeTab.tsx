@@ -1,3 +1,7 @@
+import { AtlasGlobe } from "./atlas/AtlasGlobe";
+import { HomeTraffic } from "./SpeedTestTab";
+import { sameProfileRef } from "@/lib/connectionHealth";
+import { describeRoutingMode } from "@/lib/routingMode";
 import {RecoveryNotice} from "@/components/RecoverySettings";
 import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import {profileRef} from "@/lib/profileEvidence";
@@ -9,7 +13,6 @@ import { connectionProfileStorageKey } from "@/lib/lastServer";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
-  Clock,
   Globe,
   Layers,
   Link2,
@@ -18,8 +21,6 @@ import {
   Power,
   Server,
   ShieldCheck,
-  TrendingDown,
-  TrendingUp,
   X,
 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -35,7 +36,7 @@ import { profileLabel, profileEndpoint, isSupported } from "@/lib/outbound";
 import { isValidProfileSelection } from "@/lib/profileSelection";
 import { loadExpandedSubscriptions, saveExpandedSubscriptions } from "@/lib/expandedSubscriptions";
 import { useI18n } from "@/lib/i18n";
-import type { GeneratorSettings, HomeProfileMetadata, Outbound, RoutingOptions, Status, StatusReport, TrafficSample, TunnelMode } from "@/lib/types";
+import type { GeneratorSettings, HomeProfileMetadata, Outbound, RoutingOptions, Status, StatusReport, TunnelMode } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
 const inTauri =
@@ -139,7 +140,7 @@ export function HomeTab({
   }, [profiles, subscriptionOutbounds]);
 
   const latency = useServerLatency(allOutbounds, isRunning);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const healthView=presentConnection(status,diagnostics,Date.now());
   const headline = (() => {
@@ -216,152 +217,76 @@ export function HomeTab({
   const vpnProcesses = routingOptions?.vpn_processes ?? [];
   const directProcesses = routingOptions?.direct_processes ?? [];
 
+  const display = (profile: ConnectionProfile) => connectionProfileDisplay(profile, readyProfileMetadata, geoipByIp, latency.byTag);
+  const countryOf = (profile: ConnectionProfile) => {
+    const row=display(profile);
+    const code=row.code === "??" ? flagForProfile({tag:row.label,geoipByIp}).code : row.code;
+    return /^[A-Z]{2}$/.test(code) ? code : null;
+  };
+  const countries=[...new Set(profiles.map(countryOf).filter(Boolean))].sort().join(" ");
+  const sessionRef=diagnostics?.session?.profile_ref;
+  const owner=sessionRef && profiles.find(p=>{const ref=profileRef(p);return ref && sameProfileRef(ref,sessionRef);});
+  const liveProfile=activeProfile || owner || activeXrayProfile;
+  const country=liveProfile ? countryOf(liveProfile) : activeFlag?.code !== "??" ? activeFlag?.code ?? null : null;
+  const regionNames=useMemo(()=>new Intl.DisplayNames([locale],{type:"region"}),[locale]);
+  const route=settings ? describeRoutingMode(settings,"desktop",selected?.kind==="ready_config"?selected.engine:"singbox") : null;
+  const [recent, setRecent]=useState<string[]>(()=>{
+    try {const value=JSON.parse(localStorage.getItem("cloakwire.desktop.recentProfiles") || "[]");
+      return Array.isArray(value)?value.filter((id:unknown)=>typeof id==="string").slice(0,3):[];}catch{return [];}
+  });
+  const selectedKey=selected && connectionProfileStorageKey(selected);
+  useEffect(()=>{
+    if(!selectedKey)return;
+    setRecent(previous=>{
+      if(previous[0]===selectedKey)return previous;
+      const next=[selectedKey,...previous.filter(k=>k!==selectedKey)].slice(0,3);
+      try{localStorage.setItem("cloakwire.desktop.recentProfiles",JSON.stringify(next));}catch{}
+      return next;
+    });
+  },[selectedKey]);
+  const recentRows=recent.map(key=>profiles.findIndex(p=>connectionProfileStorageKey(p)===key)).filter(i=>i>=0);
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6">
-      
-      {/* ─── Bento Grid: 12-Column Layout ────────────────────────── */}
-      <div className="grid grid-cols-12 gap-5">
-        
-        {/* Bento 1: Primary Hero Connect Card (7 cols on desktop) */}
-        <div className="col-span-7 bento-card rounded-2xl p-6 sm:p-7 flex flex-col justify-between relative z-20 group">
-          <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-            <div
-              className="absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl"
-              style={{ background: "rgba(var(--accent-glow-rgb), 0.12)" }}
-            />
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-5">
+      <section className="atlas-hero">
+        <AtlasGlobe countries={countries} country={country} running={isRunning} bytesPerSecond={(current?.down_bps??0)+(current?.up_bps??0)}/>
+        <div className="space-y-2 min-w-0">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className={cn("h-2 w-2 rounded-full",isRunning?"bg-theme-accent":"bg-muted-foreground")}/><h1 className="font-medium">{headline}</h1>
+            {isRunning && <span className="ml-auto tabular-nums">{sessionTimer.formatted}</span>}
           </div>
-
-          {/* Top Info inside Hero */}
-          <div className="relative z-30 flex w-full items-start justify-between gap-3">
-            <div>
-              <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                Active Tunnel
-              </div>
-              <ServerPicker
-                profiles={profiles}
-                selectedIndex={selectedIndex}
-                latencyByTag={latency.byTag}
-                readyProfileMetadata={readyProfileMetadata}
-                subscriptionNames={subscriptionNames}
-                geoipByIp={geoipByIp}
-                onSelect={onSelect}
-              />
-            </div>
-
-            <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 font-mono text-[11px] text-muted-foreground shadow-sm">
-              {isXrayRunning
-                ? "Xray Core"
-                : activeProfile?.kind === "manual" && isSupported(activeProfile.outbound)
-                  ? `${activeProfile.outbound.protocol.toUpperCase()} ${"tls" in activeProfile.outbound && activeProfile.outbound.tls?.reality ? "• Reality" : ""}`
-                  : activeProfile?.kind === "subscription"
-                    ? activeProfile.protocol.toUpperCase()
-                    : "sing-box"}
-            </span>
+          <h2 className="text-2xl font-semibold">{isRunning ? country ? regionNames.of(country) : t("atlas.unknown") : t("atlas.pick")}</h2>
+          {isRunning && <p className="text-xs text-muted-foreground">{activeName || (isXrayRunning ? activeXrayDisplay.label : "")}{userPicked && " · "+t("home.picked",{name:userPicked})}</p>}
+          <ServerPicker profiles={profiles} selectedIndex={selectedIndex} latencyByTag={latency.byTag}
+            readyProfileMetadata={readyProfileMetadata} subscriptionNames={subscriptionNames} geoipByIp={geoipByIp} onSelect={onSelect}/>
+          {recentRows.length>0 && <div className="atlas-recent">
+            <h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
+            {recentRows.map(index=><ProfileChoice key={connectionProfileStorageKey(profiles[index]) || index} row={{index,profile:profiles[index]}} selectedIndex={selectedIndex}
+              readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latency.byTag} onSelect={onSelect} compact />)}
+          </div>}
+          <div className="flex items-center gap-2">
+            <Button onClick={isRunning?onDisconnect:onConnect} disabled={busy || isTransition || (!isRunning && !canStart)}
+              aria-label={isRunning ? "Disconnect":"Connect"} className={cn("gap-2",powerButtonClasses(statusLabel))}>
+              {isTransition?<Loader2 size={16} className="animate-spin"/>:<Power size={16}/>}
+              {t(isRunning?"common.disconnect":"common.connect")}
+            </Button>
+            {!profiles.length && <button type="button" className="text-sm text-theme-accent" onClick={()=>setQuickAddOpen(true)}>{t("servers.addServer")}</button>}
           </div>
-
-          {/* Center Tactile Power Orb */}
-          <div className="relative z-10 my-8 flex flex-col items-center justify-center text-center">
-            <div className="relative flex items-center justify-center">
-              {isRunning && (
-                <>
-                  <div
-                    className="absolute h-36 w-36 rounded-full pointer-events-none animate-neon-outer"
-                    style={{
-                      background: "radial-gradient(circle, rgba(var(--accent-glow-rgb), 0.35) 0%, rgba(var(--accent-glow-rgb), 0) 70%)",
-                    }}
-                  />
-                  <div
-                    className="absolute h-28 w-28 rounded-full pointer-events-none animate-neon-halo"
-                    style={{
-                      background: "radial-gradient(circle, rgba(var(--accent-glow-rgb), 0.5) 0%, rgba(var(--accent-glow-rgb), 0) 65%)",
-                    }}
-                  />
-                </>
-              )}
-              {isTransition && (
-                <div
-                  className="absolute h-28 w-28 rounded-full pointer-events-none animate-spin-conic opacity-75"
-                  style={{
-                    background: "conic-gradient(from 0deg, transparent 0deg, rgba(var(--accent-glow-rgb), 0.8) 180deg, transparent 360deg)",
-                    maskImage: "radial-gradient(circle, transparent 44px, black 46px)",
-                    WebkitMaskImage: "radial-gradient(circle, transparent 44px, black 46px)",
-                  }}
-                />
-              )}
-              <button
-                type="button"
-                onClick={isRunning ? () => onDisconnect() : () => onConnect()}
-                disabled={busy || isTransition || (!isRunning && !canStart)}
-                aria-label={isRunning ? "Disconnect" : "Connect"}
-                className={cn(
-                  "group relative flex h-24 w-24 items-center justify-center rounded-full",
-                  "border-2 transition-all duration-300",
-                  "focus-visible:outline-none focus-visible:ring-2 ring-theme-accent",
-                  "disabled:cursor-not-allowed",
-                  powerButtonClasses(statusLabel),
-                )}
-              >
-                {isTransition ? (
-                  <Loader2 className="h-9 w-9 animate-spin text-foreground/80" />
-                ) : (
-                  <Power
-                    className={cn(
-                      "h-10 w-10 transition-transform duration-200 group-hover:scale-110",
-                      isRunning ? "text-zinc-950 stroke-[2.5]" : "text-muted-foreground",
-                    )}
-                  />
-                )}
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-1">
-              <div className="flex items-center justify-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-foreground">{headline}</h1>
-              </div>
-              {(!isRunning||isXrayRunning||activeName)&&<p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                {isRunning
-                  ? isXrayRunning
-                    ? <>
-                        <span>{t("home.via")}</span>
-                        <FlagIcon code={activeXrayDisplay.code} size={14} className="self-center" />
-                        <span className="font-medium text-foreground">{status.profile_name ?? activeXrayDisplay.label}</span>
-                      </>
-                    : activeName
-                      ? <>
-                          <span>{t("home.via")}</span>
-                          {activeFlag&&<FlagIcon code={activeFlag.code} size={14} className="self-center" />}
-                          <span className="font-medium text-foreground">{activeName}</span>
-                        </>
-                      : null
-                  : profiles.length === 0
-                    ? t("servers.noServers")
-                    : t("home.tapToConnect")}
-              </p>}
-              {isRunning && (
-                <div className="flex items-center justify-center gap-1.5 pt-1">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground shadow-sm">
-                    <Clock className="h-3 w-3 text-theme-accent" />
-                    <span>{t("home.sessionTime")}: {sessionTimer.formatted}</span>
-                  </span>
-                </div>
-              )}
-              {isRunning && !isXrayRunning && userPicked && (
-                <p className="font-mono text-[10px] text-muted-foreground/70">
-                  {t("home.picked", { name: userPicked })}
-                </p>
-              )}
-            </div>
+        </div>
+      </section>
+      <section className="atlas-route-summary bento-card rounded-xl">
+        <div className="min-w-0"><h2 className="text-sm font-semibold">{t("routingModes.title")}</h2>
+          <p className="text-xs text-muted-foreground">{route && t("routingModes."+(route.reason || route.mode))}</p>
+          <div className="flex flex-wrap gap-x-3 text-xs">
+            {vpnProcesses.map(name=><span key={"vpn"+name}>{name} · VPN</span>)}
+            {directProcesses.map(name=><span key={"direct"+name}>{name} · {t("home.directBadge")}</span>)}
           </div>
-
-          {(isRunning||healthView.issue)&&<ConnectionStatus view={healthView} showHeading={false}
-            onRetry={healthView.session&&onRetryHealth?()=>{void onRetryHealth(healthView.session!);}:undefined}
-            onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined}
-            busy={healthActionBusy} message={healthActionMessage} actions={runtimeActions}/>}
-          {/* Bottom of Hero */}
-          <div className="relative z-10 border-t border-border/60 pt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-muted-foreground/70">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("home.mode")}:</span>
-              <div className="flex items-center gap-0.5 rounded-lg border border-border/70 bg-background/60 p-0.5 shadow-sm">
+        </div>
+        <Button size="sm" variant="outline" onClick={()=>onNavigateTab?.("routing")}>{t("common.edit")}</Button>
+      </section>
+      {(isRunning||healthView.issue)&&<ConnectionStatus view={healthView} showHeading={false}
+        onRetry={healthView.session&&onRetryHealth?()=>{void onRetryHealth(healthView.session!);}:undefined}
+        onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined} busy={healthActionBusy} message={healthActionMessage} actions={runtimeActions}/>}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-0.5 rounded-lg border border-border/70 bg-background/60 p-0.5 shadow-sm">
                 <button
                   type="button"
                   onClick={() => handleModeChange("tun")}
@@ -408,108 +333,9 @@ export function HomeTab({
                   <span>{t("common.both")}</span>
                 </button>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground text-[11px]">
-              <span>{isXrayRunning ? "Xray Core" : "sing-box Core"}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column (5 cols on desktop): Live Traffic & Per-App Routing */}
-        <div className="col-span-5 flex flex-col gap-5">
-          
-          {/* Bento 2: Live Traffic */}
-          <div className="bento-card rounded-2xl p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                {t("home.traffic")}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {isRunning ? (status.engine ? `${status.engine} engine` : "sing-box") : t("home.idle")}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-2">
-              <div className="rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm">
-                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-                  <TrendingDown className="h-3.5 w-3.5 text-theme-accent" />
-                  {t("home.download")}
-                </div>
-                <p className="mt-1 font-mono text-xl font-bold tabular-nums text-foreground">
-                  {formatRate(current?.down_bps ?? 0)}
-                </p>
-                <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                  {t("home.totalTraffic")} {formatBytes(current?.down_total ?? 0)}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm">
-                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-                  <TrendingUp className="h-3.5 w-3.5 text-cyan-500" />
-                  {t("home.upload")}
-                </div>
-                <p className="mt-1 font-mono text-xl font-bold tabular-nums text-foreground">
-                  {formatRate(current?.up_bps ?? 0)}
-                </p>
-                <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                  {t("home.totalTraffic")} {formatBytes(current?.up_total ?? 0)}
-                </p>
-              </div>
-            </div>
-
-            {/* Dynamic Non-Clipping Sensitive SVG Sparkline */}
-            <SparklineWave isRunning={isRunning} samples={trafficLive.samples} current={current} />
-          </div>
-
-          {/* Bento 3: Per-App Split Tunneling Snapshot */}
-          <div className="bento-card rounded-2xl p-5 flex flex-col justify-between flex-1">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                {t("home.perAppRouting")}
-              </span>
-              <button
-                type="button"
-                onClick={() => onNavigateTab?.("routing")}
-                className="text-xs text-theme-accent hover:underline cursor-pointer flex items-center gap-1 font-medium"
-              >
-                {t("home.manageActiveApps", { count: vpnProcesses.length + directProcesses.length })}
-              </button>
-            </div>
-
-            {vpnProcesses.length === 0 && directProcesses.length === 0 ? (
-              <div className="text-xs text-muted-foreground/80 py-1">
-                {t("home.allAppsVpnDefault")}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2 pt-0.5">
-                {vpnProcesses.slice(0, 4).map((app: string) => (
-                  <div key={app} className="flex items-center gap-1.5 bg-background/70 border border-theme-accent-subtle px-2.5 py-1 rounded-lg text-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-theme-accent" />
-                    <span className="font-mono text-foreground text-[11px]">{app}</span>
-                    <span className="text-[10px] text-theme-accent font-mono">VPN</span>
-                  </div>
-                ))}
-                {directProcesses.slice(0, 2).map((app: string) => (
-                  <div key={app} className="flex items-center gap-1.5 bg-background/50 border border-border/80 px-2.5 py-1 rounded-lg text-xs text-muted-foreground">
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                    <span className="font-mono text-[11px]">{app}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">{t("home.directBadge")}</span>
-                  </div>
-                ))}
-                {vpnProcesses.length + directProcesses.length > 6 && (
-                  <span className="text-[10px] font-mono text-muted-foreground self-center">
-                    {t("home.andMoreCount", { count: vpnProcesses.length + directProcesses.length - 6 })}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-        </div>
-
+        <span className="text-xs text-muted-foreground">{status.engine==="xray"?"Xray":"sing-box"}</span>
       </div>
-
+      <HomeTraffic key={[status.run_id,status.status,selectedKey].join(":")} samples={trafficLive.samples} current={current} vpnActive={isRunning} activeProfileName={activeName}/>
       <RecoveryNotice />
       {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} actions={errorActions} />}
 
@@ -619,204 +445,14 @@ export function HomeTab({
   );
 }
 
-function SparklineWave({
-  isRunning,
-  samples,
-  current,
-}: {
-  isRunning: boolean;
-  samples: TrafficSample[];
-  current: TrafficSample | null;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  // Keep target samples in a ref so the animation loop always accesses the latest data
-  const dataRef = useRef({
-    samples,
-    current,
-    isRunning,
-  });
-  dataRef.current = { samples, current, isRunning };
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    const pointCount = 28;
-    const currentDown = new Float32Array(pointCount);
-    const currentUp = new Float32Array(pointCount);
-    let smoothedPeak = 1024 * 32;
-
-    const startTime = performance.now();
-
-    const render = (now: number) => {
-      const { samples: liveSamples, current: liveCurrent, isRunning: active } = dataRef.current;
-      const elapsed = (now - startTime) / 1000;
-
-      // Handle high-DPI crisp canvas rendering
-      const dpr = window.devicePixelRatio || 1;
-      const width = canvas.clientWidth || 240;
-      const height = canvas.clientHeight || 54;
-      if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
-        canvas.width = Math.floor(width * dpr);
-        canvas.height = Math.floor(height * dpr);
-      }
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, width, height);
-
-      const bottomY = height - 6;
-      const topY = 6;
-      const usableHeight = bottomY - topY;
-
-      // Extract target values from recent samples
-      const recent = liveSamples.slice(-pointCount);
-      const rawMaxDown = Math.max(...recent.map((s) => s.down_bps), liveCurrent?.down_bps ?? 0, 0);
-      const rawMaxUp = Math.max(...recent.map((s) => s.up_bps), liveCurrent?.up_bps ?? 0, 0);
-      const rawPeak = Math.max(rawMaxDown, rawMaxUp);
-      const targetPeak = Math.max(rawPeak, 1024 * 16);
-
-      // Smooth peak scale transition
-      smoothedPeak += (targetPeak - smoothedPeak) * 0.08;
-
-      // Calculate target down/up points with LERP
-      for (let i = 0; i < pointCount; i++) {
-        const sampleIdx = recent.length - pointCount + i;
-        const s = sampleIdx >= 0 ? recent[sampleIdx] : undefined;
-        const downBps = s ? s.down_bps : 0;
-        const upBps = s ? s.up_bps : 0;
-
-        const targetRatioDown = Math.min(1, Math.max(0, downBps / smoothedPeak));
-        const targetRatioUp = Math.min(1, Math.max(0, upBps / smoothedPeak));
-
-        const targetScaledDown = Math.pow(targetRatioDown, 0.7);
-        const targetScaledUp = Math.pow(targetRatioUp, 0.7);
-
-        // Organic idle breathing wave
-        const idleWave = active
-          ? (Math.sin(elapsed * 2.5 + (i / pointCount) * Math.PI * 2) * 0.5 + 0.5) * 0.08
-          : 0.02;
-
-        const finalTargetDown = Math.max(targetScaledDown, idleWave);
-        const finalTargetUp = targetScaledUp;
-
-        // Smooth LERP per frame (fluid 60 FPS easing)
-        currentDown[i] += (finalTargetDown - currentDown[i]) * 0.1;
-        currentUp[i] += (finalTargetUp - currentUp[i]) * 0.1;
-      }
-
-      // Build points coordinates
-      const downPoints: { x: number; y: number }[] = [];
-      const upPoints: { x: number; y: number }[] = [];
-
-      for (let i = 0; i < pointCount; i++) {
-        const x = (i / (pointCount - 1)) * width;
-        const yDown = bottomY - currentDown[i] * usableHeight;
-        const yUp = bottomY - currentUp[i] * usableHeight;
-        downPoints.push({ x, y: yDown });
-        upPoints.push({ x, y: yUp });
-      }
-
-      // Draw Download Wave Fill Gradient with dynamic accent
-      const accentRgb = (canvas && getComputedStyle(canvas).getPropertyValue("--accent-glow-rgb").trim()) || "16, 185, 129";
-      const grad = ctx.createLinearGradient(0, topY, 0, bottomY);
-      grad.addColorStop(0, active ? `rgba(${accentRgb}, 0.35)` : `rgba(${accentRgb}, 0.08)`);
-      grad.addColorStop(1, `rgba(${accentRgb}, 0.0)`);
-
-      ctx.beginPath();
-      ctx.moveTo(downPoints[0].x, downPoints[0].y);
-      for (let i = 0; i < downPoints.length - 1; i++) {
-        const p0 = downPoints[i];
-        const p1 = downPoints[i + 1];
-        const mx = (p0.x + p1.x) / 2;
-        ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
-      }
-      ctx.lineTo(width, height);
-      ctx.lineTo(0, height);
-      ctx.closePath();
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // Draw Download Main Curve Line with subtle glow
-      ctx.beginPath();
-      ctx.moveTo(downPoints[0].x, downPoints[0].y);
-      for (let i = 0; i < downPoints.length - 1; i++) {
-        const p0 = downPoints[i];
-        const p1 = downPoints[i + 1];
-        const mx = (p0.x + p1.x) / 2;
-        ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
-      }
-      ctx.strokeStyle = active ? `rgb(${accentRgb})` : "#3f3f46";
-      ctx.lineWidth = active ? 2.5 : 1.5;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      if (active) {
-        ctx.shadowColor = `rgba(${accentRgb}, 0.45)`;
-        ctx.shadowBlur = 6;
-      }
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // Draw Upload Line if active and has data
-      if (active && rawMaxUp > 0) {
-        ctx.beginPath();
-        ctx.moveTo(upPoints[0].x, upPoints[0].y);
-        for (let i = 0; i < upPoints.length - 1; i++) {
-          const p0 = upPoints[i];
-          const p1 = upPoints[i + 1];
-          const mx = (p0.x + p1.x) / 2;
-          ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
-        }
-        ctx.strokeStyle = "#06b6d4";
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([3, 3]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      // Draw Leading Pulse Point on active
-      if (active) {
-        const lastPt = downPoints[downPoints.length - 1];
-        const pulse = Math.sin(elapsed * 4) * 0.5 + 0.5;
-        ctx.beginPath();
-        ctx.arc(lastPt.x - 2, lastPt.y, 3 + pulse * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = "#34d399";
-        ctx.fill();
-        ctx.strokeStyle = "#090a0f";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
-
-      ctx.restore();
-      animId = requestAnimationFrame(render);
-    };
-
-    animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
-  }, []);
-
-  return (
-    <div className="h-14 w-full pt-1 relative overflow-hidden">
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full block pointer-events-none"
-      />
-    </div>
-  );
-}
-
 export function powerButtonClasses(statusLabel: Status): string {
   if (statusLabel === "running") {
-    return "border-theme-accent bg-success bg-theme-gradient text-zinc-950 glow-button shadow-xl shadow-theme-accent animate-neon-pulse hover:scale-105 active:scale-95";
+    return "border-theme-accent bg-success text-zinc-950";
   }
   if (statusLabel === "starting" || statusLabel === "stopping") {
     return "border-foreground/20 bg-foreground/5";
   }
-  return "border-muted-foreground/40 bg-muted/40 text-muted-foreground hover:border-foreground/50 hover:bg-muted/60 hover:text-foreground hover:scale-105 active:scale-95";
+  return "border-theme-accent bg-theme-accent text-zinc-950";
 }
 
 function connectionProfileLabel(profile: ConnectionProfile): string {
@@ -1237,66 +873,4 @@ function SignalBars({ level }: { level: number }) {
       ))}
     </span>
   );
-}
-
-function Metric({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="space-y-1">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={cn(
-          "truncate text-sm",
-          mono && "font-mono",
-          (!value || value === "—") && "text-muted-foreground",
-        )}
-        title={value}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function formatRate(bps: number): string {
-  if (!bps) return "0 B/s";
-  const units = ["B/s", "KB/s", "MB/s", "GB/s"];
-  let v = bps;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-function formatBytes(b: number): string {
-  if (!b) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  let v = b;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-function formatUptime(secs: number | null | undefined): string {
-  if (secs == null) return "—";
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
 }

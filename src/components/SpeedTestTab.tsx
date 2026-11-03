@@ -1,363 +1,75 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import {
-  Play,
-  Square,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Activity,
-  Radio,
-  Globe,
-  ShieldCheck,
-  RotateCcw,
-  History,
-  Trash2,
-  Server,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/Card";
+import { useEffect, useRef, useState } from "react";
+import { Gauge, Globe, ShieldCheck, Trash2, History } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/Card";
 import { Button } from "@/components/Button";
-import { Badge } from "@/components/Badge";
 import { useI18n } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
-import {
-  SpeedTestRunner,
-  loadSpeedTestHistory,
-  clearSpeedTestHistory,
-  type SpeedTestProgress,
-  type SpeedTestResult,
-} from "@/lib/speedtest";
+import { SpeedTestRunner, loadSpeedTestHistory, clearSpeedTestHistory, type SpeedTestProgress, type SpeedTestResult } from "@/lib/speedtest";
+import type { TrafficSample } from "@/lib/types";
 
-export interface SpeedTestTabProps {
-  vpnActive: boolean;
-  activeProfileName: string | null;
-}
-
-export function SpeedTestTab({ vpnActive, activeProfileName }: SpeedTestTabProps) {
-  const { t } = useI18n();
-  const runnerRef = useRef<SpeedTestRunner | null>(null);
-
-  const [isRunning, setIsRunning] = useState(false);
-  const [progress, setProgress] = useState<SpeedTestProgress>({
-    phase: "idle",
-    currentSpeed: 0,
-    progressPercent: 0,
-    pingMs: 0,
-    jitterMs: 0,
-    downloadMbps: 0,
-    uploadMbps: 0,
-    samples: [],
-  });
-
-  const [lastResult, setLastResult] = useState<SpeedTestResult | null>(null);
-  const [history, setHistory] = useState<SpeedTestResult[]>(() => loadSpeedTestHistory());
-
-  useEffect(() => {
-    runnerRef.current = new SpeedTestRunner();
-    return () => {
-      runnerRef.current?.stop();
-    };
-  }, []);
-
-  const handleStart = async () => {
-    if (!runnerRef.current) return;
-    setIsRunning(true);
-    setLastResult(null);
-
-    const meta = {
-      serverName: activeProfileName || (vpnActive ? "VPN Tunnel" : "Direct"),
-      vpnActive,
-    };
-
+type Point = { down: number; up: number };
+export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: {
+  samples: TrafficSample[]; current: TrafficSample | null; vpnActive: boolean; activeProfileName: string | null;
+}) {
+  const { t, locale } = useI18n();
+  const runner = useRef<SpeedTestRunner | null>(null);
+  const [progress, setProgress] = useState<SpeedTestProgress | null>(null);
+  const [testPoints, setTestPoints] = useState<Point[]>([]);
+  const [history, setHistory] = useState<SpeedTestResult[]>(loadSpeedTestHistory);
+  const [error, setError] = useState("");
+  const [lastResult, setLastResult] = useState<SpeedTestResult|null>(null);
+  function stop() {
+    const previous = runner.current;
+    runner.current = null;
+    previous?.stop();
+    setProgress(null);
+  }
+  useEffect(() => () => { const previous=runner.current; runner.current=null; previous?.stop(); }, []);
+  async function start() {
+    if (runner.current) return;
+    const test = new SpeedTestRunner();
+    runner.current = test;
+    setProgress({phase:"ping",currentSpeed:0,progressPercent:0,pingMs:0,jitterMs:0,downloadMbps:0,uploadMbps:0,samples:[]});
+    setError("");setTestPoints([]);setLastResult(null);
     try {
-      const res = await runnerRef.current.run(meta, (p) => {
+      const result = await test.run({vpnActive, serverName:activeProfileName || (vpnActive ? t("speedtest.vpnActive") : t("speedtest.directRoute"))}, p => {
+        if (runner.current !== test) return;
         setProgress(p);
+        if (p.phase === "download" || p.phase === "upload") setTestPoints(previous => [...previous.slice(-59), {
+        down:p.phase === "download" ? p.currentSpeed : 0, up:p.phase === "upload" ? p.currentSpeed : 0
+        }]);
       });
-      setLastResult(res);
-      setHistory(loadSpeedTestHistory());
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        console.error("Speed test error:", err);
-      }
+      if (runner.current === test) { setLastResult(result);setHistory(loadSpeedTestHistory()); }
+    } catch(err) {
+      if(runner.current === test && !(err instanceof Error && err.name === "AbortError")) setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
-      setIsRunning(false);
+      if(runner.current === test) { runner.current=null;setProgress(null); }
     }
-  };
-
-  const handleStop = () => {
-    runnerRef.current?.stop();
-    setIsRunning(false);
-    setProgress((prev) => ({
-      ...prev,
-      phase: "idle",
-      currentSpeed: 0,
-      progressPercent: 0,
-    }));
-  };
-
-  const handleClearHistory = () => {
-    clearSpeedTestHistory();
-    setHistory([]);
-  };
-
-  // Speedometer Arc calculation
-  // Angle: -120 to +120 degrees (240 deg span)
-  const maxDialSpeed = 200; // 200 Mbps scale
-  const displaySpeed = isRunning
-    ? progress.currentSpeed
-    : lastResult
-      ? lastResult.downloadSpeed
-      : 0;
-
-  const speedRatio = Math.min(1, Math.max(0, displaySpeed / maxDialSpeed));
-  const radius = 70;
-  const strokeWidth = 10;
-  const center = 90;
-  const arcLength = 2 * Math.PI * radius * (240 / 360);
-  const dashOffset = arcLength * (1 - speedRatio);
-
-  // Phase status text
-  const phaseLabel = useMemo(() => {
-    switch (progress.phase) {
-      case "ping":
-        return t("speedtest.phasePing");
-      case "download":
-        return t("speedtest.phaseDownload");
-      case "upload":
-        return t("speedtest.phaseUpload");
-      case "done":
-        return t("speedtest.phaseDone");
-      case "error":
-        return progress.error || t("common.error");
-      default:
-        return lastResult ? t("speedtest.phaseDone") : t("speedtest.subtitle");
-    }
-  }, [progress.phase, progress.error, lastResult, t]);
-
-  return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 p-6 animate-fadeIn">
-      {/* Top Header Card */}
-      <Card className="bento-card">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Activity className="h-5 w-5 text-theme-accent" />
-                {t("speedtest.title")}
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                {t("speedtest.subtitle")}
-              </CardDescription>
-            </div>
-
-            {/* VPN Route Badge */}
-            <div className="shrink-0">
-              {vpnActive ? (
-                <div className="flex items-center gap-2 rounded-full border border-theme-accent/30 bg-theme-subtle px-3 py-1 text-xs font-medium text-theme-accent">
-                  <ShieldCheck className="h-4 w-4" />
-                  <span>
-                    {t("speedtest.vpnActive")}:{" "}
-                    <strong className="font-semibold text-foreground">
-                      {activeProfileName || "Active"}
-                    </strong>
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs font-medium text-muted-foreground">
-                  <Globe className="h-4 w-4" />
-                  <span>{t("speedtest.directRoute")}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Main Hero Speedometer Card */}
-      <Card className="bento-card relative overflow-hidden">
-        <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-          {/* Circular SVG Speedometer Gauge */}
-          <div className="relative flex items-center justify-center w-52 h-44">
-            <svg className="w-52 h-44 overflow-visible" viewBox="0 0 180 160">
-              {/* Background Track Arc */}
-              <circle
-                cx={center}
-                cy={center}
-                r={radius}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${arcLength} 999`}
-                strokeLinecap="round"
-                transform={`rotate(150 ${center} ${center})`}
-                className="text-border/60"
-              />
-              {/* Active Value Arc */}
-              <circle
-                cx={center}
-                cy={center}
-                r={radius}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${arcLength} 999`}
-                strokeDashoffset={dashOffset}
-                strokeLinecap="round"
-                transform={`rotate(150 ${center} ${center})`}
-                className="text-theme-accent transition-all duration-150 ease-out"
-                style={{
-                  filter: "drop-shadow(0 0 8px var(--theme-accent))",
-                }}
-              />
-            </svg>
-
-            {/* Speed readout inside gauge */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pt-4">
-              <span className="text-4xl font-extrabold tracking-tight tabular-nums text-foreground">
-                {displaySpeed.toFixed(1)}
-              </span>
-              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground mt-0.5">
-                Mbps
-              </span>
-            </div>
-          </div>
-
-          {/* Phase status indicator */}
-          <p className="mt-2 text-xs font-mono text-muted-foreground min-h-[1.25rem]">
-            {phaseLabel}
-          </p>
-
-          {/* Progress Bar (when active) */}
-          <div className="w-full max-w-xs bg-secondary/80 rounded-full h-1.5 mt-3 overflow-hidden border border-border/40">
-            <div
-              className="bg-theme-accent h-full transition-all duration-200 ease-out"
-              style={{ width: `${progress.progressPercent}%` }}
-            />
-          </div>
-
-          {/* Start / Stop Controls */}
-          <div className="mt-6 flex items-center gap-3">
-            {isRunning ? (
-              <Button
-                variant="destructive"
-                size="lg"
-                onClick={handleStop}
-                className="gap-2 px-6 shadow-md"
-              >
-                <Square className="h-4 w-4" />
-                <span>{t("speedtest.stopTest")}</span>
-              </Button>
-            ) : (
-              <Button
-                variant="default"
-                size="lg"
-                onClick={handleStart}
-                className="gap-2 px-8 shadow-lg bg-theme-accent text-zinc-950 font-bold hover:brightness-110 active:scale-95 transition-all"
-              >
-                <Play className="h-4 w-4 fill-current" />
-                <span>{t("speedtest.startTest")}</span>
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 4 Metrics Bento Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {/* Download */}
-        <Card className="bento-card">
-          <CardContent className="p-4 flex flex-col justify-between h-full">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{t("speedtest.download")}</span>
-              <ArrowDownCircle className="h-4 w-4 text-emerald-400" />
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tabular-nums text-foreground">
-                {(progress.downloadMbps || lastResult?.downloadSpeed || 0).toFixed(1)}
-                <span className="text-xs font-normal text-muted-foreground ml-1">Mbps</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Upload */}
-        <Card className="bento-card">
-          <CardContent className="p-4 flex flex-col justify-between h-full">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{t("speedtest.upload")}</span>
-              <ArrowUpCircle className="h-4 w-4 text-blue-400" />
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tabular-nums text-foreground">
-                {(progress.uploadMbps || lastResult?.uploadSpeed || 0).toFixed(1)}
-                <span className="text-xs font-normal text-muted-foreground ml-1">Mbps</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Ping */}
-        <Card className="bento-card">
-          <CardContent className="p-4 flex flex-col justify-between h-full">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{t("speedtest.ping")}</span>
-              <Activity className="h-4 w-4 text-amber-400" />
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tabular-nums text-foreground">
-                {progress.pingMs || lastResult?.ping || 0}
-                <span className="text-xs font-normal text-muted-foreground ml-1">ms</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Jitter */}
-        <Card className="bento-card">
-          <CardContent className="p-4 flex flex-col justify-between h-full">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{t("speedtest.jitter")}</span>
-              <Radio className="h-4 w-4 text-purple-400" />
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tabular-nums text-foreground">
-                {progress.jitterMs || lastResult?.jitter || 0}
-                <span className="text-xs font-normal text-muted-foreground ml-1">ms</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Network & Edge Details */}
-      {(progress.clientIp || lastResult?.clientIp) && (
-        <Card className="bento-card">
-          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4 text-xs">
-            <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-theme-accent" />
-              <span className="text-muted-foreground">{t("speedtest.clientIp")}:</span>
-              <span className="font-mono font-medium text-foreground">
-                {progress.clientIp || lastResult?.clientIp}
-              </span>
-            </div>
-            {(progress.location || lastResult?.location) && (
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{t("speedtest.location")}:</span>
-                <span className="font-medium text-foreground">
-                  {progress.location || lastResult?.location}
-                </span>
-              </div>
-            )}
-            {(progress.colo || lastResult?.colo) && (
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="font-mono text-[11px] px-2 py-0.5">
-                  {t("speedtest.colo")}: {progress.colo || lastResult?.colo}
-                </Badge>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
+  }
+  const points = progress ? testPoints : samples.slice(-60).map(s=>({down:s.down_bps * 8 / 1e6, up:s.up_bps * 8 / 1e6}));
+  const rates = progress ? points.at(-1) : {down:(current?.down_bps ?? 0)*8/1e6,up:(current?.up_bps ?? 0)*8/1e6};
+  const scale = Math.max(.1,...points.flatMap(p=>[p.up,p.down]));
+  const line=(series:keyof Point)=>points.map((p,i)=>[(60-points.length+i)*1000/59,68-62*p[series]/scale].join(",")).join(" ");
+  const fmt=(n:number)=>n.toLocaleString(locale,{maximumFractionDigits:1});
+  const handleClearHistory=()=>{clearSpeedTestHistory();setHistory([]);setLastResult(null);};
+  const phase = progress?.phase === "ping" ? "phasePing" : progress?.phase === "upload" ? "phaseUpload" : "phaseDownload";
+  return <section className="atlas-traffic bento-card rounded-xl p-4 space-y-2">
+    <div className="flex items-center justify-between gap-2">
+      <h2 className="text-sm font-semibold">{t(progress?"speedtest.title":"home.traffic")}</h2>
+      <Button size="sm" variant="outline" onClick={progress?stop:start}><Gauge size={15}/>{t(progress?"speedtest.stopTest":"nav.speedtest")}</Button>
+    </div>
+    <div className="flex flex-wrap gap-x-4 text-xs tabular-nums text-muted-foreground">
+      <span>↓ {t("home.download")} {fmt(rates?.down??0)} Mbps</span><span>↑ {t("home.upload")} {fmt(rates?.up??0)} Mbps</span>
+      {progress && <span>{t("speedtest."+phase)} · {Math.round(progress.progressPercent)}%</span>}
+      {!progress && current && <span>{t("home.totalTraffic")} ↓ {fmt(current.down_total/1048576)} MiB · ↑ {fmt(current.up_total/1048576)} MiB</span>}
+    </div>
+    <svg viewBox="0 0 1000 72" preserveAspectRatio="none" role="img" aria-label={t(progress?"speedtest.title":"home.traffic")}>
+      {[6,37,68].map(y=><line key={y} x1="0" x2="1000" y1={y} y2={y} stroke="var(--atlas-line)"/>)}
+      <polyline points={line("down")} fill="none" stroke="var(--accent-badge-text)" strokeWidth="2" vectorEffect="non-scaling-stroke"/>
+      <polyline points={line("up")} fill="none" stroke="currentColor" opacity=".7" strokeDasharray="4 3" strokeWidth="1.6" vectorEffect="non-scaling-stroke"/>
+    </svg>
+    {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+    {lastResult && <p role="status" className="text-xs">{lastResult.serverName} · ↓ {fmt(lastResult.downloadSpeed)} / ↑ {fmt(lastResult.uploadSpeed)} Mbps · {lastResult.ping} ms</p>}
+    <details><summary className="text-xs text-muted-foreground cursor-pointer">{t("speedtest.recentHistory")} · {history.length}</summary>
       {/* Recent Test History Card */}
       <Card className="bento-card">
         <CardHeader className="pb-3">
@@ -437,6 +149,7 @@ export function SpeedTestTab({ vpnActive, activeProfileName }: SpeedTestTabProps
           )}
         </CardContent>
       </Card>
-    </div>
-  );
+
+    </details>
+  </section>;
 }

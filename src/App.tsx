@@ -10,7 +10,6 @@ import { ProfileImportDialog } from "@/components/ProfileImportDialog";
 import { APP_VERSION } from "@/lib/appVersion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Gauge,
   Home,
   Link2,
   Power,
@@ -28,7 +27,7 @@ import { StatusPill } from "@/components/StatusPill";
 import { TabBar, Tabs, type TabDef } from "@/components/Tabs";
 import { HomeTab } from "@/components/HomeTab";
 import { ServersTab } from "@/components/ServersTab";
-import { SpeedTestTab } from "@/components/SpeedTestTab";
+import "@/components/atlas/atlas.css";
 import { LogsTab } from "@/components/LogsTab";
 import { ConfigTab } from "@/components/ConfigTab";
 import { RoutingTab } from "@/components/routing/RoutingTab";
@@ -86,7 +85,7 @@ import type {
 // back to mock data so the UI is still demoable.
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-const TAB_KEYS = ["home", "servers", "speedtest", "config", "routing", "logs"] as const;
+const TAB_KEYS = ["home", "servers", "config", "routing", "logs"] as const;
 type TabId = (typeof TAB_KEYS)[number];
 const DEFAULT_TAB: TabId = "home";
 
@@ -1195,28 +1194,6 @@ export default function App() {
         ),
       },
       {
-        id: "speedtest",
-        label: t("nav.speedtest"),
-        icon: Gauge,
-        content: (
-          <SpeedTestTab
-            vpnActive={status.status === "running"}
-            activeProfileName={
-              status.status === "running"
-                ? status.profile_name ||
-                  (selectedIndex >= 0 && profiles[selectedIndex]
-                    ? profiles[selectedIndex].kind === "manual"
-                      ? profileLabel(profiles[selectedIndex].outbound)
-                      : profiles[selectedIndex].kind === "subscription"
-                        ? profiles[selectedIndex].label
-                        : profiles[selectedIndex].name
-                    : null)
-                : null
-            }
-          />
-        ),
-      },
-      {
         id: "config",
         label: t("nav.config"),
         icon: Settings2,
@@ -1306,9 +1283,7 @@ export default function App() {
   );
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      {/* Decorative background grid (matches classquiz) */}
-      <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
+    <div className="atlas-desktop relative flex h-screen flex-col overflow-hidden text-foreground">
 
       {/* Header — Unified Linear Bento Titlebar with Centered Segmented Nav */}
       <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-border/80 bg-card/60 px-6 py-3 backdrop-blur-md">

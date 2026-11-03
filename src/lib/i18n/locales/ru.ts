@@ -1,6 +1,7 @@
 import type { TranslationSchema } from "./en";
 
 export const ru: TranslationSchema = {
+  atlas: {"globe":"Доступные страны","unknown":"Страна не указана","pick":"Выберите сервер","recent":"Последние серверы"},
   recovery: {
   "engineUnavailable": "VPN остановился. Подключитесь вручную, чтобы восстановить соединение.",
   "trafficBlocked": "Kill Switch продолжает блокировать трафик.",

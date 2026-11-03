@@ -1,0 +1,31 @@
+{
+  "productName": "CloakWire Atlas Preview",
+  "mainBinaryName": "cloakwire-atlas-preview",
+  "identifier": "app.cloakwire.atlaspreview",
+  "app": {
+    "windows": [
+      {
+        "title": "CloakWire Atlas Preview",
+        "width": 1060,
+        "height": 720,
+        "minWidth": 1040,
+        "minHeight": 680,
+        "maxWidth": 1120,
+        "maxHeight": 800,
+        "resizable": true,
+        "maximizable": false,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "backgroundColor": "#090a0f"
+      }
+    ]
+  },
+  "bundle": {
+    "targets": [
+      "nsis"
+    ],
+    "createUpdaterArtifacts": false
+  }
+}
