@@ -50,12 +50,21 @@ describe("HomeScreen profile validation feedback", () => {
     expect(renderScreen({ state: "error", message: "VPN service exited" })).toContain("VPN service exited");
   });
 
+  it("shows the current name once when a ready server is already connected", () => {
+    const html = renderScreen(
+      { state: "running", profileName: "Unique current name", since: Date.now() - 10_000 },
+      { subscriptionId: "sub", childKey: "active", childName: "Unique current name", engine: "singbox" },
+    );
+    expect(html.match(/Unique current name/g)).toHaveLength(1);
+    expect(html).toMatch(/atlas-session-line[^]*?atlas-session-time/);
+  });
+
   it("keeps the connected label separate from the rejected selected target", () => {
     const html = renderScreen(
       { state: "running", profileName: "Current server", error: "profile_check_invalid" },
       { subscriptionId: "sub", childKey: "candidate", childName: "New candidate", engine: "singbox" },
     );
-    const connectedLine = html.match(/<span>via<\/span>[\s\S]*?<\/button>/)?.[0];
+    const connectedLine = html.match(/<p class="atlas-active-note">[\s\S]*?<\/p>/)?.[0];
     expect(connectedLine).toContain("Current server");
     expect(connectedLine).not.toContain("New candidate");
     expect(html).toContain("New candidate");

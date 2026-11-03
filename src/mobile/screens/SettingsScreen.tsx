@@ -1,3 +1,4 @@
+import { AppearanceSelect } from "@/components/atlas/AppearanceSelect";
 import { Button } from "@/components/Button";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import {RecoverySetting} from "@/components/RecoverySettings";
@@ -194,28 +195,13 @@ export function SettingsScreen({
       <SectionCard id="atlas-android-network" tabIndex={-1}>
         <SectionHeader title={t("settings.network")} />
         <div className="divide-y divide-border">
-          <SettingRow
-            label={t("settings.dnsProvider")}
-            control={
-              <select
-                value={dnsPreset}
-                onChange={(e) => {
-                  const p = DNS_PRESETS.find((x) => x.id === e.target.value);
-                  if (p) update({ local_dns: p.local, remote_dns: p.remote });
-                }}
-                className="atlas-input max-w-[180px]"
-              >
-                {DNS_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-                {dnsPreset === "custom" && (
-                  <option value="custom">{t("common.custom")}</option>
-                )}
-              </select>
-            }
-          />
+          <AppearanceSelect label={t("settings.dnsProvider")} value={dnsPreset}
+            options={[...DNS_PRESETS.map(({ id, label }) => ({ id, label })),
+              ...(dnsPreset === "custom" ? [{ id: "custom", label: t("common.custom") }] : [])]}
+            onChange={id => {
+              const preset = DNS_PRESETS.find(item => item.id === id);
+              if (preset) update({ local_dns: preset.local, remote_dns: preset.remote });
+            }} />
           <SettingRow
             label={t("common.port")}
             hint={t("settings.mixedPortHint")}

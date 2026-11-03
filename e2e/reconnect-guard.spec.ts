@@ -6,6 +6,7 @@ test("quota failure does not allow reconnect to stop an accepted session",async(
  await page.getByRole("button",{name:"All applications",exact:true}).click();
  await page.getByRole("button",{name:"Apply routing",exact:true}).click();
  await page.getByText("Servers",{exact:true}).first().click();
+ await page.locator(".atlas-heading-actions button").click();
  await page.locator("textarea").first().fill("vless://SYNTHETIC");
  await page.getByRole("button",{name:"Add Server",exact:true}).click();
  const dialog=page.getByRole("dialog").filter({hasText:"Compare imported profiles"});
@@ -14,6 +15,7 @@ test("quota failure does not allow reconnect to stop an accepted session",async(
  await dialog.getByRole("button",{name:"Apply choices"}).click();
  await expect(dialog.getByRole("alert")).toBeVisible();
  await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+ await page.getByRole("dialog").getByRole("button",{name:"Cancel",exact:true}).click();
  await page.getByText("Home",{exact:true}).first().click();
  await page.getByRole("button",{name:"Reconnect now",exact:true}).click();
  await page.waitForTimeout(150);

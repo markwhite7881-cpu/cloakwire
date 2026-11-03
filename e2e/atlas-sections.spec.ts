@@ -41,12 +41,17 @@ test("appearance controls, import menus and the full rule editor remain reachabl
     await dialog.getByRole("button",{name:"Close sheet"}).click();
     await expect(dialog).toHaveCount(0);
   }else{
-    const input=page.locator("#atlas-import textarea");
+    const add=page.locator(".atlas-heading-actions button");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await add.click();
+    const input=page.getByRole("dialog").getByRole("textbox");
     await input.fill("https://example.invalid/feed");
-    await page.locator(".atlas-heading-actions button").click();
+    await page.keyboard.press("Escape");
+    await expect(add).toBeFocused();
     await expect(input).toHaveCount(0);
     await page.locator(".atlas-heading-actions button").click();
     await expect(input).toHaveValue("https://example.invalid/feed");
+    await page.getByRole("dialog").getByRole("button",{name:"Cancel"}).click();
     await nav.nth(3).click();
     await page.locator(".atlas-disclosure>summary").click();
     await expect(page.locator(".atlas-disclosure[open]")).toBeVisible();

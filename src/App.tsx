@@ -1,3 +1,4 @@
+import { ServerImportDialog } from "@/components/ServerImportDialog";
 import {profilePreparation} from "@/lib/profilePreparations";
 import {ProfileHealthContext} from "@/components/ProfileHealthBadge";
 import {ProfileErrorActions} from "@/components/ProfileErrorActions";
@@ -367,6 +368,9 @@ export default function App() {
   const requireSelectionChoice = useCallback((needed: boolean) => { selectionNeedsChoiceRef.current = needed; setSelectionNeedsChoice(needed); }, []);
   const [pendingLinks, setPendingLinks] = useState<string>("");
   const [parseErrors, setParseErrors] = useState<ParseFailure[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const openImport = useCallback(() => setImportOpen(true), []);
   const [parsing, setParsing] = useState(false);
   // Config-builder settings — lifted here so they survive tab
   // switches and a process restart (persisted to localStorage below).
@@ -1004,7 +1008,7 @@ export default function App() {
       const text = rawText.trim();
       if (!text) return false;
       setParsing(true);
-      setError(null);
+      setImportError(null);
       setParseErrors([]);
       try {
         if (!inTauri) {
@@ -1015,7 +1019,7 @@ export default function App() {
             .map((l) => l.trim())
             .filter((l) => l && !l.startsWith("#"));
           if (lines.length === 0) {
-            setError("No entries found in input.");
+            setImportError(t("profileImport.unsupported"));
             return false;
           }
           const linkLines = lines.filter((l) => !/^https?:\/\//i.test(l));
@@ -1040,40 +1044,44 @@ export default function App() {
             if (!await profileImport.request(mocks)) return false;
           }
           for (const u of urlLines) {
-            subs.add({ url: u });
+            await subs.add({ url: u });
           }
           setPendingLinks("");
           return true;
         }
         const result = await api.parseInput(text);
-        setParseErrors(result.failures);
         if (result.outbounds.length && !await profileImport.request(result.outbounds)) return false;
-        // Promote detected subscription URLs.
-        for (const u of result.subscriptions) {
+        let imported = result.outbounds.length;
+        const failures = [...result.failures];
+        for (const url of result.subscriptions) {
           try {
-            await subs.add({ url: u });
-          } catch {
-            // ignore malformed URL
+            await subs.add({ url });
+            imported++;
+          } catch (cause) {
+            failures.push({ line: url, error: { kind: "subscription", message: humanError(cause) } });
           }
         }
-        if (
-          result.outbounds.length > 0 ||
-          result.subscriptions.length > 0
-        ) {
-          setPendingLinks("");
+        setParseErrors(failures);
+        if (failures.length) {
+          if (imported > 0) {
+            setPendingLinks(failures.map(f => f.line).join("\n"));
+            setImportError(t("profileImport.partial"));
+          }
+          return false;
         }
+        if (imported === 0) {
+          setImportError(t("profileImport.unsupported"));
+          return false;
+        }
+        setPendingLinks("");
         return true;
-      } catch (e) {
-        setError(humanError(e));
+      } catch (cause) {
+        setImportError(humanError(cause));
         return false;
       } finally {
         setParsing(false);
       }
-  }, [inTauri, subs, profileImport.request]);
-
-  const onParseLinks = useCallback(() => {
-    onImportText(pendingLinks);
-  }, [onImportText, pendingLinks]);
+  }, [inTauri, subs, profileImport.request, t]);
 
   const onSelectProfile = useCallback(
     async (index: number) => {
@@ -1161,7 +1169,7 @@ export default function App() {
             onDisconnect={() => { void onStop(); }}
             routingOptions={settings.routing}
             onNavigateTab={(t) => setActiveTab(t as TabId)}
-            onAddLinks={onImportText}
+            onOpenImport={openImport}
             settings={settings}
             onSettingsChange={handleSettingsChange}
             onReconnect={reconnectCurrentProfile}
@@ -1176,14 +1184,9 @@ export default function App() {
         content: (
           <ServersTab
             profiles={profiles}
-            parseErrors={parseErrors}
-            parseError={error}
-            pendingLinks={pendingLinks}
-            onPendingLinksChange={setPendingLinks}
-            onParse={onParseLinks}
+            onOpenImport={openImport}
             onRemove={onRemoveProfile}
             onClearAll={onClearProfiles}
-            parsing={parsing}
             subs={subs.snapshot.subscriptions}
             geoipByIp={geoip.byIp}
             readyProfileMetadata={readyProfileMetadata}
@@ -1262,11 +1265,8 @@ export default function App() {
       onStart,
       onStop,
       onSelectProfile,
-      pendingLinks,
+      openImport,
       t,
-      parseErrors,
-      parsing,
-      onParseLinks,
       onRemoveProfile,
       onClearProfiles,
       subs.subs,
@@ -1357,6 +1357,12 @@ export default function App() {
       {/* Body — fills the rest of the viewport with the active tab. */}
       <ProfileHealthContext.Provider value={{sources:profileSources,evidence:activeEvidence(status,diagnostics),attempt:attemptEvidence}}>
       <main ref={workspaceMain} className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {importOpen && !profileImport.plan && <ServerImportDialog value={pendingLinks} busy={parsing}
+          failures={parseErrors} error={importError ?? (manualStore.blocked ? t("profileStorage."+manualStore.state.status) : null)} onChange={value => {
+            setPendingLinks(value); setParseErrors([]); setImportError(null);
+          }}
+          onClose={() => setImportOpen(false)}
+          onSubmit={async () => { if (await onImportText(pendingLinks)) setImportOpen(false); }} />}
         <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} onApply={profileImport.apply} onCancel={profileImport.cancel} />
       <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
         {(selectionNeedsChoice || selectionMissing) && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}

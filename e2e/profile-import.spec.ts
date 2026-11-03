@@ -6,6 +6,7 @@ test("import Cancel, explicit update and storage failure retry",async({page},inf
  await page.waitForFunction(key=>!!localStorage.getItem(key),v2);
     const before=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),v2);
     if(mobile) await page.getByRole('button',{name:'Add Subscription',exact:true}).click();
+    if (!mobile) await page.locator(".atlas-heading-actions button").click();
     await page.locator('textarea').first().fill('vless://SYNTHETIC');
     await page.getByRole('button',{name:mobile?'Add':'Add Server',exact:true}).click();
     const dialog=page.getByRole('dialog').filter({hasText:'Compare imported profiles'});
@@ -36,6 +37,7 @@ test("import Cancel, explicit update and storage failure retry",async({page},inf
 test("structured parse failure remains readable and preserves input",async({page},info)=>{
  const {mobile,verify}=await openFixture(page,info,{single:true,parseFailure:true});
  if(mobile)await page.getByRole("button",{name:"Add Subscription",exact:true}).click();
+ if (!mobile) await page.locator(".atlas-heading-actions button").click();
  await page.locator("textarea").first().fill("vless://SYNTHETIC");
  await page.getByRole("button",{name:mobile?"Add":"Add Server",exact:true}).click();
  await expect(page.getByText(/Invalid port number/).first()).toBeVisible();

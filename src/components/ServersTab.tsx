@@ -3,7 +3,7 @@ import {ProfileHealthBadge} from "./ProfileHealthBadge";
 import {profileRef} from "@/lib/profileEvidence";
 import { manualProfileHint } from "@/lib/manualProfileHint";
 import { useState } from "react";
-import { Link2, Loader2, Plus, Rss, Server, Trash2 } from "lucide-react";
+import { Plus, Server, Trash2 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import {
@@ -17,19 +17,14 @@ import { SubscriptionsCard } from "@/components/SubscriptionsCard";
 import { cn } from "@/lib/utils";
 import { profileLabel } from "@/lib/outbound";
 import { useI18n } from "@/lib/i18n";
-import type { HomeProfileMetadata, ParseFailure, SubscriptionSummary } from "@/lib/types";
+import type { HomeProfileMetadata, SubscriptionSummary } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
 export interface ServersTabProps {
   profiles: ConnectionProfile[];
-  parseErrors: ParseFailure[];
-  parseError: string | null;
-  pendingLinks: string;
-  onPendingLinksChange: (v: string) => void;
-  onParse: () => void;
+  onOpenImport: () => void;
   onRemove: (index: number) => void;
   onClearAll: () => void;
-  parsing: boolean;
   subs: SubscriptionSummary[];
   subFetching: Record<string, boolean>;
   onAddSub: (sub: { url: string; name?: string; intervalMinutes?: number }) => void;
@@ -44,14 +39,9 @@ export interface ServersTabProps {
 
 export function ServersTab({
   profiles,
-  parseErrors,
-  parseError,
-  pendingLinks,
-  onPendingLinksChange,
-  onParse,
+  onOpenImport,
   onRemove,
   onClearAll,
-  parsing,
   subs,
   subFetching,
   onAddSub,
@@ -63,7 +53,6 @@ export function ServersTab({
   geoipByIp,
 }: ServersTabProps) {
   const { t } = useI18n();
-  const [addOpen, setAddOpen] = useState(true);
   const [subOpen, setSubOpen] = useState(true);
 
   const manualProfiles = profiles
@@ -76,70 +65,8 @@ export function ServersTab({
   return (
     <div className="atlas-page atlas-catalog">
       <AtlasHeading icon={Server} title={t("servers.title")} meta={<span className="atlas-count">{profiles.length}</span>}
-        actions={<Button size="sm" variant="outline" aria-expanded={addOpen} aria-controls="atlas-import" onClick={()=>setAddOpen(v=>!v)}>
-          <Link2 size={15}/>{addOpen?t("common.close"):t("common.add")}</Button>}/>
-      {addOpen && <section id="atlas-import" className="atlas-import">
-        <h3><Link2 size={16}/>{t("servers.addServer")}</h3>
-        <div className="space-y-3">
-            <textarea aria-label={t("servers.addServer")}
-              value={pendingLinks} onChange={(e)=>onPendingLinksChange(e.target.value)}
-              placeholder={"vless://…\nhttps://provider.example.com/sub?token=…"}
-              className="atlas-input min-h-[110px] w-full resize-y font-mono"
-              spellCheck={false}
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={onParse}
-                disabled={parsing || !pendingLinks.trim()}
-                className="flex-1"
-              >
-                {parsing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                ) : (
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                )}
-                {t("servers.addServer")}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onPendingLinksChange("")}
-                title="Clear input"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            {parseError && (
-              <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-                {parseError}
-              </div>
-            )}
-            {parseErrors.length > 0 && (
-              <div className="space-y-1.5 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs">
-                <p className="font-semibold text-destructive">
-                  {parseErrors.length} parse error
-                  {parseErrors.length === 1 ? "" : "s"}:
-                </p>
-                <ul className="space-y-0.5 pl-1 text-destructive/90 text-[11px]">
-                  {parseErrors.slice(0, 3).map((f, i) => (
-                    <li key={i} className="truncate">
-                      <span className="text-muted-foreground">
-                        [{f.error.kind}]
-                      </span>{" "}
-                      {f.error.message}
-                    </li>
-                  ))}
-                  {parseErrors.length > 3 && (
-                    <li className="text-muted-foreground">
-                      …and {parseErrors.length - 3} more
-                    </li>
-                  )}
-                </ul>
-              </div>
-            )}
-        </div>
-      </section>}
+        actions={<Button size="sm" variant="outline" aria-haspopup="dialog" onClick={onOpenImport}>
+          <Plus size={15}/>{t("common.add")}</Button>}/>
 
       <div className="atlas-directory">
             <SubscriptionsCard expanded={subOpen} onToggle={()=>setSubOpen(v=>!v)}

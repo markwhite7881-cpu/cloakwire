@@ -711,6 +711,7 @@ export default function MobileApp() {
             <HomeScreen
               vpn={vpn}
               errorActions={<ProfileErrorActions {...cardActions}/>}
+              selectedRef={probeSource?.profile_ref}
               probeCard={<ProfileProbeCard probe={profileProbe} source={probeSource} disabled={vpn.busy||manualStore.blocked}/>}
               profiles={profiles}
               groups={serverGroups}

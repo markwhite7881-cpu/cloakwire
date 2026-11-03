@@ -1,3 +1,5 @@
+import { ConnectionControl } from "@/components/atlas/ConnectionControl";
+import { sameProfileRef, type ProfileRef } from "@/lib/connectionHealth";
 import { Button } from "@/components/Button";
 import { AtlasGlobe } from "@/components/atlas/AtlasGlobe";
 import { HomeTraffic } from "@/components/SpeedTestTab";
@@ -8,10 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Globe,
   ChevronDown,
-  Clock,
-  Loader2,
   Plus,
-  Power,
   Server,
   Shield,
 } from "lucide-react";
@@ -40,7 +39,7 @@ const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export function HomeScreen({
-  vpn,errorActions,probeCard,
+  vpn,errorActions,probeCard,selectedRef,
   profiles,
   groups,
   selectedIndex,
@@ -59,6 +58,7 @@ export function HomeScreen({
   vpn: VpnConnection;
   errorActions?:ReactNode;
   probeCard?:ReactNode;
+  selectedRef?: ProfileRef | null;
   profiles: Outbound[];
   groups: ServerGroup[];
   selectedIndex: number;
@@ -180,7 +180,9 @@ export function HomeScreen({
       : profileLabel(selectedSupported);
 
   const connectedName = vpn.profileName?.trim() || (vpn.engine === "xray" ? "Xray" : "sing-box");
-  const connectedFlag = serverLine === connectedName ? flag : null;
+  const differentOwner = !!(vpn.source && selectedRef && !sameProfileRef(vpn.source.profile_ref, selectedRef));
+  const actualName = vpn.profileName?.trim();
+  const showActive = isRunning && (differentOwner || (actualName && actualName !== serverLine));
 
   const routingSummary = summarizeRoutingPolicy(
     settings.routing.final_outbound,
@@ -288,7 +290,8 @@ export function HomeScreen({
   const matches=[...locations.values()].filter(row=>row.name===connectedName);
   const knownCountries=new Set(matches.map(row=>row.country));
   const code=knownCountries.size===1 ? matches[0].country : flagForProfile({tag:connectedName,geoipByIp}).code;
-  const recentRows=recent.filter(key=>locations.has(key));
+  const pickedCountry = activeBundle ? locations.get(pickedKey ?? "")?.country : flag?.code;
+  const recentRows=recent.filter(key=>key!==pickedKey && locations.has(key));
   return (
     <div className="flex flex-col gap-3 p-4 pb-8">
       <AtlasGlobe countries={countries} running={isRunning} country={/^[A-Z]{2}$/.test(code)?code:null} bytesPerSecond={(current?.down_bps??0)+(current?.up_bps??0)} />
@@ -300,8 +303,8 @@ export function HomeScreen({
             onClick={() => setServerPickerOpen(true)}
             className="atlas-server-trigger"
           >
-            {flag ? (
-              <FlagIcon code={flag.code} size={15} className="shrink-0" />
+            {pickedCountry && /^[A-Z]{2}$/.test(pickedCountry) ? (
+              <FlagIcon code={pickedCountry} size={15} className="shrink-0" />
             ) : (
               <Globe size={15} aria-hidden="true"/>
             )}
@@ -309,57 +312,16 @@ export function HomeScreen({
             <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
           </button>
 
-          <span className="atlas-meta">
-            {vpn.engine === "xray" ? "Xray Core" : "sing-box"}
-          </span>
         </div>
-
-        <div className="flex flex-col items-start gap-2">
-          <div className="flex w-full items-center justify-between gap-2">
-            <h1 className="text-lg font-semibold">{headline}</h1>
-            <Button size="sm" variant="default" type="button" disabled={vpn.busy || isTransition || !vpn.ready}
-              aria-label={isRunning ? t("common.disconnect") : t("common.connect")}
-              onClick={()=>{triggerHaptic("medium");if(isRunning)void vpn.disconnect();else void onConnect();}}
-              >
-              {isTransition?<Loader2 size={16} className="animate-spin"/>:<Power size={16}/>}
-              {t(isRunning?"common.disconnect":"common.connect")}
-            </Button>
-          </div>
-          <div className="space-y-1">
-            <button
-              type="button"
-              onClick={onOpenServers}
-              className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground active:opacity-80 mx-auto"
-            >
-              {isRunning ? (
-                <>
-                  <span>{t("home.via")}</span>
-                  {connectedFlag && <FlagIcon code={connectedFlag.code} size={14} className="self-center" />}
-                  <span className="font-medium text-foreground">{connectedName}</span>
-                </>
-              ) : profiles.length === 0 ? (
-                <span>{t("servers.noServers")}</span>
-              ) : (
-                <>
-                  <span>{t("common.status")}:</span>
-                  {flag && <FlagIcon code={flag.code} size={14} className="self-center" />}
-                  <span className="font-medium text-foreground">{serverLine}</span>
-                </>
-              )}
-            </button>
-
-            {isRunning && uptimeSecs != null && (
-              <div className="flex items-center justify-center pt-1">
-                <span className="atlas-meta inline-flex items-center gap-1.5">
-                  <Clock className="h-3 w-3 text-theme-accent" />
-                  <span>{t("home.sessionTime")}: {formatDuration(uptimeSecs)}</span>
-                </span>
-              </div>
-            )}
-
-          </div>
-        </div>
-
+        <ConnectionControl headline={headline} running={isRunning} transition={isTransition}
+          duration={uptimeSecs == null ? null : formatDuration(uptimeSecs)} disabled={vpn.busy || isTransition || !vpn.ready}
+          onToggle={() => { triggerHaptic("medium"); if (isRunning) void vpn.disconnect(); else void onConnect(); }} />
+        {showActive && <p className="atlas-active-note">
+          {actualName && actualName !== serverLine ? t("home.via")+" "+actualName : t("atlas.otherActive")}
+        </p>}
+        {!activeBundle && !profiles.length && <Button variant="outline" size="sm" onClick={onAddSub && onAddLinks ? () => setAddSheetOpen(true) : onOpenServers}>{t("servers.addServer")}</Button>}
+        {probeCard}
+        {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
         {recentRows.length>0 && <div><h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
           <div className="divide-y divide-border">{recentRows.map(key=>{
             const row=locations.get(key)!;
@@ -370,18 +332,12 @@ export function HomeScreen({
               }}><FlagIcon code={row.country} size={15}/><span className="min-w-0 truncate">{row.name}</span></button>;
           })}</div>
         </div>}
-        {probeCard}
-
-        {/* Hero Footer */}
-        <div className="relative z-10 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground/70">
-          <span>{t("home.tunMode")}</span>
-          <span>{vpn.engine === "xray" ? "Xray Core" : "sing-box Core"}</span>
-        </div>
+        <details className="atlas-session-details">
+          <summary>{t("profileProbe.details")}</summary>
+          <span>{t("home.tunMode")} · {vpn.engine === "xray" ? "Xray" : "sing-box"}</span>
+        </details>
       </div>
-
       <RecoveryNotice />
-
-      {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
 
       {/* ─── Bento 3: Per-App Routing Summary ─────────────────────── */}
       <div className="atlas-panel atlas-home-section flex flex-col justify-between p-4">

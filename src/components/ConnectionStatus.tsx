@@ -2,8 +2,8 @@ import type {ReactNode} from "react";
 import {AlertCircle,CheckCircle2,RefreshCw,Server} from "lucide-react";
 import {useI18n} from "@/lib/i18n";
 import type {ConnectionPresentation} from "@/lib/connectionPresentation";
-export function ConnectionStatus({view,onRetry,onChooseServer,busy=false,message,showHeading=true,actions}:{
-  view:ConnectionPresentation;onRetry?:()=>void;onChooseServer?:()=>void;busy?:boolean;message?:string|null;showHeading?:boolean;actions?:ReactNode;
+export function ConnectionStatus({view,onRetry,onChooseServer,busy=false,message,showHeading=true,hideSessionName=false,actions}:{
+  view:ConnectionPresentation;onRetry?:()=>void;onChooseServer?:()=>void;busy?:boolean;message?:string|null;showHeading?:boolean;hideSessionName?:boolean;actions?:ReactNode;
 }){
   const {t,locale}=useI18n();
   const code=view.issue?.code??view.health?.issue;
@@ -17,7 +17,7 @@ export function ConnectionStatus({view,onRetry,onChooseServer,busy=false,message
       {view.state==="healthy"?<CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-emerald-500"/>:needsAttention?<AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-500"/>:null}
       {t(`health.${view.state}`)}
     </p>}
-    {!compact&&view.session?.display_name&&<p className="break-words text-muted-foreground">{t("health.session",{name:view.session.display_name==="auto"?t("health.auto"):view.session.display_name})}</p>}
+    {!compact&&!hideSessionName&&view.session?.display_name&&<p className="break-words text-muted-foreground">{t("health.session",{name:view.session.display_name==="auto"?t("health.auto"):view.session.display_name})}</p>}
     {view.issue&&<p className="font-medium">{t(view.issue.severity==="notice"?"health.notice":"health.stoppedReason")}{view.issue.count>1? ` · ${view.issue.count}`:""}</p>}
     {code&&<p role={view.issue?"alert":undefined} className="break-words text-foreground/90">{t(`health.reasons.${code}`)}</p>}
     {time&&<p className="text-xs text-muted-foreground">{t("health.checked",{time})}{view.health?.outcome==="healthy"&&view.health?.latency_ms!=null?` · ${view.health.latency_ms} ms`:""}</p>}

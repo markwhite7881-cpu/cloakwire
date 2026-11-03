@@ -1,3 +1,4 @@
+import { ConnectionControl } from "./atlas/ConnectionControl";
 import { AtlasGlobe } from "./atlas/AtlasGlobe";
 import { HomeTraffic } from "./SpeedTestTab";
 import { sameProfileRef } from "@/lib/connectionHealth";
@@ -15,13 +16,9 @@ import {
   ChevronDown,
   Globe,
   Layers,
-  Link2,
-  Loader2,
   Plus,
-  Power,
   Server,
   ShieldCheck,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { ConnectionErrorCard } from "@/components/ConnectionErrorCard";
@@ -77,7 +74,7 @@ export interface HomeTabProps {
   onDisconnect: () => void;
   routingOptions?: RoutingOptions;
   onNavigateTab?: (tab: string) => void;
-  onAddLinks?: (text: string) => Promise<boolean>;
+  onOpenImport?: () => void;
   settings?: GeneratorSettings;
   onSettingsChange?: (settings: GeneratorSettings) => void;
   onReconnect?: (overrideSettings?: GeneratorSettings) => Promise<boolean>;
@@ -104,13 +101,11 @@ export function HomeTab({
   onDisconnect,
   routingOptions,
   onNavigateTab,
-  onAddLinks,
+  onOpenImport,
   settings,
   onSettingsChange,
   onReconnect,
 }: HomeTabProps) {
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddText, setQuickAddText] = useState("");
 
   const currentMode: TunnelMode = settings?.tunnel_mode ?? "tun";
   const handleModeChange = async (newMode: TunnelMode) => {
@@ -198,22 +193,6 @@ export function HomeTab({
     ? "Auto (urltest)"
     : activeOutbound ?? null);
 
-  const selectedTag = selected?.kind === "manual" && isSupported(selected.outbound)
-    ? selected.outbound.tag
-    : selected?.kind === "subscription"
-      ? selected.label
-      : null;
-  const activeMatchesPicked =
-    activeOutbound == null ||
-    (selectedIndex >= 0 && selectedTag === activeOutbound);
-  const userPicked = !activeMatchesPicked
-    ? selectedIndex === -1
-      ? "Auto"
-      : selected
-        ? connectionProfileLabel(selected)
-        : null
-    : null;
-
   const vpnProcesses = routingOptions?.vpn_processes ?? [];
   const directProcesses = routingOptions?.direct_processes ?? [];
 
@@ -224,7 +203,7 @@ export function HomeTab({
     return /^[A-Z]{2}$/.test(code) ? code : null;
   };
   const countries=[...new Set(profiles.map(countryOf).filter(Boolean))].sort().join(" ");
-  const sessionRef=diagnostics?.session?.profile_ref;
+  const sessionRef=healthView.session?.profile_ref;
   const owner=sessionRef && profiles.find(p=>{const ref=profileRef(p);return ref && sameProfileRef(ref,sessionRef);});
   const liveProfile=activeProfile || owner || activeXrayProfile;
   const country=liveProfile ? countryOf(liveProfile) : activeFlag?.code !== "??" ? activeFlag?.code ?? null : null;
@@ -244,34 +223,38 @@ export function HomeTab({
       return next;
     });
   },[selectedKey]);
-  const recentRows=recent.map(key=>profiles.findIndex(p=>connectionProfileStorageKey(p)===key)).filter(i=>i>=0);
+  const pickedName = selected && display(selected).label;
+  const pickedRef = selected && profileRef(selected);
+  const sessionName = activeName || healthView.session?.display_name || (isXrayRunning ? activeXrayDisplay.label : null);
+  const differentOwner = !!(sessionRef && pickedRef && !sameProfileRef(sessionRef, pickedRef));
+  const showActive = isRunning && sessionName && (sessionName !== pickedName || differentOwner);
+  const recentRows=recent.filter(key => key !== selectedKey).map(key=>profiles.findIndex(p=>connectionProfileStorageKey(p)===key)).filter(i=>i>=0);
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-5">
       <section className="atlas-hero">
         <AtlasGlobe countries={countries} country={country} running={isRunning} bytesPerSecond={(current?.down_bps??0)+(current?.up_bps??0)}/>
         <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className={cn("h-2 w-2 rounded-full",isRunning?"bg-theme-accent":"bg-muted-foreground")}/><h1 className="font-medium">{headline}</h1>
-            {isRunning && <span className="ml-auto tabular-nums">{sessionTimer.formatted}</span>}
-          </div>
-          <h2 className="text-2xl font-semibold">{isRunning ? country ? regionNames.of(country) : t("atlas.unknown") : t("atlas.pick")}</h2>
-          {isRunning && <p className="text-xs text-muted-foreground">{activeName || (isXrayRunning ? activeXrayDisplay.label : "")}{userPicked && " · "+t("home.picked",{name:userPicked})}</p>}
+          {isRunning && <h2 className="text-xl font-semibold">{country ? regionNames.of(country) : t("atlas.unknown")}</h2>}
           <ServerPicker profiles={profiles} selectedIndex={selectedIndex} latencyByTag={latency.byTag}
             readyProfileMetadata={readyProfileMetadata} subscriptionNames={subscriptionNames} geoipByIp={geoipByIp} onSelect={onSelect}/>
+          <ConnectionControl headline={headline} running={isRunning} transition={isTransition}
+            duration={sessionTimer.formatted} disabled={busy || isTransition || (!isRunning && !canStart)}
+            onToggle={isRunning ? onDisconnect : onConnect} />
+          {showActive && <p className="atlas-active-note">{sessionName === pickedName ? t("atlas.otherActive") : t("home.via")+" "+sessionName}</p>}
+          {!profiles.length && <Button size="sm" variant="outline" onClick={onOpenImport}>{t("servers.addServer")}</Button>}
           {recentRows.length>0 && <div className="atlas-recent">
             <h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
             {recentRows.map(index=><ProfileChoice key={connectionProfileStorageKey(profiles[index]) || index} row={{index,profile:profiles[index]}} selectedIndex={selectedIndex}
               readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latency.byTag} onSelect={onSelect} compact />)}
           </div>}
-          <div className="flex items-center gap-2">
-            <Button onClick={isRunning?onDisconnect:onConnect} disabled={busy || isTransition || (!isRunning && !canStart)}
-              aria-label={isRunning ? "Disconnect":"Connect"} className={cn("gap-2",powerButtonClasses(statusLabel))}>
-              {isTransition?<Loader2 size={16} className="animate-spin"/>:<Power size={16}/>}
-              {t(isRunning?"common.disconnect":"common.connect")}
-            </Button>
-            {!profiles.length && <Button size="sm" variant="outline" type="button" onClick={()=>setQuickAddOpen(true)}>{t("servers.addServer")}</Button>}
-          </div>
         </div>
       </section>
+      {(isRunning||healthView.issue)&&<ConnectionStatus view={healthView} showHeading={false} hideSessionName={isRunning && !!healthView.session && [pickedName, sessionName].includes(healthView.session.display_name)}
+        onRetry={healthView.session&&onRetryHealth?()=>{void onRetryHealth(healthView.session!);}:undefined}
+        onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined} busy={healthActionBusy} message={healthActionMessage} actions={runtimeActions}/>}
+      <RecoveryNotice />
+      {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} actions={errorActions} />}
+
       <section className="atlas-panel atlas-route-summary">
         <div className="min-w-0"><h2 className="text-sm font-semibold">{t("routingModes.title")}</h2>
           <p className="text-xs text-muted-foreground">{route && t("routingModes."+(route.reason || route.mode))}</p>
@@ -282,9 +265,6 @@ export function HomeTab({
         </div>
         <Button size="sm" variant="outline" onClick={()=>onNavigateTab?.("routing")}>{t("common.edit")}</Button>
       </section>
-      {(isRunning||healthView.issue)&&<ConnectionStatus view={healthView} showHeading={false}
-        onRetry={healthView.session&&onRetryHealth?()=>{void onRetryHealth(healthView.session!);}:undefined}
-        onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined} busy={healthActionBusy} message={healthActionMessage} actions={runtimeActions}/>}
       <div className="flex items-center justify-between gap-2">
         <div className="atlas-mode-selector atlas-home-modes">
                 <button aria-pressed={currentMode === "tun"}
@@ -321,9 +301,6 @@ export function HomeTab({
         <span className="text-xs text-muted-foreground">{status.engine==="xray"?"Xray":"sing-box"}</span>
       </div>
       <HomeTraffic key={[status.run_id,status.status,selectedKey].join(":")} samples={trafficLive.samples} current={current} vpnActive={isRunning} activeProfileName={activeName}/>
-      <RecoveryNotice />
-      {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} actions={errorActions} />}
-
       {/* All-servers strip — quick visual switcher. */}
       {profiles.length > 0 && (
         <Card className="atlas-home-section p-4">
@@ -334,7 +311,7 @@ export function HomeTab({
             </div>
             <Button size="sm" variant="outline"
               type="button"
-              onClick={() => setQuickAddOpen(true)}
+              onClick={onOpenImport}
 
               title={t("servers.addServer")}
             >
@@ -355,93 +332,8 @@ export function HomeTab({
         </Card>
       )}
 
-      {/* Quick Add Modal */}
-      {quickAddOpen && (
-        <div
-          className="atlas-overlay atlas-center-overlay atlas-desktop-modal"
-          onClick={() => setQuickAddOpen(false)}
-        >
-          <div
-            role="dialog" aria-modal="true" aria-label={t("servers.addServer")} className="atlas-dialog atlas-import-dialog space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="atlas-dialog-symbol">
-                  <Link2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-foreground">
-                    {t("servers.addServer")}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {t("servers.subscriptionUrl")}
-                  </p>
-                </div>
-              </div>
-              <Button size="icon" variant="ghost"
-                type="button"
-                onClick={() => setQuickAddOpen(false)}
-                aria-label={t("common.close")}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <textarea
-              value={quickAddText}
-              onChange={(e) => setQuickAddText(e.target.value)}
-              placeholder={
-                "vless://uuid@host:port?type=tcp&security=reality&pbk=...\n" +
-                "https://provider.example.com/sub?token=ABCD-1234"
-              }
-              className="atlas-input min-h-[120px] w-full resize-y font-mono"
-              spellCheck={false}
-              autoFocus
-            />
-
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setQuickAddOpen(false)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                size="sm"
-                disabled={!quickAddText.trim()}
-                onClick={async () => {
-                  if (quickAddText.trim()) {
-                    if (!await onAddLinks?.(quickAddText.trim())) return;
-                    setQuickAddText("");
-                    setQuickAddOpen(false);
-                  }
-                }}
-              >
-                {t("common.add")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
-
-export function powerButtonClasses(statusLabel: Status): string {
-  if (statusLabel === "running") {
-    return "border-theme-accent bg-success text-zinc-950";
-  }
-  if (statusLabel === "starting" || statusLabel === "stopping") {
-    return "border-foreground/20 bg-foreground/5";
-  }
-  return "border-theme-accent bg-theme-accent text-zinc-950";
-}
-
-function connectionProfileLabel(profile: ConnectionProfile): string {
-  if (profile.kind === "manual") return profileLabel(profile.outbound);
-  return profile.kind === "subscription" ? profile.label : profile.name;
 }
 
 export type IndexedHomeProfile = { index: number; profile: ConnectionProfile };
@@ -723,7 +615,7 @@ function ServerPicker({
     ? connectionProfileDisplay(selected, readyProfileMetadata, geoipByIp, latencyByTag)
     : null;
   const selectedFlag = selectedDisplay ?? { flag: "🌐", code: "??", label: t("servers.noServers"), ms: undefined, key: "none", protocol: "" };
-  const selectedName = selectedDisplay?.label ?? t("servers.noServers");
+  const selectedName = selectedDisplay?.label ?? (profiles.length ? t("health.auto") : t("servers.noServers"));
   const selectedMs = selectedDisplay?.ms;
 
   return (

@@ -1,7 +1,7 @@
 import type { TranslationSchema } from "./en";
 
 export const ru: TranslationSchema = {
-  atlas: {"globe":"Доступные страны","unknown":"Страна не указана","pick":"Выберите сервер","recent":"Последние серверы","connection":"Подключение","atLaunch":"Подключаться при запуске приложения.","customProfiles":"Пользовательские серверы","subscriptionProfiles":"Профили подписок","importSources":"Импорт сервера или подписки"},
+  atlas: {"otherActive":"Подключён другой профиль с таким же именем.","globe":"Доступные страны","unknown":"Страна не указана","pick":"Выберите сервер","recent":"Последние серверы","connection":"Подключение","atLaunch":"Подключаться при запуске приложения.","customProfiles":"Пользовательские серверы","subscriptionProfiles":"Профили подписок","importSources":"Импорт сервера или подписки"},
   recovery: {
   "engineUnavailable": "VPN остановился. Подключитесь вручную, чтобы восстановить соединение.",
   "trafficBlocked": "Kill Switch продолжает блокировать трафик.",

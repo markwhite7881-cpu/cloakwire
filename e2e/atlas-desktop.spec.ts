@@ -83,10 +83,11 @@ test("profile and subscription text travel through the same importer",async({pag
     };
   });
   const mixed="vless://fixture-only@example.test:443#AtlasUK\nhttps://provider.example/test";
-  await page.locator("textarea").first().fill(mixed);
+  await page.locator(".atlas-heading-actions button").click();
+  await page.getByRole("dialog").locator("textarea").fill(mixed);
   await page.getByRole("button",{name:"Add Server",exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>(window as any).atlasImport)).toBe(mixed);
   await expect.poll(()=>page.evaluate(()=>(window as any).atlasSub)).toBe("https://provider.example/test");
-  await expect(page.locator("textarea").first()).toHaveValue("");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await verify();
 });

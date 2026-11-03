@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
 
-import { HomeTab, connectionProfileDisplay, groupHomeProfiles, powerButtonClasses, subscriptionGroupLabel } from "./HomeTab";
+import { HomeTab, connectionProfileDisplay, groupHomeProfiles, subscriptionGroupLabel } from "./HomeTab";
 
 describe("HomeTab presentation helpers", () => {
   const readyXrayProfile: ConnectionProfile = {
@@ -130,11 +130,7 @@ describe("HomeTab presentation helpers", () => {
     });
   });
 
-  it("uses green connected classes only while running", () => {
-    expect(powerButtonClasses("running")).toContain("bg-success");
-    expect(powerButtonClasses("starting")).not.toContain("bg-success");
-    expect(powerButtonClasses("stopping")).not.toContain("bg-success");
-  });
+
 });
 
 import { renderToStaticMarkup } from "react-dom/server";
@@ -160,6 +156,7 @@ describe("HomeTab profile validation feedback", () => {
         onDisconnect={() => {}}
       />,
     );
+    expect(html).toContain('data-running="true"');
     expect(html).toContain('role="alert"');
     expect(html).toContain("Profile check failed");
     expect(html).toContain("DNS");
