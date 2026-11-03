@@ -101,7 +101,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
 
       {/* Action */}
       <div>
-        <label className="block text-xs text-muted-foreground mb-1 font-mono">
+        <label className="block text-xs text-muted-foreground mb-1">
           {t("routing.action")}
         </label>
         <div className="flex flex-wrap items-center gap-2">
@@ -389,7 +389,7 @@ function PortField({ label, values, onChange }: PortFieldProps) {
   const remove = (n: number) => onChange(arr.filter((x) => x !== n));
   return (
     <div>
-      <label className="block text-xs text-muted-foreground mb-1 font-mono">{label}</label>
+      <label className="block text-xs text-muted-foreground mb-1">{label}</label>
       <div className="flex flex-wrap gap-1.5 items-center">
         {arr.map((n) => (
           <span
@@ -439,7 +439,7 @@ interface ChipsPickerProps {
 function ChipsPicker({ label, options, values, onToggle }: ChipsPickerProps) {
   return (
     <div>
-      <label className="block text-xs text-muted-foreground mb-1 font-mono">{label}</label>
+      <label className="block text-xs text-muted-foreground mb-1">{label}</label>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => {
           const active = values.includes(opt);

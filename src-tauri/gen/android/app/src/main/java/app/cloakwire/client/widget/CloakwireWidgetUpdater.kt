@@ -42,6 +42,12 @@ object CloakwireWidgetUpdater {
       "amber" -> COLOR_AMBER
       "rose" -> COLOR_ROSE
       "emerald" -> COLOR_EMERALD
+      "azure" -> 0xFF38BDF8.toInt()
+      "indigo" -> 0xFF818CF8.toInt()
+      "coral" -> 0xFFFB806B.toInt()
+      "lime" -> 0xFFA3E635.toInt()
+      "fuchsia" -> 0xFFE879F9.toInt()
+      "slate" -> 0xFF94A3B8.toInt()
       else -> COLOR_EMERALD
     }
   }

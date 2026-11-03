@@ -47,9 +47,9 @@ export function UpdateModal({
                 {t("updates.modalTitle")}
               </h2>
               <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="font-mono">v{currentVersion}</span>
+                <span>v{currentVersion}</span>
                 <ArrowRight className="h-3 w-3 text-muted-foreground/60" />
-                <span className="font-mono font-medium text-theme-accent">v{version}</span>
+                <span className="font-medium text-theme-accent">v{version}</span>
               </div>
             </div>
           </div>
@@ -66,7 +66,7 @@ export function UpdateModal({
 
         {/* Release notes */}
         {notes && (
-          <div className="mt-4 max-h-48 overflow-y-auto atlas-notes p-3.5 text-xs text-muted-foreground/90 font-mono leading-relaxed space-y-1">
+          <div className="mt-4 max-h-48 overflow-y-auto atlas-notes p-3.5 text-xs text-muted-foreground/90 leading-relaxed space-y-1">
             <p className="font-semibold text-foreground/90 font-sans text-[10px]">
               {t("updates.whatsNew")}
             </p>

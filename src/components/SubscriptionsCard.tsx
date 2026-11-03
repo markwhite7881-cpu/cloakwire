@@ -86,7 +86,7 @@ export function SubscriptionsCard({
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 {t("servers.refreshEvery")}
-                <select value={draftInterval} onChange={(event) => setDraftInterval(parseInt(event.target.value, 10))} className="atlas-input font-mono">
+                <select value={draftInterval} onChange={(event) => setDraftInterval(parseInt(event.target.value, 10))} className="atlas-input">
                   <option value={15}>15 min</option><option value={30}>30 min</option><option value={60}>1 h</option><option value={360}>6 h</option><option value={1440}>{t("servers.daily")}</option>
                 </select>
               </label>
@@ -162,7 +162,7 @@ function SubscriptionRow({ sub, loading, onRefresh, onRemove, onIntervalChange, 
       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
         <span>{t("servers.lastUpdated")}: {fetched}</span><span>·</span>
         <span className={cn(sub.last_error ? "text-destructive" : "text-foreground/70")}>{sub.last_error?.message ?? t("common.ready")}</span><span>·</span>
-        <select value={sub.interval_minutes} onChange={(event) => onIntervalChange(parseInt(event.target.value, 10))} className="atlas-input font-mono">
+        <select value={sub.interval_minutes} onChange={(event) => onIntervalChange(parseInt(event.target.value, 10))} className="atlas-input">
           <option value={15}>15m</option><option value={30}>30m</option><option value={60}>1h</option><option value={360}>6h</option><option value={1440}>24h</option>
         </select>
       </div>

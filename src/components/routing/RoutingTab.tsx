@@ -180,7 +180,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
           <span className="advanced-arrow text-xs text-muted-foreground" />
           {t("routing.advancedRulesTitle")}
           {(r.rules.length > 0 || r.rule_sets.length > 0) && (
-            <span className="text-[10px] text-muted-foreground font-mono">
+            <span className="text-[10px] text-muted-foreground">
               {t("routing.rulesAndSetsCount", { rules: r.rules.length, ruleSets: r.rule_sets.length })}
             </span>
           )}
@@ -310,7 +310,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
           {jsonOpen && (
             <div className="atlas-editor-section">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-muted-foreground font-mono">
+                <span className="text-xs text-muted-foreground">
                   {t("routing.jsonTitle")}
                 </span>
                 <Button variant="ghost" size="sm" onClick={onCopyJson} title={t("common.copy")}>

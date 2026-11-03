@@ -64,7 +64,7 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
       </div>
 
       {ruleSets.length === 0 && (
-        <div className="rounded-lg border border-dashed border-border/80 bg-background/40 p-3 text-center text-xs text-muted-foreground font-mono">
+        <div className="rounded-lg border border-dashed border-border/80 bg-background/40 p-3 text-center text-xs text-muted-foreground">
           {t("routing.noRuleSets")}
         </div>
       )}

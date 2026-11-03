@@ -1,6 +1,5 @@
 import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
-import { SettingsIndex } from "@/components/atlas/SettingsIndex";
 import { useState } from "react";
 import { Bell, FileJson, FolderOpen, Server, Settings2 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -36,7 +35,6 @@ import type {
 const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-const desktopSettingsSections=[["atlas-config-files","nav.config"],["atlas-config-appearance","settings.appearance"],["atlas-config-network","settings.network"],["atlas-config-about","settings.about"]] as const;
 
 export interface ConfigTabProps {
   configPath: string;
@@ -87,7 +85,6 @@ export function ConfigTab({
   return (
     <div className="atlas-page atlas-settings">
       <AtlasHeading icon={Settings2} title={t("settings.title")}/>
-      <SettingsIndex sections={desktopSettingsSections}/>
       <section className="atlas-group" id="atlas-config-files" tabIndex={-1} aria-label={t("nav.config")}>
       {/* Config picker */}
       <Card className="atlas-section">

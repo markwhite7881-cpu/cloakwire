@@ -640,7 +640,7 @@ export default function MobileApp() {
         <div className="atlas-brand"><img src={cloakwireLogo} alt=""/><strong>CloakWire</strong></div>
         <div className="atlas-mobile-status">
           <span className={cn("h-2 w-2 rounded-full", dotCls)} />
-          <span className="text-[11px] font-mono text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground">
             {vpn.state === "running"
               ? t("common.connected")
               : vpn.state === "starting"

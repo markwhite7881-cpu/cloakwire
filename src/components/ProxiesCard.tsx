@@ -292,14 +292,14 @@ function ProxyGroup({
             {name}
           </span>
           {info.now && (
-            <span className="rounded bg-muted px-1.5 py-0 font-mono text-[10px] text-muted-foreground">
+            <span className="rounded bg-muted px-1.5 py-0 text-[10px] text-muted-foreground">
               → {info.now}
             </span>
           )}
           {(isUrlTest || groupDelay != null) && (
             <span
               className={cn(
-                "ml-auto font-mono text-[11px] tabular-nums",
+                "ml-auto text-[11px] tabular-nums",
                 delayColor(groupDelay),
               )}
             >
@@ -344,7 +344,7 @@ function ProxyGroup({
               ) : (
                 <CircleSlash className="h-3.5 w-3.5 text-muted-foreground/50" />
               )}
-              <span className="truncate font-mono text-[11px]">{member}</span>
+              <span className="truncate text-[11px]">{member}</span>
               {isSelector && (
                 <span className="ml-auto text-[10px] text-muted-foreground">
                   {t("proxies.select")}
@@ -353,7 +353,7 @@ function ProxyGroup({
               {!isSelector && memberDelay != null && (
                 <span
                   className={cn(
-                    "ml-auto font-mono text-[10px] tabular-nums",
+                    "ml-auto text-[10px] tabular-nums",
                     delayColor(memberDelay),
                   )}
                 >

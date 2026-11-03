@@ -94,17 +94,17 @@ export function UpdateCard({ currentSingboxVersion }: Props) {
       <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-3.5">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">
-            <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1 uppercase">
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1 uppercase">
               <Cpu size={11} className="text-theme-accent" />
               {t("updates.singboxCore")}
             </div>
             <div className="text-sm font-medium text-foreground mt-0.5">
               {currentSingboxVersion ? (
-                <span className="font-mono">{currentSingboxVersion}</span>
+                <span>{currentSingboxVersion}</span>
               ) : (
                 <span className="text-muted-foreground">{t("updates.notDetected")}</span>
               )}
-              <span className="text-muted-foreground ml-2 text-xs font-mono">— {t("updates.managedByRelease")}</span>
+              <span className="text-muted-foreground ml-2 text-xs">— {t("updates.managedByRelease")}</span>
             </div>
           </div>
         </div>
@@ -139,7 +139,7 @@ function AppUpdateRow({
     <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-3.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="min-w-0">
-          <div className="text-[11px] font-mono text-muted-foreground uppercase">{t("updates.appShell")}</div>
+          <div className="text-[11px] text-muted-foreground uppercase">{t("updates.appShell")}</div>
           <div className="text-sm font-medium text-foreground mt-0.5">
             {available ? (
               <>
@@ -174,7 +174,7 @@ function AppUpdateRow({
         </div>
       </div>
       {error && (
-        <div className="mt-1.5 text-[11px] text-destructive-foreground/80 font-mono break-all">
+        <div className="mt-1.5 text-[11px] text-destructive-foreground/80 break-all">
           {error}
         </div>
       )}

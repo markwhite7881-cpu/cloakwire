@@ -225,7 +225,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
             </Badge>
             <ProfileHealthBadge profileRef={manualId?{kind:"manual",id:manualId}:null}/>
             {extra && (
-              <span className="rounded bg-muted px-1.5 py-0 font-mono text-[10px] text-muted-foreground">
+              <span className="rounded bg-muted px-1.5 py-0 text-[10px] text-muted-foreground">
                 {extra}
               </span>
             )}
@@ -242,7 +242,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
               </span>
             )}
             {tls && (
-              <span className="inline-flex items-center gap-1 font-mono">
+              <span className="inline-flex items-center gap-1">
                 {tls}
               </span>
             )}

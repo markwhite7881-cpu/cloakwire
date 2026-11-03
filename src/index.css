@@ -69,47 +69,6 @@
     --accent-badge-text: #34d399;
   }
 
-  [data-accent="emerald"] {
-    --accent-glow-rgb: 16, 185, 129;
-    --accent-rgb: 16, 185, 129;
-    --accent-dynamic-hsl: 142.1 76.2% 45%;
-    --accent-from-rgb: 16, 185, 129;
-    --accent-to-rgb: 45, 212, 191;
-    --accent-badge-text: #34d399;
-  }
-  [data-accent="cyan"] {
-    --accent-glow-rgb: 6, 182, 212;
-    --accent-rgb: 6, 182, 212;
-    --accent-dynamic-hsl: 189 94% 48%;
-    --accent-from-rgb: 6, 182, 212;
-    --accent-to-rgb: 56, 189, 248;
-    --accent-badge-text: #22d3ee;
-  }
-  [data-accent="violet"] {
-    --accent-glow-rgb: 139, 92, 246;
-    --accent-rgb: 139, 92, 246;
-    --accent-dynamic-hsl: 262 83% 58%;
-    --accent-from-rgb: 139, 92, 246;
-    --accent-to-rgb: 192, 132, 252;
-    --accent-badge-text: #a78bfa;
-  }
-  [data-accent="amber"] {
-    --accent-glow-rgb: 245, 158, 11;
-    --accent-rgb: 245, 158, 11;
-    --accent-dynamic-hsl: 38 92% 50%;
-    --accent-from-rgb: 245, 158, 11;
-    --accent-to-rgb: 250, 204, 21;
-    --accent-badge-text: #fbbf24;
-  }
-  [data-accent="rose"] {
-    --accent-glow-rgb: 244, 63, 94;
-    --accent-rgb: 244, 63, 94;
-    --accent-dynamic-hsl: 349 89% 60%;
-    --accent-from-rgb: 244, 63, 94;
-    --accent-to-rgb: 251, 113, 133;
-    --accent-badge-text: #fb7185;
-  }
-
   .oled, [data-oled="true"] {
     --background: 0 0% 0% !important;
     --card: 0 0% 1.5% !important;
@@ -133,22 +92,6 @@
   }
 
   /* Light mode contrast adaptations */
-  html:not(.dark) [data-accent="emerald"] {
-    --accent-badge-text: #047857;
-  }
-  html:not(.dark) [data-accent="cyan"] {
-    --accent-badge-text: #0e7490;
-  }
-  html:not(.dark) [data-accent="violet"] {
-    --accent-badge-text: #6d28d9;
-  }
-  html:not(.dark) [data-accent="amber"] {
-    --accent-badge-text: #b45309;
-  }
-  html:not(.dark) [data-accent="rose"] {
-    --accent-badge-text: #be123c;
-  }
-
   html:not(.dark) body {
     background-color: #f8fafc;
     color: #0f172a;
@@ -192,7 +135,7 @@
     min-height: 100%;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   html {

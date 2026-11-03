@@ -373,7 +373,7 @@ export function HomeScreen({
         {probeCard}
 
         {/* Hero Footer */}
-        <div className="relative z-10 flex items-center justify-between border-t border-border pt-3 text-[11px] font-mono text-muted-foreground/70">
+        <div className="relative z-10 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground/70">
           <span>{t("home.tunMode")}</span>
           <span>{vpn.engine === "xray" ? "Xray Core" : "sing-box Core"}</span>
         </div>
@@ -386,7 +386,7 @@ export function HomeScreen({
       {/* ─── Bento 3: Per-App Routing Summary ─────────────────────── */}
       <div className="atlas-panel atlas-home-section flex flex-col justify-between p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Shield className="h-3.5 w-3.5 text-theme-accent" />
             {t("home.perAppRouting")}
           </div>
@@ -415,7 +415,7 @@ export function HomeScreen({
       {/* ─── Bento 4: All Servers List & Quick Add ────────────────── */}
       <div className="atlas-panel atlas-home-section flex flex-col p-4">
         <div className="mb-2 flex items-center justify-between px-1">
-          <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Server className="h-3.5 w-3.5 text-theme-accent" />
             <span>All Servers</span>
             <span className="atlas-count">
@@ -440,7 +440,7 @@ export function HomeScreen({
               <div key={block.id} className="py-1">
                 {block.type === "manual" ? (
                   block.entries.length > 1 && (
-                    <div className="px-1 py-2 font-mono text-[11px] text-muted-foreground/70">
+                    <div className="px-1 py-2 text-[11px] text-muted-foreground/70">
                       {block.label} ({block.entries.length})
                     </div>
                   )
@@ -455,7 +455,7 @@ export function HomeScreen({
                       <span className="truncate text-sm font-semibold text-foreground">
                         {block.label}
                       </span>
-                      <span className="shrink-0 rounded-md bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                      <span className="shrink-0 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                         {block.type === "bundle" ? block.children.length : block.entries.length}
                       </span>
                     </span>
@@ -512,7 +512,7 @@ export function HomeScreen({
                                     {child.name}
                                   </span>
                                   {child.endpoint && (
-                                    <span className="block truncate font-mono text-[11px] text-muted-foreground/80">
+                                    <span className="block truncate text-[11px] text-muted-foreground/80">
                                       {child.endpoint.host}:{child.endpoint.port}
                                     </span>
                                   )}
@@ -609,12 +609,12 @@ export function HomeScreen({
             }}
             className="atlas-pick-row"
           >
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-xs">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs">
               ∞
             </span>
             <div className="min-w-0 flex-1">
               <span className="block text-sm font-medium">Auto (best latency)</span>
-              <span className="block font-mono text-[11px] text-muted-foreground">urltest</span>
+              <span className="block text-[11px] text-muted-foreground">urltest</span>
             </div>
           </button>
 
@@ -648,7 +648,7 @@ export function HomeScreen({
                       >
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">{child.name}</span>
                         <LatencyBadge ms={latency} />
-                        <span className="font-mono text-[10px] text-muted-foreground/70">{child.engine}</span>
+                        <span className="text-[10px] text-muted-foreground/70">{child.engine}</span>
                       </button>
                     );
                   })}
@@ -685,7 +685,7 @@ export function HomeScreen({
                         )}
                         <span className="min-w-0 flex-1 text-sm font-medium"><span className="block truncate">{profileLabel(profile)}</span><ProfileHealthBadge profileIndex={entry.profileIndex}/></span>
                         <LatencyBadge ms={latency} />
-                        <span className="font-mono text-[10px] text-muted-foreground/70">{profile.protocol}</span>
+                        <span className="text-[10px] text-muted-foreground/70">{profile.protocol}</span>
                       </button>
                     );
                   })}

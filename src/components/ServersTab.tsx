@@ -121,7 +121,7 @@ export function ServersTab({
                   {parseErrors.length} parse error
                   {parseErrors.length === 1 ? "" : "s"}:
                 </p>
-                <ul className="space-y-0.5 pl-1 font-mono text-destructive/90 text-[11px]">
+                <ul className="space-y-0.5 pl-1 text-destructive/90 text-[11px]">
                   {parseErrors.slice(0, 3).map((f, i) => (
                     <li key={i} className="truncate">
                       <span className="text-muted-foreground">

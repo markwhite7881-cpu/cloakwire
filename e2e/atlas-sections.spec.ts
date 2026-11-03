@@ -25,14 +25,13 @@ test("Atlas sections fit the window and preserve the navigation path",async({pag
   await verify();
 });
 
-test("settings shortcuts, import menus and the full rule editor remain reachable",async({page},info)=>{
+test("appearance controls, import menus and the full rule editor remain reachable",async({page},info)=>{
   const mobile=info.project.name==="mobile";
   const {verify}=await openFixture(page,info,{tab:mobile?"settings":"config",selectedFirst:true,theme:"light",locale:"en"});
   const nav=mobile?page.locator(".atlas-mobile>nav button"):page.getByRole("tab");
   const dir=process.env.ATLAS_SCREENSHOT_DIR;
-  await page.locator(".atlas-index").getByRole("button",{name:"Appearance"}).click();
-  await expect(page.locator(mobile?"#atlas-android-appearance":"#atlas-config-appearance")).toBeFocused();
-  await expect(page.getByRole("button",{name:"Light",exact:true})).toHaveAttribute("aria-pressed","true");
+  await expect(page.locator(".atlas-index")).toHaveCount(0);
+  await expect(page.getByRole("combobox", {name:"Theme Mode"})).toContainText("Light");
   await nav.nth(1).click();
   if(mobile){
     await page.getByRole("button",{name:"Add Subscription",exact:true}).click();

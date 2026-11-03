@@ -198,10 +198,10 @@ function RateBox({
         />
         {label}
       </div>
-      <div className="mt-1 font-mono text-lg font-medium tabular-nums text-foreground">
+      <div className="mt-1 text-lg font-medium tabular-nums text-foreground">
         {formatBytes(value)}
       </div>
-      <div className="mt-0.5 text-[10px] text-muted-foreground font-mono">
+      <div className="mt-0.5 text-[10px] text-muted-foreground">
         total: {formatTotal(total)}
       </div>
     </div>
@@ -237,7 +237,7 @@ function Chart({
     <div>
       <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
         <span>{title}</span>
-        <span className="font-mono normal-case tabular-nums">
+        <span className="normal-case tabular-nums">
           {values.length > 0 ? formatBytes(values[values.length - 1]) : "—"}
         </span>
       </div>

@@ -193,7 +193,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
 
           {/* Status line */}
           {error ? (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive-foreground flex items-center justify-between font-mono">
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive-foreground flex items-center justify-between">
               <span>{t("routing.failedListProcesses", { error })}</span>
               <button
                 type="button"
@@ -205,15 +205,15 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
               </button>
             </div>
           ) : loading && processes.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground px-1 font-mono">
+            <div className="text-[11px] text-muted-foreground px-1">
               {t("routing.loadingProcesses")}
             </div>
           ) : processes.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground px-1 font-mono">
+            <div className="text-[11px] text-muted-foreground px-1">
               {t("routing.noProcessesFound")}
             </div>
           ) : (
-            <div className="text-[11px] text-muted-foreground px-1 font-mono">
+            <div className="text-[11px] text-muted-foreground px-1">
               {query
                 ? t("routing.matchingProcessesCount", { count: filtered.length, total: processes.length, query })
                 : t("routing.allProcessesCount", { count: filtered.length, total: processes.length })}
@@ -247,7 +247,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
                         {p.name}
                       </span>
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
+                    <span className="text-[10px] text-muted-foreground">
                       pid {p.pid}
                     </span>
                   </button>

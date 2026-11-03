@@ -258,7 +258,7 @@ export function ServersScreen({
                     <span className="truncate text-sm font-semibold tracking-tight">
                       {s.name}
                     </span>
-                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
                       {s.children.length}
                     </span>
                   </span>
@@ -311,7 +311,7 @@ export function ServersScreen({
                                 {child.name}
                               </span>
                               <ProfileHealthBadge profileRef={{kind:"ready",subscription_id:s.id,child_key:child.key}}/>
-                              <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                              <span className="block truncate text-[11px] text-muted-foreground">
                                 {child.endpoint
                                   ? `${child.endpoint.host}:${child.endpoint.port}`
                                   : child.engine === "xray"
@@ -352,7 +352,7 @@ export function ServersScreen({
                     <span className="truncate text-sm font-semibold tracking-tight">
                       {group.label}
                     </span>
-                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
                       {group.entries.length}
                     </span>
                   </span>

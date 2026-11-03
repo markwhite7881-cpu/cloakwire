@@ -1,6 +1,5 @@
 import { Button } from "@/components/Button";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
-import { SettingsIndex } from "@/components/atlas/SettingsIndex";
 import {RecoverySetting} from "@/components/RecoverySettings";
 import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useState } from "react";
@@ -21,7 +20,6 @@ const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 /** DNS provider presets — write both local and remote upstreams. */
-const mobileSettingsSections=[["atlas-android-connection","atlas.connection"],["atlas-android-appearance","settings.appearance"],["atlas-android-network","settings.network"],["atlas-android-about","settings.about"]] as const;
 
 const DNS_PRESETS: { id: string; label: string; local: string; remote: string }[] = [
   {
@@ -149,7 +147,6 @@ export function SettingsScreen({
   return (
     <div className="atlas-page atlas-settings">
       <AtlasHeading icon={Settings2} title={t("settings.title")}/>
-      <SettingsIndex sections={mobileSettingsSections}/>
       <SectionCard id="atlas-android-connection" tabIndex={-1}>
         <SectionHeader title={t("atlas.connection")} />
         <div className="divide-y divide-border">
@@ -186,11 +183,9 @@ export function SettingsScreen({
 
       <SectionCard id="atlas-android-appearance" tabIndex={-1}>
         <SectionHeader title={t("settings.appearance")} />
-        <div className="space-y-4 p-3">
+        <div className="atlas-preferences">
           <LanguagePicker />
-          <div className="border-t border-border pt-3">
-            <AccentThemePicker compact />
-          </div>
+          <AccentThemePicker />
         </div>
       </SectionCard>
 
@@ -237,7 +232,7 @@ export function SettingsScreen({
                     update({ mixed_port: n });
                   }
                 }}
-                className="atlas-input w-24 text-right font-mono"
+                className="atlas-input w-24 text-right"
               />
             }
           />
@@ -252,14 +247,14 @@ export function SettingsScreen({
           <SettingRow
             label="Cloakwire"
             control={
-              <span className="font-mono text-xs text-muted-foreground">v{APP_VERSION}</span>
+              <span className=" text-xs text-muted-foreground">v{APP_VERSION}</span>
             }
           />
           <SettingRow
             label={t("common.version")}
             hint={t("settings.coresHint")}
             control={
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className=" text-xs text-muted-foreground">
                 {coreVersion ?? (inTauri ? "…" : "preview")}
               </span>
             }

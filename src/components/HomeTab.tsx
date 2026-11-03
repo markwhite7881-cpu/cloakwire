@@ -328,7 +328,7 @@ export function HomeTab({
       {profiles.length > 0 && (
         <Card className="atlas-home-section p-4">
           <div className="mb-3 flex items-center justify-between px-1">
-            <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Server className="h-3.5 w-3.5 text-theme-accent" />
               {t("servers.all")} ({profiles.length})
             </div>
@@ -567,7 +567,7 @@ function ProfileChoice({
     >
       <FlagIcon code={display.code} size={compact ? 16 : 14} className="shrink-0 self-center" />
       <span className="min-w-0 flex-1 font-medium"><span className="block truncate">{display.label}</span><ProfileHealthBadge profileRef={profileRef(row.profile)}/></span>
-      {compact && <span className="font-mono text-[10px] text-muted-foreground">{display.protocol}</span>}
+      {compact && <span className="text-[10px] text-muted-foreground">{display.protocol}</span>}
       <LatencyBadge ms={display.ms} />
     </button>
   );
@@ -657,7 +657,7 @@ function GroupedHomeProfileRows({
             >
               <ChevronDown className={cn("h-3 w-3 transition-transform", !isExpanded && "-rotate-90")} />
               <span className="min-w-0 flex-1 truncate font-medium">{subscriptionGroupLabel(group.id, subscriptionNames)}</span>
-              <span className="font-mono normal-case rounded bg-background/50 px-1.5 py-0.2 text-[10px]">{group.rows.length}</span>
+              <span className="normal-case rounded bg-background/50 px-1.5 py-0.2 text-[10px]">{group.rows.length}</span>
             </button>
             {isExpanded && (mode === "grid" ? (
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 pt-1">
@@ -779,7 +779,7 @@ function ServerPicker({
                 <span className="flex-1 truncate font-medium">
                   {t("servers.autoBestLatency")}
                 </span>
-                <span className="font-mono text-[10px] text-muted-foreground">
+                <span className="text-[10px] text-muted-foreground">
                   urltest
                 </span>
               </button>
@@ -810,12 +810,12 @@ function ServerPicker({
 function LatencyBadge({ ms, compact = false }: { ms: number | undefined; compact?: boolean }) {
   if (ms == null) {
     return (
-      <span className="font-mono text-[10px] text-muted-foreground/60">—</span>
+      <span className="text-[10px] text-muted-foreground/60">—</span>
     );
   }
   const bars = latencyToBars(ms);
   return (
-    <span className="flex items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+    <span className="flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground">
       {!compact && <SignalBars level={bars} />}
       <span>{ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`}</span>
     </span>

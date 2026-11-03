@@ -12,11 +12,13 @@ test("the idle globe rotates and appearance choices survive a tab change and rel
   await expect(page.locator("header [role=tab]")).toHaveCount(5);
   await page.screenshot({path:info.outputPath("home-dark.png")});
   await page.getByRole("tab").nth(2).click();
-  await page.getByRole("button", {name:"Light",exact:true}).click();
-  await page.getByRole("button", {name:"Русский",exact:true}).click();
-  await expect(page.getByRole("button",{name:"Русский",exact:true})).toHaveAttribute("aria-pressed","true");
+  await page.getByRole("combobox", {name:"Theme Mode"}).click();
+  await page.getByRole("option", {name:"Light",exact:true}).click();
+  await page.getByRole("combobox", {name:"Language"}).click();
+  await page.getByRole("option", {name:"Русский",exact:true}).click();
+  await expect(page.getByRole("combobox",{name:"Язык интерфейса"})).toContainText("Русский");
   await page.reload();
-  await expect(page.getByRole("button",{name:"Русский",exact:true})).toHaveAttribute("aria-pressed","true");
+  await expect(page.getByRole("combobox",{name:"Язык интерфейса"})).toContainText("Русский");
   await expect(page.locator("html")).not.toHaveClass(/dark/);
   await page.getByRole("tab").nth(0).click();
   await expect(page.locator(".atlas-scene canvas")).toBeVisible();
