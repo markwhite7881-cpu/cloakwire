@@ -1,7 +1,9 @@
+import { AtlasGlobe } from "@/components/atlas/AtlasGlobe";
+import { HomeTraffic } from "@/components/SpeedTestTab";
 import {RecoveryNotice} from "@/components/RecoverySettings";
 import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import type {ReactNode} from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   Clock,
@@ -10,8 +12,6 @@ import {
   Power,
   Server,
   Shield,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
 import { formatDuration } from "@/hooks/useSessionTimer";
 import { FlagIcon } from "@/components/FlagIcon";
@@ -22,7 +22,7 @@ import { api } from "@/lib/api";
 import { flagForProfile } from "@/lib/flags";
 import { isSupported, profileEndpoint, profileLabel } from "@/lib/outbound";
 import { cn } from "@/lib/utils";
-import type { ChildProfileSummary, GeneratorSettings, Outbound, Subscription, TrafficSample } from "@/lib/types";
+import type { ChildProfileSummary, GeneratorSettings, Outbound, Subscription } from "@/lib/types";
 import { loadExpandedSubscriptions, saveExpandedSubscriptions } from "@/lib/expandedSubscriptions";
 import type { ServerGroup } from "../lib/serverGrouping";
 import { buildHomeServerCatalog } from "../lib/homeServerCatalog";
@@ -30,7 +30,7 @@ import type { VpnConnection } from "../useVpnConnection";
 import { summarizeRoutingPolicy } from "../lib/mobileUi";
 import { AddSubscriptionSheet } from "../components/AddSubscriptionSheet";
 import { Sheet } from "../components/Sheet";
-import { formatBytes, formatMs, formatRate, formatUptime } from "../lib/format";
+import { formatMs } from "../lib/format";
 import { triggerHaptic } from "../lib/haptics";
 import { useI18n } from "@/lib/i18n";
 
@@ -247,15 +247,50 @@ export function HomeScreen({
     return blocks.reduce((acc, b) => acc + (b.type === "bundle" ? b.children.length : b.entries.length), 0);
   }, [blocks]);
 
+  const locations = useMemo(() => {
+    const rows = new Map<string, { name: string; country: string; index?: number; bundle?: {subscriptionId:string;childKey:string;engine:"singbox"|"xray";childName:string} }>();
+    for (const block of blocks) {
+      if (block.type === "bundle") {
+        for (const child of block.children) {
+          rows.set(JSON.stringify(["bundle",block.id,child.key]), {
+            name:child.name, country:flagForProfile({tag:child.name,server:child.endpoint?.host,geoipByIp}).code,
+            bundle:{subscriptionId:block.id,childKey:child.key,engine:child.engine,childName:child.name}
+          });
+        }
+      } else {
+        for (const entry of block.entries) {
+          const p=entry.profile;
+          if (!isSupported(p)) continue;
+          const key=JSON.stringify([block.id,entry.manualId ?? p.tag]);
+          rows.set(key,{name:profileLabel(p),country:flagForProfile({tag:p.tag,server:p.server,geoipByIp}).code,index:entry.profileIndex});
+        }
+      }
+    }
+    return rows;
+  },[blocks,geoipByIp]);
+  const pickedKey=activeBundle ? JSON.stringify(["bundle",activeBundle.subscriptionId,activeBundle.childKey]) :
+    [...locations].find(([,row])=>row.index===selectedIndex)?.[0];
+  const [recent,setRecent]=useState<string[]>(()=>{
+    try {const ids=JSON.parse(localStorage.getItem("cloakwire.mobile.atlasRecent") || "[]");return Array.isArray(ids)?ids.filter((id:unknown)=>typeof id==="string").slice(0,3):[];}catch{return [];}
+  });
+  useEffect(()=>{
+    if(!pickedKey)return;
+    setRecent(previous => {
+      if(previous[0]===pickedKey)return previous;
+      const next=[pickedKey,...previous.filter(id=>id!==pickedKey)].slice(0,3);
+      try{localStorage.setItem("cloakwire.mobile.atlasRecent",JSON.stringify(next));}catch{}
+      return next;
+    });
+  },[pickedKey]);
+  const countries=[...new Set([...locations.values()].map(r=>r.country).filter(c=>/^[A-Z]{2}$/.test(c)))].sort().join(" ");
+  const matches=[...locations.values()].filter(row=>row.name===connectedName);
+  const knownCountries=new Set(matches.map(row=>row.country));
+  const code=knownCountries.size===1 ? matches[0].country : flagForProfile({tag:connectedName,geoipByIp}).code;
+  const recentRows=recent.filter(key=>locations.has(key));
   return (
-    <div className="flex flex-col gap-4 p-4 pb-8">
-      {/* ─── Bento 1: Primary Hero Connection Card ────────────────── */}
-      <div className="bento-card relative flex flex-col justify-between overflow-clip rounded-3xl p-5 shadow-xl">
-        <div
-          className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full blur-3xl"
-          style={{ background: "rgba(var(--accent-glow-rgb), 0.12)" }}
-        />
-
+    <div className="flex flex-col gap-3 p-4 pb-8">
+      <AtlasGlobe countries={countries} running={isRunning} country={/^[A-Z]{2}$/.test(code)?code:null} bytesPerSecond={(current?.down_bps??0)+(current?.up_bps??0)} />
+      <div className="bento-card relative flex min-w-0 flex-col gap-2 overflow-clip rounded-xl p-4">
         {/* Top Active Server Selector Pill */}
         <div className="relative z-10 flex w-full items-center justify-between gap-2">
           <button
@@ -280,74 +315,18 @@ export function HomeScreen({
           </span>
         </div>
 
-        {/* Center Tactile Power Orb */}
-        <div className="relative z-10 my-6 flex flex-col items-center justify-center text-center">
-          <div className="relative flex items-center justify-center">
-            {isRunning && (
-              <>
-                <div
-                  className="pointer-events-none absolute h-40 w-40 rounded-full animate-neon-outer"
-                  style={{
-                    background: "radial-gradient(circle, rgba(var(--accent-glow-rgb), 0.35) 0%, rgba(var(--accent-glow-rgb), 0) 70%)",
-                  }}
-                />
-                <div
-                  className="pointer-events-none absolute h-32 w-32 rounded-full animate-neon-halo"
-                  style={{
-                    background: "radial-gradient(circle, rgba(var(--accent-glow-rgb), 0.5) 0%, rgba(var(--accent-glow-rgb), 0) 65%)",
-                  }}
-                />
-              </>
-            )}
-            {isTransition && (
-              <div
-                className="pointer-events-none absolute h-32 w-32 rounded-full animate-spin-conic opacity-75"
-                style={{
-                  background: "conic-gradient(from 0deg, transparent 0deg, rgba(var(--accent-glow-rgb), 0.8) 180deg, transparent 360deg)",
-                  maskImage: "radial-gradient(circle, transparent 52px, black 54px)",
-                  WebkitMaskImage: "radial-gradient(circle, transparent 52px, black 54px)",
-                }}
-              />
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic("medium");
-                if (isRunning) void vpn.disconnect();
-                else void onConnect();
-              }}
-              disabled={vpn.busy || isTransition || !vpn.ready}
+        <div className="flex flex-col items-start gap-2">
+          <div className="flex w-full items-center justify-between gap-2">
+            <h1 className="text-lg font-semibold">{headline}</h1>
+            <button type="button" disabled={vpn.busy || isTransition || !vpn.ready}
               aria-label={isRunning ? t("common.disconnect") : t("common.connect")}
-              className={cn(
-                "group relative flex h-28 w-28 items-center justify-center rounded-full",
-                "border-2 transition-all duration-300",
-                "focus-visible:outline-none focus-visible:ring-2 ring-theme-accent",
-                "disabled:cursor-not-allowed",
-                isRunning
-                  ? "border-theme-accent bg-success bg-theme-gradient text-zinc-950 glow-button shadow-xl shadow-theme-accent animate-neon-pulse active:scale-95"
-                  : isTransition
-                    ? "border-foreground/20 bg-foreground/5 text-foreground/70"
-                    : "border-muted-foreground/40 bg-muted/40 text-muted-foreground active:scale-95 hover:border-foreground/40 hover:text-foreground",
-              )}
-            >
-              {isTransition ? (
-                <Loader2 className="h-10 w-10 animate-spin text-foreground/80" />
-              ) : (
-                <Power
-                  className={cn(
-                    "h-11 w-11 transition-transform group-hover:scale-110",
-                    isRunning ? "stroke-[2.5] text-zinc-950" : "text-muted-foreground",
-                  )}
-                />
-              )}
+              onClick={()=>{triggerHaptic("medium");if(isRunning)void vpn.disconnect();else void onConnect();}}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-theme-accent px-3 text-sm font-semibold text-zinc-950 disabled:opacity-50">
+              {isTransition?<Loader2 size={16} className="animate-spin"/>:<Power size={16}/>}
+              {t(isRunning?"common.disconnect":"common.connect")}
             </button>
           </div>
-
-          <div className="mt-4 space-y-1">
-            <div className="flex items-center justify-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-foreground">{headline}</h1>
-            </div>
-
+          <div className="space-y-1">
             <button
               type="button"
               onClick={onOpenServers}
@@ -382,6 +361,16 @@ export function HomeScreen({
           </div>
         </div>
 
+        {recentRows.length>0 && <div><h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
+          <div className="divide-y divide-border">{recentRows.map(key=>{
+            const row=locations.get(key)!;
+            return <button type="button" key={key} aria-pressed={key===pickedKey}
+              className="flex min-h-9 w-full items-center gap-2 text-left text-sm" onClick={()=>{
+                triggerHaptic("selection");
+                if(row.bundle)void onSelectBundleChild(row.bundle);else if(row.index!=null)onSelect(row.index);
+              }}><FlagIcon code={row.country} size={15}/><span className="min-w-0 truncate">{row.name}</span></button>;
+          })}</div>
+        </div>}
         {probeCard}
 
         {/* Hero Footer */}
@@ -394,49 +383,6 @@ export function HomeScreen({
       <RecoveryNotice />
 
       {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
-
-      {/* ─── Bento 2: Live Traffic & 60 FPS Speed Wave ────────────── */}
-      <div className="bento-card flex flex-col justify-between rounded-3xl p-4 shadow-xl">
-        <div className="mb-2.5 flex items-center justify-between">
-          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-            {t("home.traffic")}
-          </span>
-          <span className="font-mono text-[10px] text-muted-foreground">
-            {isRunning ? (vpn.engine ? `${vpn.engine} engine` : "sing-box") : t("home.idle")}
-          </span>
-        </div>
-
-        <div className="mb-2 grid grid-cols-2 gap-2.5">
-          <div className="rounded-xl border border-white/5 bg-background/50 p-2.5 shadow-sm">
-            <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              <TrendingDown className="h-3.5 w-3.5 text-theme-accent" />
-              {t("home.download")}
-            </div>
-            <p className="mt-1 font-mono text-lg font-bold tabular-nums text-foreground">
-              {formatRate(current?.down_bps ?? 0)}
-            </p>
-            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">
-              {t("home.totalTraffic")} {formatBytes(current?.down_total ?? 0)}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-white/5 bg-background/50 p-2.5 shadow-sm">
-            <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              <TrendingUp className="h-3.5 w-3.5 text-cyan-400" />
-              {t("home.upload")}
-            </div>
-            <p className="mt-1 font-mono text-lg font-bold tabular-nums text-foreground">
-              {formatRate(current?.up_bps ?? 0)}
-            </p>
-            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">
-              {t("home.totalTraffic")} {formatBytes(current?.up_total ?? 0)}
-            </p>
-          </div>
-        </div>
-
-        {/* 60 FPS Buttery-Smooth Speed Wave */}
-        <MobileSparklineWave isRunning={isRunning} samples={traffic.samples} current={current} />
-      </div>
 
       {/* ─── Bento 3: Per-App Routing Summary ─────────────────────── */}
       <div className="bento-card flex flex-col justify-between rounded-3xl p-4 shadow-xl">
@@ -461,8 +407,12 @@ export function HomeScreen({
           <p className="text-xs text-muted-foreground leading-relaxed" title={routingSummary}>
             {routingSummary}
           </p>
+          {!!settings.routing.tun_app_list?.length && <span className="break-all text-xs text-muted-foreground">{settings.routing.tun_app_list.join(" · ")}</span>}
         </button>
       </div>
+
+      <HomeTraffic key={JSON.stringify([vpn.since,vpn.state,pickedKey])} samples={traffic.samples} current={current}
+        vpnActive={isRunning} activeProfileName={isRunning?connectedName:null}/>
 
       {/* ─── Bento 4: All Servers List & Quick Add ────────────────── */}
       <div className="bento-card flex flex-col rounded-3xl p-4 shadow-xl">
@@ -785,189 +735,6 @@ export function HomeScreen({
 }
 
 /** 60 FPS Canvas LERP Smooth Speed Wave for Mobile */
-function MobileSparklineWave({
-  isRunning,
-  samples,
-  current,
-}: {
-  isRunning: boolean;
-  samples: TrafficSample[];
-  current: TrafficSample | null;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const dataRef = useRef({
-    samples,
-    current,
-    isRunning,
-  });
-  dataRef.current = { samples, current, isRunning };
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    const pointCount = 24;
-    const currentDown = new Float32Array(pointCount);
-    const currentUp = new Float32Array(pointCount);
-    let smoothedPeak = 1024 * 32;
-
-    const startTime = performance.now();
-
-    const render = (now: number) => {
-      const { samples: liveSamples, current: liveCurrent, isRunning: active } = dataRef.current;
-      const elapsed = (now - startTime) / 1000;
-
-      const dpr = window.devicePixelRatio || 1;
-      const width = canvas.clientWidth || 280;
-      const height = canvas.clientHeight || 50;
-      if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
-        canvas.width = Math.floor(width * dpr);
-        canvas.height = Math.floor(height * dpr);
-      }
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, width, height);
-
-      const bottomY = height - 5;
-      const topY = 5;
-      const usableHeight = bottomY - topY;
-
-      const recent = liveSamples.slice(-pointCount);
-      const rawMaxDown = Math.max(...recent.map((s) => s.down_bps), liveCurrent?.down_bps ?? 0, 0);
-      const rawMaxUp = Math.max(...recent.map((s) => s.up_bps), liveCurrent?.up_bps ?? 0, 0);
-      const rawPeak = Math.max(rawMaxDown, rawMaxUp);
-      const targetPeak = Math.max(rawPeak, 1024 * 16);
-
-      smoothedPeak += (targetPeak - smoothedPeak) * 0.08;
-
-      for (let i = 0; i < pointCount; i++) {
-        const sampleIdx = recent.length - pointCount + i;
-        const s = sampleIdx >= 0 ? recent[sampleIdx] : undefined;
-        const downBps = s ? s.down_bps : 0;
-        const upBps = s ? s.up_bps : 0;
-
-        const targetRatioDown = Math.min(1, Math.max(0, downBps / smoothedPeak));
-        const targetRatioUp = Math.min(1, Math.max(0, upBps / smoothedPeak));
-
-        const targetScaledDown = Math.pow(targetRatioDown, 0.7);
-        const targetScaledUp = Math.pow(targetRatioUp, 0.7);
-
-        const idleWave = active
-          ? (Math.sin(elapsed * 2.5 + (i / pointCount) * Math.PI * 2) * 0.5 + 0.5) * 0.08
-          : 0.02;
-
-        const finalTargetDown = Math.max(targetScaledDown, idleWave);
-        const finalTargetUp = targetScaledUp;
-
-        currentDown[i] += (finalTargetDown - currentDown[i]) * 0.1;
-        currentUp[i] += (finalTargetUp - currentUp[i]) * 0.1;
-      }
-
-      const downPoints: { x: number; y: number }[] = [];
-      const upPoints: { x: number; y: number }[] = [];
-
-      for (let i = 0; i < pointCount; i++) {
-        const x = (i / (pointCount - 1)) * width;
-        const yDown = bottomY - currentDown[i] * usableHeight;
-        const yUp = bottomY - currentUp[i] * usableHeight;
-        downPoints.push({ x, y: yDown });
-        upPoints.push({ x, y: yUp });
-      }
-
-      // Download fill gradient with dynamic theme accent
-      const accentRgb = (canvas && getComputedStyle(canvas).getPropertyValue("--accent-glow-rgb").trim()) || "16, 185, 129";
-      const badgeText = (canvas && getComputedStyle(canvas).getPropertyValue("--accent-badge-text").trim()) || "#34d399";
-      const grad = ctx.createLinearGradient(0, topY, 0, bottomY);
-      grad.addColorStop(0, active ? `rgba(${accentRgb}, 0.35)` : `rgba(${accentRgb}, 0.08)`);
-      grad.addColorStop(1, `rgba(${accentRgb}, 0.0)`);
-
-      ctx.beginPath();
-      ctx.moveTo(downPoints[0].x, downPoints[0].y);
-      for (let i = 0; i < downPoints.length - 1; i++) {
-        const p0 = downPoints[i];
-        const p1 = downPoints[i + 1];
-        const mx = (p0.x + p1.x) / 2;
-        ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
-      }
-      ctx.lineTo(width, height);
-      ctx.lineTo(0, height);
-      ctx.closePath();
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // Download stroke line
-      ctx.beginPath();
-      ctx.moveTo(downPoints[0].x, downPoints[0].y);
-      for (let i = 0; i < downPoints.length - 1; i++) {
-        const p0 = downPoints[i];
-        const p1 = downPoints[i + 1];
-        const mx = (p0.x + p1.x) / 2;
-        ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
-      }
-      ctx.strokeStyle = active ? `rgb(${accentRgb})` : "#3f3f46";
-      ctx.lineWidth = active ? 2.5 : 1.5;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      if (active) {
-        ctx.shadowColor = `rgba(${accentRgb}, 0.45)`;
-        ctx.shadowBlur = 6;
-      }
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // Upload stroke line
-      if (active && rawMaxUp > 0) {
-        ctx.beginPath();
-        ctx.moveTo(upPoints[0].x, upPoints[0].y);
-        for (let i = 0; i < upPoints.length - 1; i++) {
-          const p0 = upPoints[i];
-          const p1 = upPoints[i + 1];
-          const mx = (p0.x + p1.x) / 2;
-          ctx.bezierCurveTo(mx, p0.y, mx, p1.y, p1.x, p1.y);
-        }
-        ctx.strokeStyle = "#06b6d4";
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([3, 3]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      // Active pulse point
-      if (active) {
-        const lastPt = downPoints[downPoints.length - 1];
-        const pulse = Math.sin(elapsed * 4) * 0.5 + 0.5;
-        ctx.beginPath();
-        ctx.arc(lastPt.x - 2, lastPt.y, 3 + pulse * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = badgeText;
-        ctx.fill();
-        ctx.strokeStyle = "#090a0f";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
-
-      ctx.restore();
-      animId = requestAnimationFrame(render);
-    };
-
-    animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
-  }, []);
-
-  return (
-    <div className="h-12 w-full pt-1 relative overflow-hidden">
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full block pointer-events-none"
-      />
-    </div>
-  );
-}
-
 function LatencyBadge({ ms }: { ms: number | undefined }) {
   if (ms == null) return null;
   const tone = ms < 250 ? "fast" : ms < 700 ? "medium" : "slow";

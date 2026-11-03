@@ -1283,7 +1283,7 @@ export default function App() {
   );
 
   return (
-    <div className="atlas-desktop relative flex h-screen flex-col overflow-hidden text-foreground">
+    <div className="atlas-shell atlas-desktop relative flex h-screen flex-col overflow-hidden text-foreground">
 
       {/* Header — Unified Linear Bento Titlebar with Centered Segmented Nav */}
       <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-border/80 bg-card/60 px-6 py-3 backdrop-blur-md">

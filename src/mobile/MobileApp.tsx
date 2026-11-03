@@ -634,7 +634,7 @@ export default function MobileApp() {
           : "bg-muted-foreground";
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="atlas-shell atlas-mobile relative flex h-screen flex-col overflow-hidden text-foreground">
       {/* Header: brand + live status capsule. */}
       <header className="flex shrink-0 items-center justify-between border-b border-border/40 bg-background/85 px-4 py-3 backdrop-blur-xl pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2.5">

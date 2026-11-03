@@ -13,12 +13,17 @@ val tauriProperties = Properties().apply {
     }
 }
 
+val atlasPreview = providers.gradleProperty("cloakwireAtlasPreview").orNull == "true"
+
 android {
     compileSdk = 36
     namespace = "app.cloakwire.client"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "app.cloakwire.client"
+        if (atlasPreview) applicationIdSuffix = ".atlaspreview"
+        manifestPlaceholders["applicationLabel"] = if (atlasPreview) "CloakWire Atlas Preview" else "@string/app_name"
+        manifestPlaceholders["activityLabel"] = if (atlasPreview) "CloakWire Atlas Preview" else "@string/main_activity_title"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
@@ -30,7 +35,9 @@ android {
             isDebuggable = true
             isJniDebuggable = true
             isMinifyEnabled = false
-            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
+            packaging {
+                if (atlasPreview) jniLibs.useLegacyPackaging = true
+                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
                 jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
