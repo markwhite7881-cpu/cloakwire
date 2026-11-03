@@ -1,3 +1,5 @@
+import { useRecentServers } from "@/hooks/useRecentServers";
+import { recentBundleKey, recentProfileKey } from "./lib/serverGrouping";
 import { Button } from "@/components/Button";
 import {useProfileProbe} from "./useProfileProbe";
 import {ProfileProbeCard} from "./components/ProfileProbeCard";
@@ -290,6 +292,16 @@ export default function MobileApp() {
   // user actually used instead of `profiles[0]`.
 
   const [restoreSettled, setRestoreSettled] = useState(false);
+  const recentKeys = useMemo(() => {
+    const keys: (string | null)[] = [];
+    for (const group of serverGroups) for (const entry of group.entries) {
+      keys[entry.profileIndex] = recentProfileKey(group.id, entry);
+    }
+    return keys;
+  }, [serverGroups]);
+  const selectedRecentKey = activeBundle ? recentBundleKey(activeBundle.subscriptionId, activeBundle.childKey) : recentKeys[selectedIndex];
+  const { recent, remember } = useRecentServers("cloakwire.mobile.atlasRecent",
+    restoreSettled && !selectionNeedsChoice && !selectionMissing ? selectedRecentKey : null);
   const [restorePick] = useState(() => loadLastServer());
   const restoreAttempted = useRef(false);
 
@@ -547,6 +559,7 @@ export default function MobileApp() {
     }
     setSelectionNeedsChoice(false);
     setSelectedIndex(index);
+    remember(recentKeys[index]);
     setActiveBundle(null);
     setMobileSettings({ ...settings, default_outbound: pickedTag });
   };
@@ -571,6 +584,7 @@ export default function MobileApp() {
     }
     setSelectionNeedsChoice(false);
     setActiveBundle(input);
+    remember(recentBundleKey(input.subscriptionId, input.childKey));
     setSelectedIndex(-1);
     // setMobileSettings already calls markConnectionDirty — the
     // next connect uses the new bundle pick, so the user needs
@@ -709,6 +723,7 @@ export default function MobileApp() {
         >
           {activeTab === "home" && (
             <HomeScreen
+              recent={recent}
               vpn={vpn}
               errorActions={<ProfileErrorActions {...cardActions}/>}
               selectedRef={probeSource?.profile_ref}

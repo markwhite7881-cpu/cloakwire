@@ -1,3 +1,4 @@
+import { useRecentServers } from "@/hooks/useRecentServers";
 import { ServerImportDialog } from "@/components/ServerImportDialog";
 import {profilePreparation} from "@/lib/profilePreparations";
 import {ProfileHealthContext} from "@/components/ProfileHealthBadge";
@@ -508,6 +509,8 @@ export default function App() {
   const [errorSource,setErrorSource]=useState<ProfileSource|null>(null);
   const profileKeys = useMemo(() => profiles.map(connectionProfileStorageKey), [profiles]);
   const [selectedIndex, setSelectedIndex, selectionMissing, isSelectionMissing] = useProfileSelection(profileKeys);
+  const { recent, remember } = useRecentServers("cloakwire.desktop.recentProfiles",
+    selectionRestoreSettled && !selectionNeedsChoice && !selectionMissing ? profileKeys[selectedIndex] : null);
   const liveSelectionRef = useRef({ profiles, selectedIndex });
   useEffect(() => {
     liveSelectionRef.current = { profiles, selectedIndex };
@@ -1099,12 +1102,13 @@ export default function App() {
       const nextSettings = { ...settings, default_outbound: pickedTag };
       requireSelectionChoice(false);
       setSelectedIndex(index);
+      remember(selected && connectionProfileStorageKey(selected));
       setSettings(nextSettings);
       if (shouldReconnectAfterProfileSelection(status.status)) {
         await reconnectCurrentProfile(nextSettings, index);
       }
     },
-    [profiles, settings, status.status, reconnectCurrentProfile],
+    [profiles, settings, status.status, reconnectCurrentProfile, remember],
   );
 
   const onRemoveProfile = useCallback((idx: number) => {
@@ -1144,6 +1148,7 @@ export default function App() {
         icon: Home,
         content: (
           <HomeTab
+            recent={recent}
             status={status}
             statusLabel={status.status}
             busy={busy}
@@ -1196,7 +1201,11 @@ export default function App() {
             onRefreshSub={subs.refreshOne}
             onRefreshAllSubs={subs.refreshAll}
             onSetSubInterval={subs.setIntervalFor}
-            onSelectSubChild={subs.selectChild}
+            onSelectSubChild={async (subscriptionId, childKey) => {
+              await subs.selectChild(subscriptionId, childKey);
+              const profile = profiles.find(p => p.kind === "ready_config" && p.subscriptionId === subscriptionId && p.key === childKey);
+              if (profile) remember(connectionProfileStorageKey(profile));
+            }}
           />
         ),
       },
@@ -1265,6 +1274,7 @@ export default function App() {
       onStart,
       onStop,
       onSelectProfile,
+      recent, remember,
       openImport,
       t,
       onRemoveProfile,

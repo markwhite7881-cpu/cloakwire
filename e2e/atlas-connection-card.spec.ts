@@ -9,9 +9,10 @@ test("the connection card names the selected server once and keeps checks visibl
   });
   const panel = page.locator(mobile ? ".atlas-connection-panel" : ".atlas-hero");
   await expect(panel.getByText("First", { exact: true })).toHaveCount(1);
-  await expect(panel.locator(".atlas-session-line .atlas-session-time")).toBeVisible();
+  await expect(panel.locator(".atlas-session-time")).toBeVisible();
   await expect(panel.getByRole("button", { name: "Disconnect", exact: true })).toBeVisible();
-  await expect(panel.getByText("Recent servers", { exact: true })).toHaveCount(0);
+  await expect(panel.locator(".atlas-connection-controls :is(h1,h2,[role=status])")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Recent servers" }).getByRole("button", { pressed: true })).toContainText("First");
   if (mobile) {
     await expect(panel.getByTestId("profile-probe-card").getByRole("button")).toBeVisible();
     await expect(panel.locator("details")).not.toHaveAttribute("open", "");

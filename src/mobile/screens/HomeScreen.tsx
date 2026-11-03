@@ -25,7 +25,7 @@ import { isSupported, profileEndpoint, profileLabel } from "@/lib/outbound";
 import { cn } from "@/lib/utils";
 import type { ChildProfileSummary, GeneratorSettings, Outbound, Subscription } from "@/lib/types";
 import { loadExpandedSubscriptions, saveExpandedSubscriptions } from "@/lib/expandedSubscriptions";
-import type { ServerGroup } from "../lib/serverGrouping";
+import { recentBundleKey, recentProfileKey, type ServerGroup } from "../lib/serverGrouping";
 import { buildHomeServerCatalog } from "../lib/homeServerCatalog";
 import type { VpnConnection } from "../useVpnConnection";
 import { summarizeRoutingPolicy } from "../lib/mobileUi";
@@ -39,7 +39,7 @@ const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export function HomeScreen({
-  vpn,errorActions,probeCard,selectedRef,
+  vpn,errorActions,probeCard,selectedRef,recent = [],
   profiles,
   groups,
   selectedIndex,
@@ -56,6 +56,7 @@ export function HomeScreen({
   onAddLinks,
 }: {
   vpn: VpnConnection;
+  recent?: readonly string[];
   errorActions?:ReactNode;
   probeCard?:ReactNode;
   selectedRef?: ProfileRef | null;
@@ -92,7 +93,7 @@ export function HomeScreen({
   const [serverPickerOpen, setServerPickerOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
 
-  const connectionError = vpn.error ?? (vpn.state === "error" ? vpn.message : null);
+  const connectionError = vpn.error ?? (vpn.state === "error" ? (vpn.message || t("common.error")) : null);
   const isRunning = vpn.state === "running";
   const isTransition = vpn.state === "starting";
   const traffic = useTrafficStream(isRunning || !inTauri, profiles.length);
@@ -163,15 +164,6 @@ export function HomeScreen({
         geoipByIp,
       })
     : null;
-
-  const headline =
-    vpn.state === "running"
-      ? t("common.connected")
-      : vpn.state === "starting"
-        ? t("common.connecting")
-        : vpn.state === "error"
-          ? t("common.error")
-          : t("common.disconnected");
 
   const serverLine = activeBundle
     ? activeBundle.childName
@@ -256,7 +248,7 @@ export function HomeScreen({
     for (const block of blocks) {
       if (block.type === "bundle") {
         for (const child of block.children) {
-          rows.set(JSON.stringify(["bundle",block.id,child.key]), {
+          rows.set(recentBundleKey(block.id, child.key), {
             name:child.name, country:flagForProfile({tag:child.name,server:child.endpoint?.host,geoipByIp}).code,
             bundle:{subscriptionId:block.id,childKey:child.key,engine:child.engine,childName:child.name}
           });
@@ -265,33 +257,22 @@ export function HomeScreen({
         for (const entry of block.entries) {
           const p=entry.profile;
           if (!isSupported(p)) continue;
-          const key=JSON.stringify([block.id,entry.manualId ?? p.tag]);
+          const key=recentProfileKey(block.id, entry);
+          if (!key) continue;
           rows.set(key,{name:profileLabel(p),country:flagForProfile({tag:p.tag,server:p.server,geoipByIp}).code,index:entry.profileIndex});
         }
       }
     }
     return rows;
   },[blocks,geoipByIp]);
-  const pickedKey=activeBundle ? JSON.stringify(["bundle",activeBundle.subscriptionId,activeBundle.childKey]) :
+  const pickedKey=activeBundle ? recentBundleKey(activeBundle.subscriptionId, activeBundle.childKey) :
     [...locations].find(([,row])=>row.index===selectedIndex)?.[0];
-  const [recent,setRecent]=useState<string[]>(()=>{
-    try {const ids=JSON.parse(localStorage.getItem("cloakwire.mobile.atlasRecent") || "[]");return Array.isArray(ids)?ids.filter((id:unknown)=>typeof id==="string").slice(0,3):[];}catch{return [];}
-  });
-  useEffect(()=>{
-    if(!pickedKey)return;
-    setRecent(previous => {
-      if(previous[0]===pickedKey)return previous;
-      const next=[pickedKey,...previous.filter(id=>id!==pickedKey)].slice(0,3);
-      try{localStorage.setItem("cloakwire.mobile.atlasRecent",JSON.stringify(next));}catch{}
-      return next;
-    });
-  },[pickedKey]);
   const countries=[...new Set([...locations.values()].map(r=>r.country).filter(c=>/^[A-Z]{2}$/.test(c)))].sort().join(" ");
   const matches=[...locations.values()].filter(row=>row.name===connectedName);
   const knownCountries=new Set(matches.map(row=>row.country));
   const code=knownCountries.size===1 ? matches[0].country : flagForProfile({tag:connectedName,geoipByIp}).code;
   const pickedCountry = activeBundle ? locations.get(pickedKey ?? "")?.country : flag?.code;
-  const recentRows=recent.filter(key=>key!==pickedKey && locations.has(key));
+  const recentRows=recent.filter(key=>locations.has(key));
   return (
     <div className="flex flex-col gap-3 p-4 pb-8">
       <AtlasGlobe countries={countries} running={isRunning} country={/^[A-Z]{2}$/.test(code)?code:null} bytesPerSecond={(current?.down_bps??0)+(current?.up_bps??0)} />
@@ -313,7 +294,7 @@ export function HomeScreen({
           </button>
 
         </div>
-        <ConnectionControl headline={headline} running={isRunning} transition={isTransition}
+        <ConnectionControl running={isRunning} transition={isTransition}
           duration={uptimeSecs == null ? null : formatDuration(uptimeSecs)} disabled={vpn.busy || isTransition || !vpn.ready}
           onToggle={() => { triggerHaptic("medium"); if (isRunning) void vpn.disconnect(); else void onConnect(); }} />
         {showActive && <p className="atlas-active-note">
@@ -322,22 +303,23 @@ export function HomeScreen({
         {!activeBundle && !profiles.length && <Button variant="outline" size="sm" onClick={onAddSub && onAddLinks ? () => setAddSheetOpen(true) : onOpenServers}>{t("servers.addServer")}</Button>}
         {probeCard}
         {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
-        {recentRows.length>0 && <div><h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
-          <div className="divide-y divide-border">{recentRows.map(key=>{
-            const row=locations.get(key)!;
-            return <button type="button" key={key} aria-pressed={key===pickedKey}
-              className="atlas-pick-row" onClick={()=>{
-                triggerHaptic("selection");
-                if(row.bundle)void onSelectBundleChild(row.bundle);else if(row.index!=null)onSelect(row.index);
-              }}><FlagIcon code={row.country} size={15}/><span className="min-w-0 truncate">{row.name}</span></button>;
-          })}</div>
-        </div>}
         <details className="atlas-session-details">
           <summary>{t("profileProbe.details")}</summary>
           <span>{t("home.tunMode")} · {vpn.engine === "xray" ? "Xray" : "sing-box"}</span>
         </details>
       </div>
       <RecoveryNotice />
+      {recentRows.length>0 && <section className="atlas-recent" aria-label={t("atlas.recent")}><h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
+        <div className="divide-y divide-border">{recentRows.map(key=>{
+          const row=locations.get(key)!;
+          return <button type="button" key={key} aria-pressed={key===pickedKey}
+            className="atlas-pick-row" onClick={()=>{
+              if (key === pickedKey) return;
+              triggerHaptic("selection");
+              if(row.bundle)void onSelectBundleChild(row.bundle);else if(row.index!=null)onSelect(row.index);
+            }}><FlagIcon code={row.country} size={15}/><span className="min-w-0 truncate">{row.name}</span></button>;
+        })}</div>
+      </section>}
 
       {/* ─── Bento 3: Per-App Routing Summary ─────────────────────── */}
       <div className="atlas-panel atlas-home-section flex flex-col justify-between p-4">

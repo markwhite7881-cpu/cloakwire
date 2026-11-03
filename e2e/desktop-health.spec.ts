@@ -4,11 +4,11 @@ test.beforeEach(async({},info)=>{test.skip(info.project.name!=="desktop","Deskto
 test("health describes the accepted session and expires without a green claim",async({page},info)=>{
   const {verify}=await openFixture(page,info,{health:"healthy",running:true,tab:"home",selectedFirst:true});
   const card=page.getByTestId("connection-health");
-  await expect(page.getByRole("heading",{name:"VPN is running",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Disconnect",exact:true})).toBeVisible();
   await expect(card).toHaveAttribute("title","Accepted server A");
   await expect.poll(()=>page.evaluate(()=>(window as any).lastTray?.profileName)).toBe("Accepted server A");
   await page.evaluate(()=>{(window as any).fixtureHealth.health.checked_at=new Date(Date.now()-61000).toISOString();});
-  await expect(page.getByRole("heading",{name:"VPN is running",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Disconnect",exact:true})).toBeVisible();
   await expect(card).toContainText("Checked at");
   await verify();
 });
@@ -26,26 +26,26 @@ test("runtime cause is readable and repeated retry only checks the owning sessio
 });
 test("old health cannot relabel a new accepted run",async({page},info)=>{
   const {verify}=await openFixture(page,info,{health:"healthy",running:true,tab:"home",selectedFirst:true});
-  await expect(page.getByRole("heading",{name:"VPN is running",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Disconnect",exact:true})).toBeVisible();
   await page.evaluate(()=>{
     const w=window as any;w.fixtureRun="8";
     w.fixtureHealth.session={...w.fixtureHealth.session,run_id:"8",profile_ref:{kind:"manual",id:"b"},profile_revision:"native-b",display_name:"Accepted server B"};
   });
   await expect(page.getByTestId("connection-health")).toHaveAttribute("title","Accepted server B");
-  await expect(page.getByRole("heading",{name:"VPN is running",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Disconnect",exact:true})).toBeVisible();
   await verify();
 });
 
-test("connection heading stays stable while health changes and the healthy row stays compact",async({page},info)=>{
+test("connection action stays stable while health changes and the healthy row stays compact",async({page},info)=>{
  const {verify}=await openFixture(page,info,{health:"healthy",running:true,tab:"home",selectedFirst:true});
- const heading=page.getByRole("heading",{name:"VPN is running",exact:true});
- await expect(heading).toBeVisible();
+ const action=page.getByRole("button",{name:"Disconnect",exact:true});
+ await expect(action).toBeVisible();
  const card=page.getByTestId("connection-health");
  expect((await card.boundingBox())!.height).toBeLessThanOrEqual(64);
  await card.screenshot({path:".superpowers/sdd/2026-10-31-reliability-and-ux-roadmap/compact-health-preview.png"});
  for(const outcome of ["checking","healthy","unavailable"]){
   await page.evaluate(outcome=>{const h=(window as any).fixtureHealth.health;h.outcome=outcome;h.checked_at=new Date().toISOString();h.issue=outcome==="unavailable"?"probe_target_unavailable":null;},outcome);
-  await expect(heading).toBeVisible();
+  await expect(action).toBeVisible();
  }
  await verify();
 });

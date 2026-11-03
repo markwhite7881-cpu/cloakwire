@@ -13,7 +13,7 @@ export function RoutingModePanel({settings,engine,onChange}:{settings:GeneratorS
       {summary.hasAdditionalRules&&<p className="mt-2 text-sm text-muted-foreground">{t("routingModes.additional")}</p>}
       {summary.reason&&<p role="status" className="mt-2 text-sm text-amber-600 dark:text-amber-300">{t("routingModes."+summary.reason)}</p>}
     </div>
-    <div className="atlas-mode-selector">{(["all","include","exclude"] as const).map(mode=><Button key={mode} className="min-h-11 whitespace-normal" variant={(draft.pending?draft.mode:summary.mode)===mode?"default":"outline"} aria-pressed={(draft.pending?draft.mode:summary.mode)===mode} disabled={!summary.available} onClick={()=>draft.choose(mode)}>{t("routingModes."+mode)}</Button>)}</div>
+    <div className="atlas-mode-selector">{(["all","include","exclude"] as const).map(mode=><Button key={mode} className="min-h-11 whitespace-normal" variant="outline" aria-pressed={(draft.pending?draft.mode:summary.mode)===mode} disabled={!summary.available} onClick={()=>draft.choose(mode)}>{t("routingModes."+mode)}</Button>)}</div>
     {draft.pending&&<>
       <p className="text-sm text-muted-foreground">{t("routingModes.pending")}</p>
       {draft.mode!=="all"&&<div className="space-y-3">

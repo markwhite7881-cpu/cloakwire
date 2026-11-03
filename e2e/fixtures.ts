@@ -1,7 +1,7 @@
 import {expect,type Page,type TestInfo} from "playwright/test";
 export const v1="singbox-client.manual-profiles.v1",v2="singbox-client.manual-profiles.v2";
 export const settingsKey="singbox-client.settings.v2";
-export async function openFixture(page:Page,testInfo:TestInfo,options:{preparationFailure?:"generate"|"permission";recoveryEnabled?:boolean;recoveryPhase?:string;recoveryIssue?:string;recoveryError?:boolean;mobileLifecycle?:boolean;profileProbe?:boolean;staleProbe?:boolean;revisionDelay?:number;subscription?:boolean;boundSource?:boolean;startError?:boolean;health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
+export async function openFixture(page:Page,testInfo:TestInfo,options:{serverNames?:string[];preparationFailure?:"generate"|"permission";recoveryEnabled?:boolean;recoveryPhase?:string;recoveryIssue?:string;recoveryError?:boolean;mobileLifecycle?:boolean;profileProbe?:boolean;staleProbe?:boolean;revisionDelay?:number;subscription?:boolean;boundSource?:boolean;startError?:boolean;health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
   const mobile=testInfo.project.name==="mobile";
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text());});
@@ -9,7 +9,7 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{preparati
   await page.addInitScript(({mobile,options,v1})=>{
     const fixture=(tag:string,uuid:string)=>({protocol:"vless",tag,server:"127.0.0.1",port:12345,uuid,transport:{kind:"tcp"},tls:{enabled:false,alpn:[],allow_insecure:false}});
     if(!sessionStorage.getItem("fixture-seeded")){
-      localStorage.setItem(v1,JSON.stringify(options.single?[fixture("My server","one")]:options.selectedFirst?[fixture("First","one"),fixture("Second","two")]:[fixture("Same","one"),fixture("Same","two")]));
+      localStorage.setItem(v1,JSON.stringify(options.serverNames ? options.serverNames.map((name,i)=>fixture(name,"server-"+i)) : options.single?[fixture("My server","one")]:options.selectedFirst?[fixture("First","one"),fixture("Second","two")]:[fixture("Same","one"),fixture("Same","two")]));
       localStorage.setItem("cloakwire:locale",options.locale??"en");
       if(options.theme)localStorage.setItem("cloakwire:theme-mode",options.theme);
       if(options.accent)localStorage.setItem("cloakwire:accent",options.accent);

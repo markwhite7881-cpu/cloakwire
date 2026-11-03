@@ -4,7 +4,7 @@ import {openFixture} from "./fixtures";
 test("Android check stays inside the connection hero and remains compact after retry",async({page},info)=>{
  test.skip(info.project.name!=="mobile");
  const {verify}=await openFixture(page,info,{profileProbe:true,running:true,selectedFirst:true,tab:"home"});
- const hero=page.locator(".atlas-connection-panel").filter({has:page.getByRole("heading",{name:"Connected",exact:true})});
+ const hero=page.locator(".atlas-connection-panel");
  const card=hero.getByTestId("profile-probe-card");
  await expect(card).toBeVisible();
  // Focus scrolling during the screen's entrance must not leave this clipped hero shifted.
@@ -42,7 +42,7 @@ test("Android compact check can be cancelled without touching the running VPN",a
  await expect.poll(()=>page.evaluate(()=>(window as any).nativeCalls.filter((c:string)=>c==="plugin:vpn|cancelProbe").length)).toBe(1);
  await page.evaluate(()=>(window as any).releaseProbe());
  await expect(card.getByRole("button",{name:"Проверить сервер",exact:true})).toBeEnabled();
- await expect(page.getByRole("heading",{name:"Подключено",exact:true})).toBeVisible();
+ await expect(page.getByRole("button",{name:"Отключить",exact:true})).toBeVisible();
  expect(await page.evaluate(()=>(window as any).nativeCalls.filter((c:string)=>c==="plugin:vpn|start"||c==="plugin:vpn|stop"))).toEqual([]);
  await verify();
 });

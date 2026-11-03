@@ -113,13 +113,13 @@
   opacity: .72;
 }
 @media (hover: hover) {
-  .atlas-button:not(:disabled):hover, .atlas-choice:not(:disabled):hover,
+  .atlas-button:where(:not([aria-pressed=true])):not(:disabled):hover, .atlas-choice:where(:not([aria-pressed=true])):not(:disabled):hover,
   .atlas-server-trigger:hover, button.atlas-session-control:not(:disabled):hover {
     border-color: var(--atlas-stroke);
     background: var(--atlas-field);
   }
-  .atlas-button[data-variant=default]:not(:disabled):hover { background: color-mix(in srgb,var(--atlas-command) 90%,var(--atlas-ink)); }
-  .atlas-button[data-variant=destructive]:not(:disabled):hover { background: #952838; }
+  .atlas-button[data-variant=default]:where(:not([aria-pressed=true])):not(:disabled):hover { background: color-mix(in srgb,var(--atlas-command) 90%,var(--atlas-ink)); }
+  .atlas-button[data-variant=destructive]:where(:not([aria-pressed=true])):not(:disabled):hover { background: #952838; }
 }
 .atlas-shell .atlas-button[aria-pressed=true], .atlas-choice[aria-pressed=true] {
   color: var(--accent-badge-text);
@@ -224,11 +224,10 @@
 .atlas-search-field { display: flex; align-items: center; gap: 8px; padding-inline-start: 10px; border: 1px solid var(--atlas-stroke); border-radius: 5px; background: var(--atlas-field); }
 .atlas-search-field .atlas-input { border: 0; background: transparent; }
 
-.atlas-connection-controls, .atlas-session-line {
+.atlas-connection-controls {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0;
 }
-.atlas-connection-controls { justify-content: space-between; }
-.atlas-session-line h1 { margin: 0; font-size: 18px; line-height: 1.25; font-weight: 650; }
+.atlas-connection-controls { justify-content: flex-start; }
 .atlas-session-time {
   display: inline-flex; align-items: center; gap: 4px; font-size: 12px;
   color: var(--atlas-muted); font-variant-numeric: tabular-nums; white-space: nowrap;

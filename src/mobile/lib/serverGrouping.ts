@@ -20,6 +20,14 @@ export interface ServerGroup {
   entries: ServerGroupEntry[];
 }
 
+export function recentProfileKey(groupId: string, entry: ServerGroupEntry): string | null {
+  return "tag" in entry.profile ? JSON.stringify([groupId, entry.manualId ?? entry.profile.tag]) : null;
+}
+
+export function recentBundleKey(subscriptionId: string, childKey: string): string {
+  return JSON.stringify(["bundle", subscriptionId, childKey]);
+}
+
 export interface GroupedServerProfiles {
   profiles: Outbound[];
   groups: ServerGroup[];

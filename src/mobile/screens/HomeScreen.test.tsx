@@ -56,7 +56,8 @@ describe("HomeScreen profile validation feedback", () => {
       { subscriptionId: "sub", childKey: "active", childName: "Unique current name", engine: "singbox" },
     );
     expect(html.match(/Unique current name/g)).toHaveLength(1);
-    expect(html).toMatch(/atlas-session-line[^]*?atlas-session-time/);
+    expect(html).toContain("atlas-session-time");
+    expect(html).not.toMatch(/<h1[^>]*>Connected<\/h1>/);
   });
 
   it("keeps the connected label separate from the rejected selected target", () => {

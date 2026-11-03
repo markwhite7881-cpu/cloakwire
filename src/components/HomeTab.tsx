@@ -53,6 +53,7 @@ export interface HomeTabProps {
   onDismissError?: () => void;
   canStart: boolean;
   configName: string | null;
+  recent?: readonly string[];
   profiles: ConnectionProfile[];
   selectedIndex: number;
   /**
@@ -89,6 +90,7 @@ export function HomeTab({
   onDismissError,
   canStart,
   configName: _configName,
+  recent = [],
   profiles,
   selectedIndex,
   activeOutbound,
@@ -138,14 +140,6 @@ export function HomeTab({
   const { t, locale } = useI18n();
 
   const healthView=presentConnection(status,diagnostics,Date.now());
-  const headline = (() => {
-    if (statusLabel === "running") return t("health.running");
-    if (statusLabel === "starting") return t("common.connecting");
-    if (statusLabel === "stopping") return t("common.stopping");
-    if (healthView.state === "crashed") return t("health.crashed");
-    return t("common.disconnected");
-  })();
-
   // Clamp the selected index whenever the list shrinks so we never
   // point at a missing server.
   useEffect(() => {
@@ -209,26 +203,13 @@ export function HomeTab({
   const country=liveProfile ? countryOf(liveProfile) : activeFlag?.code !== "??" ? activeFlag?.code ?? null : null;
   const regionNames=useMemo(()=>new Intl.DisplayNames([locale],{type:"region"}),[locale]);
   const route=settings ? describeRoutingMode(settings,"desktop",selected?.kind==="ready_config"?selected.engine:"singbox") : null;
-  const [recent, setRecent]=useState<string[]>(()=>{
-    try {const value=JSON.parse(localStorage.getItem("cloakwire.desktop.recentProfiles") || "[]");
-      return Array.isArray(value)?value.filter((id:unknown)=>typeof id==="string").slice(0,3):[];}catch{return [];}
-  });
   const selectedKey=selected && connectionProfileStorageKey(selected);
-  useEffect(()=>{
-    if(!selectedKey)return;
-    setRecent(previous=>{
-      if(previous[0]===selectedKey)return previous;
-      const next=[selectedKey,...previous.filter(k=>k!==selectedKey)].slice(0,3);
-      try{localStorage.setItem("cloakwire.desktop.recentProfiles",JSON.stringify(next));}catch{}
-      return next;
-    });
-  },[selectedKey]);
   const pickedName = selected && display(selected).label;
   const pickedRef = selected && profileRef(selected);
   const sessionName = activeName || healthView.session?.display_name || (isXrayRunning ? activeXrayDisplay.label : null);
   const differentOwner = !!(sessionRef && pickedRef && !sameProfileRef(sessionRef, pickedRef));
   const showActive = isRunning && sessionName && (sessionName !== pickedName || differentOwner);
-  const recentRows=recent.filter(key => key !== selectedKey).map(key=>profiles.findIndex(p=>connectionProfileStorageKey(p)===key)).filter(i=>i>=0);
+  const recentRows=recent.map(key=>profiles.findIndex(p=>connectionProfileStorageKey(p)===key)).filter(i=>i>=0);
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-5">
       <section className="atlas-hero">
@@ -237,24 +218,24 @@ export function HomeTab({
           {isRunning && <h2 className="text-xl font-semibold">{country ? regionNames.of(country) : t("atlas.unknown")}</h2>}
           <ServerPicker profiles={profiles} selectedIndex={selectedIndex} latencyByTag={latency.byTag}
             readyProfileMetadata={readyProfileMetadata} subscriptionNames={subscriptionNames} geoipByIp={geoipByIp} onSelect={onSelect}/>
-          <ConnectionControl headline={headline} running={isRunning} transition={isTransition}
+          <ConnectionControl running={isRunning} transition={isTransition}
             duration={sessionTimer.formatted} disabled={busy || isTransition || (!isRunning && !canStart)}
             onToggle={isRunning ? onDisconnect : onConnect} />
           {showActive && <p className="atlas-active-note">{sessionName === pickedName ? t("atlas.otherActive") : t("home.via")+" "+sessionName}</p>}
           {!profiles.length && <Button size="sm" variant="outline" onClick={onOpenImport}>{t("servers.addServer")}</Button>}
-          {recentRows.length>0 && <div className="atlas-recent">
-            <h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
-            {recentRows.map(index=><ProfileChoice key={connectionProfileStorageKey(profiles[index]) || index} row={{index,profile:profiles[index]}} selectedIndex={selectedIndex}
-              readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latency.byTag} onSelect={onSelect} compact />)}
-          </div>}
         </div>
       </section>
-      {(isRunning||healthView.issue)&&<ConnectionStatus view={healthView} showHeading={false} hideSessionName={isRunning && !!healthView.session && [pickedName, sessionName].includes(healthView.session.display_name)}
+      {(isRunning || healthView.issue || healthView.state === "crashed") && <ConnectionStatus view={healthView} showHeading={healthView.state === "crashed"} hideSessionName={isRunning && !!healthView.session && [pickedName, sessionName].includes(healthView.session.display_name)}
         onRetry={healthView.session&&onRetryHealth?()=>{void onRetryHealth(healthView.session!);}:undefined}
         onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined} busy={healthActionBusy} message={healthActionMessage} actions={runtimeActions}/>}
       <RecoveryNotice />
       {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} actions={errorActions} />}
 
+      {recentRows.length>0 && <section className="atlas-recent" aria-label={t("atlas.recent")}>
+        <h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
+        {recentRows.map(index=><ProfileChoice key={connectionProfileStorageKey(profiles[index]) || index} row={{index,profile:profiles[index]}} selectedIndex={selectedIndex}
+          readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latency.byTag} onSelect={index => { if (index !== selectedIndex) onSelect(index); }} compact />)}
+      </section>}
       <section className="atlas-panel atlas-route-summary">
         <div className="min-w-0"><h2 className="text-sm font-semibold">{t("routingModes.title")}</h2>
           <p className="text-xs text-muted-foreground">{route && t("routingModes."+(route.reason || route.mode))}</p>
