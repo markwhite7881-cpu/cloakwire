@@ -20,8 +20,8 @@ function formatTs(iso: string): string {
 }
 
 const STREAM_COLOR: Record<LogLine["stream"], string> = {
-  stdout: "text-zinc-300",
-  stderr: "text-rose-400 font-medium",
+  stdout: "text-foreground",
+  stderr: "text-destructive font-medium",
   system: "text-theme-accent font-medium",
 };
 
@@ -51,42 +51,13 @@ export function LogView({ logs, onClear, className }: Props) {
   const visible = filter === "all" ? logs : logs.filter((l) => l.stream === filter);
 
   return (
-    <div className={cn("flex flex-col overflow-hidden rounded-xl border border-border/80 bg-[#07080c] font-mono", className)}>
-      <div className="flex items-center justify-between gap-2 border-b border-border/80 bg-card/60 px-3 py-2">
+    <div className={cn("atlas-console flex flex-col overflow-hidden", className)}>
+      <div className="atlas-console-tools">
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setFilter("all")}
-            className={cn(
-              "rounded-lg px-2.5 py-1 text-[11px] font-medium transition",
-              filter === "all"
-                ? "badge-theme"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-            )}
-          >
-            {t("servers.all")}
-          </button>
-          <button
-            onClick={() => setFilter("stderr")}
-            className={cn(
-              "rounded-lg px-2.5 py-1 text-[11px] font-medium transition",
-              filter === "stderr"
-                ? "bg-rose-950/80 text-rose-400 border border-rose-800/60"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-            )}
-          >
-            {t("common.error")}
-          </button>
-          <button
-            onClick={() => setFilter("system")}
-            className={cn(
-              "rounded-lg px-2.5 py-1 text-[11px] font-medium transition",
-              filter === "system"
-                ? "badge-theme"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-            )}
-          >
-            {t("common.system")}
-          </button>
+          {(["all","stderr","system"] as const).map(stream=><button key={stream} type="button"
+            className="atlas-filter" aria-pressed={filter===stream} onClick={()=>setFilter(stream)}>
+            {t(stream==="all"?"servers.all":stream==="stderr"?"common.error":"common.system")}
+          </button>)}
         </div>
         <div className="flex items-center gap-1">
           <span className="text-[10px] text-muted-foreground">
@@ -117,7 +88,7 @@ export function LogView({ logs, onClear, className }: Props) {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed"
+        className="atlas-log-scroll"
         style={{ minHeight: 0 }}
       >
         {visible.length === 0 ? (
@@ -126,12 +97,12 @@ export function LogView({ logs, onClear, className }: Props) {
           </div>
         ) : (
           visible.map((line, i) => (
-            <div key={`${line.ts}-${i}`} className="flex gap-2">
-              <span className="shrink-0 text-muted-foreground/60">
+            <div key={`${line.ts}-${i}`} className="atlas-log-line">
+              <span className="atlas-log-time">
                 {formatTs(line.ts)}
               </span>
-              <span className={cn("shrink-0 uppercase opacity-60", STREAM_COLOR[line.stream])}>
-                {line.stream[0]}
+              <span className={cn("atlas-stream", STREAM_COLOR[line.stream])}>
+                {line.stream}
               </span>
               <span className={cn("break-all whitespace-pre-wrap", STREAM_COLOR[line.stream])}>
                 {line.line}

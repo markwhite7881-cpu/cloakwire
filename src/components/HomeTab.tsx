@@ -373,11 +373,11 @@ export function HomeTab({
       {/* Quick Add Modal */}
       {quickAddOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          className="atlas-overlay atlas-center-overlay atlas-desktop-modal"
           onClick={() => setQuickAddOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-border/90 bg-[#0c0d14] p-6 shadow-2xl space-y-4 ring-1 ring-white/10"
+            role="dialog" aria-modal="true" aria-label={t("servers.addServer")} className="atlas-dialog atlas-import-dialog space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -397,7 +397,7 @@ export function HomeTab({
               <button
                 type="button"
                 onClick={() => setQuickAddOpen(false)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition"
+                aria-label={t("common.close")} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -781,7 +781,7 @@ function ServerPicker({
         <div
           className={cn(
             "absolute left-0 top-full z-[100] mt-2",
-            "w-84 max-h-96 overflow-y-auto rounded-xl border border-border/90 bg-[#0c0d14] shadow-2xl shadow-black/95 p-1.5 backdrop-blur-xl ring-1 ring-white/10",
+            "atlas-popover",
           )}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}

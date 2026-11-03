@@ -35,7 +35,7 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
   );
 
   return (
-    <div className="rounded-xl border border-border/80 bg-[#07080c] p-4 space-y-4">
+    <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-4 space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-foreground">{t("routing.starterRulesTitle")}</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -47,7 +47,7 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
               key={p.id}
               type="button"
               onClick={() => onAddRule({ id: newRuleId(), ...p.build() })}
-              className="text-left rounded-lg border border-border/80 bg-[#0b0c12] hover:border-theme-accent hover:bg-theme-subtle transition px-3.5 py-2.5 group"
+              className="text-left rounded-lg border border-border/80 bg-[var(--atlas-field)] hover:border-theme-accent hover:bg-theme-subtle transition px-3.5 py-2.5 group"
             >
               <div className="flex items-center gap-2">
                 <Plus size={14} className="text-theme-accent group-hover:scale-110 transition-transform" />
@@ -69,7 +69,7 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
               {t("routing.ruleSetLibraryDesc")}
             </p>
           </div>
-          <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-[#0b0c12] p-0.5 text-xs">
+          <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-[var(--atlas-field)] p-0.5 text-xs">
             {(["all", "loyalsoldier", "meta"] as const).map((s) => (
               <button
                 key={s}

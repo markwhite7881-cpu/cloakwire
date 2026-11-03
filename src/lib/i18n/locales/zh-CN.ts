@@ -1,7 +1,7 @@
 import type { TranslationSchema } from "./en";
 
 export const zhCN: TranslationSchema = {
-  atlas: {"globe":"可用国家或地区","unknown":"国家或地区未知","pick":"选择服务器","recent":"最近使用的服务器"},
+  atlas: {"globe":"可用国家或地区","unknown":"国家或地区未知","pick":"选择服务器","recent":"最近使用的服务器","connection":"连接","atLaunch":"启动应用时自动连接。","customProfiles":"自定义服务器","subscriptionProfiles":"订阅配置"},
   recovery: {
   "engineUnavailable": "VPN 已停止。请手动连接以恢复连接。",
   "trafficBlocked": "Kill Switch 仍在阻止流量。",
@@ -367,7 +367,7 @@ export const zhCN: TranslationSchema = {
     skeletonGenerated: "已生成骨架配置（暂无节点，请添加节点后重新生成）。",
     configGenerated: "已为 {count} 个节点生成配置文件。",
     savedTo: "已保存至 {path}",
-    startNotice: "请在「首页」启动 VPN 连接。「配置」选项卡用于编辑与导出生成的配置。",
+    startNotice: "请在「首页」启动 VPN 连接。「设置」选项卡用于编辑与导出生成的配置。",
     coreBinariesTitle: "核心组件",
     coreBinariesDesc: "后端检测到的已验证核心二进制程序",
     tablePath: "路径",

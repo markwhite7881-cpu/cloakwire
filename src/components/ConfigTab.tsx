@@ -1,5 +1,7 @@
+import { AtlasHeading } from "@/components/atlas/AtlasHeading";
+import { SettingsIndex } from "@/components/atlas/SettingsIndex";
 import { useState } from "react";
-import { Bell, FileJson, FolderOpen, Server } from "lucide-react";
+import { Bell, FileJson, FolderOpen, Server, Settings2 } from "lucide-react";
 import { Button } from "@/components/Button";
 import {
   Card,
@@ -32,6 +34,8 @@ import type {
 
 const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+const desktopSettingsSections=[["atlas-config-files","nav.config"],["atlas-config-appearance","settings.appearance"],["atlas-config-network","settings.network"],["atlas-config-about","settings.about"]] as const;
 
 export interface ConfigTabProps {
   configPath: string;
@@ -80,9 +84,12 @@ export function ConfigTab({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 p-6">
+    <div className="atlas-page atlas-settings">
+      <AtlasHeading icon={Settings2} title={t("settings.title")}/>
+      <SettingsIndex sections={desktopSettingsSections}/>
+      <section className="atlas-group" id="atlas-config-files" tabIndex={-1} aria-label={t("nav.config")}>
       {/* Config picker */}
-      <Card className="bento-card">
+      <Card className="atlas-section">
         <CardHeader>
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
@@ -102,7 +109,7 @@ export function ConfigTab({
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 justify-start truncate bg-[#07080c]"
+              className="flex-1 justify-start truncate bg-[var(--atlas-field)]"
               onClick={onPickConfig}
             >
               <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
@@ -131,22 +138,15 @@ export function ConfigTab({
         onConfigPath={onConfigPath}
       />
 
-      {/* Language Selection */}
-      <Card className="bento-card">
-        <CardContent className="pt-6">
-          <LanguagePicker />
-        </CardContent>
-      </Card>
-
-      {/* Appearance & Accent Themes */}
-      <Card className="bento-card">
-        <CardContent className="pt-6">
-          <AccentThemePicker />
-        </CardContent>
-      </Card>
+      </section>
+      <section className="atlas-group" id="atlas-config-appearance" tabIndex={-1} aria-label={t("settings.appearance")}>
+        <h3 className="atlas-group-title">{t("settings.appearance")}</h3>
+        <div className="atlas-preferences"><LanguagePicker/><AccentThemePicker/></div>
+      </section>
+      <section className="atlas-group" id="atlas-config-network" tabIndex={-1} aria-label={t("settings.network")}>
 
       {/* Native Desktop Notifications */}
-      <Card className="bento-card">
+      <Card className="atlas-section">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1">
@@ -188,8 +188,10 @@ export function ConfigTab({
       {/* Live: proxies */}
       <ProxiesCard status={status} />
 
+      </section>
+      <section className="atlas-group" id="atlas-config-about" tabIndex={-1} aria-label={t("settings.about")}>
       {/* Binary info */}
-      <Card className="bento-card">
+      <Card className="atlas-section">
         <CardHeader>
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
@@ -223,6 +225,7 @@ export function ConfigTab({
         currentSingboxVersion={currentSingboxVersion ?? null}
         onSingboxUpdated={onSingboxUpdated ?? (() => {})}
       />
+      </section>
     </div>
   );
 }

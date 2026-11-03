@@ -211,26 +211,18 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
 
   return (
     <div
-      className={cn(
-        "group rounded-xl border border-border/80 bg-card/60 p-3.5 transition-all duration-150 shadow-sm",
-        "hover:border-border hover:bg-card/90"
-      )}
+      className="group atlas-profile-row"
     >
-      <div className="flex items-start gap-2">
+      <div className="atlas-profile-main">
+        <span className="atlas-profile-flag"><FlagIcon code={flag.code} size={19} alt={flag.code}/></span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <Badge variant={variant} className="px-1.5 py-0 text-[10px]">
-              {protocolTag(outbound)}
-            </Badge>
-            <FlagIcon
-              code={flag.code}
-              size={18}
-              className="shrink-0 self-center"
-              alt={flag.code}
-            />
             <span className="truncate text-sm font-medium" title={name}>
               {name} {identityHint && <span className="font-mono text-xs text-muted-foreground">{identityHint}</span>}
             </span>
+            <Badge variant={variant} className="px-1.5 py-0 text-[10px]">
+              {protocolTag(outbound)}
+            </Badge>
             <ProfileHealthBadge profileRef={manualId?{kind:"manual",id:manualId}:null}/>
             {extra && (
               <span className="rounded bg-muted px-1.5 py-0 font-mono text-[10px] text-muted-foreground">
@@ -256,7 +248,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
             )}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"

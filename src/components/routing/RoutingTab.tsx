@@ -1,3 +1,4 @@
+import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 // RoutingTab — main container for the "Routing" page.
 //
 // The simple UX (top of the page, what 99% of users see):
@@ -136,16 +137,8 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
   }, [r.vpn_processes, r.direct_processes]);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">{t("routing.title")}</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {t("routing.subtitle")}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="atlas-page atlas-routing">
+      <AtlasHeading title={t("routing.title")} icon={Network} description={t("routing.subtitle")} actions={
           <Button
             variant="ghost"
             size="sm"
@@ -156,8 +149,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
             <RotateCcw size={14} className="mr-1" />
             {t("common.refresh")}
           </Button>
-        </div>
-      </div>
+      }/>
 
       {/* TUN-required banner */}
       {!isTunActive && (
@@ -182,7 +174,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
       )}
 
       {/* Advanced — collapsed by default. */}
-      <details className="bento-card rounded-2xl p-4 transition open:p-5">
+      <details className="atlas-disclosure">
         <summary className="cursor-pointer select-none px-2 py-1 text-sm font-semibold text-foreground hover:text-theme-accent flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
           <span className="advanced-arrow text-xs text-muted-foreground" />
           {t("routing.advancedRulesTitle")}
@@ -225,7 +217,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
           {/* General settings — sniff, final, auto_detect_interface */}
           <div
             className={cn(
-              "rounded-xl border border-border/80 bg-[#07080c] p-4",
+              "rounded-xl border border-border/80 bg-[var(--atlas-field)] p-4",
               !isTunActive && "pointer-events-none opacity-60",
             )}
             aria-disabled={!isTunActive}
@@ -254,7 +246,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
                 <select
                   value={r.final_outbound}
                   onChange={(e) => updateRouting({ final_outbound: e.target.value })}
-                  className="w-full rounded-md bg-[#0b0c12] border border-border/80 px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent"
+                  className="w-full rounded-md bg-[var(--atlas-field)] border border-border/80 px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent"
                 >
                   <option value="direct">{t("routing.finalDirectSimple")}</option>
                   <option value="proxy">{t("routing.finalProxySelector")}</option>
@@ -325,7 +317,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
             </Button>
           </div>
           {jsonOpen && (
-            <div className="rounded-xl border border-border/80 bg-[#07080c] p-4">
+            <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs uppercase tracking-wide text-muted-foreground font-mono">
                   {t("routing.jsonTitle")}
@@ -373,7 +365,7 @@ function ProcessPickerCard({
   return (
     <section
       className={cn(
-        "bento-card rounded-2xl p-6 space-y-4 shadow-sm",
+        "atlas-process-group space-y-3",
         disabled && "opacity-70",
       )}
       aria-disabled={disabled}
@@ -388,7 +380,7 @@ function ProcessPickerCard({
 
       {/* Selected chips. Empty state shows a tiny hint. */}
       {selected.length === 0 ? (
-        <div className="text-xs text-muted-foreground italic">
+        <div className="text-xs text-muted-foreground">
           {accent === "vpn"
             ? t("routing.noAppsPickedVpn")
             : t("routing.noAppsPickedDirect")}

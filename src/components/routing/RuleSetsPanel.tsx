@@ -48,7 +48,7 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
   };
 
   return (
-    <div className="rounded-xl border border-border/80 bg-[#07080c] p-4 space-y-3">
+    <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-foreground">{t("routing.ruleSetsTitle")}</h3>
@@ -73,7 +73,7 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
           <div
             key={rs.tag}
             className={cn(
-              "rounded-lg border border-border/80 bg-[#0b0c12] px-3.5 py-2.5",
+              "rounded-lg border border-border/80 bg-[var(--atlas-field)] px-3.5 py-2.5",
               !rs.enabled && "opacity-60",
             )}
           >
@@ -106,7 +106,7 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
                   value={rs.url ?? ""}
                   onChange={(e) => update(rs.tag, { url: e.target.value })}
                   placeholder="https://…/geoip-cn.srs"
-                  className="w-full rounded-md bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent font-mono"
+                  className="w-full rounded-md bg-[var(--atlas-field)] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent font-mono"
                 />
               </div>
             )}

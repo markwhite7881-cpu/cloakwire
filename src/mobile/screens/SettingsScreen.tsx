@@ -1,7 +1,9 @@
+import { AtlasHeading } from "@/components/atlas/AtlasHeading";
+import { SettingsIndex } from "@/components/atlas/SettingsIndex";
 import {RecoverySetting} from "@/components/RecoverySettings";
 import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useState } from "react";
-import { RefreshCw, Terminal } from "lucide-react";
+import { RefreshCw, Terminal, Settings2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { vpnCoreVersion } from "@/lib/vpn";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,8 @@ const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 /** DNS provider presets — write both local and remote upstreams. */
+const mobileSettingsSections=[["atlas-android-connection","atlas.connection"],["atlas-android-appearance","settings.appearance"],["atlas-android-network","settings.network"],["atlas-android-about","settings.about"]] as const;
+
 const DNS_PRESETS: { id: string; label: string; local: string; remote: string }[] = [
   {
     id: "cloudflare",
@@ -143,17 +147,19 @@ export function SettingsScreen({
     )?.id ?? "custom";
 
   const inputCls =
-    "rounded-xl border border-white/10 bg-[#07080c] px-3 py-2 text-xs text-foreground focus:outline-none focus:border-theme-accent focus:ring-1 focus:ring-theme-accent";
+    "rounded-xl border border-border bg-[var(--atlas-field)] px-3 py-2 text-xs text-foreground focus:outline-none focus:border-theme-accent focus:ring-1 focus:ring-theme-accent";
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <SectionCard>
-        <SectionHeader title={t("settings.title")} />
-        <div className="divide-y divide-white/5">
+    <div className="atlas-page atlas-settings">
+      <AtlasHeading icon={Settings2} title={t("settings.title")}/>
+      <SettingsIndex sections={mobileSettingsSections}/>
+      <SectionCard id="atlas-android-connection" tabIndex={-1}>
+        <SectionHeader title={t("atlas.connection")} />
+        <div className="divide-y divide-border">
           <RecoverySetting />
           <SettingRow
             label={t("settings.autoConnect")}
-            hint="Connect on app start."
+            hint={t("atlas.atLaunch")}
             control={
               <Switch
                 checked={autoConnect}
@@ -181,11 +187,11 @@ export function SettingsScreen({
         </div>
       </SectionCard>
 
-      <SectionCard>
+      <SectionCard id="atlas-android-appearance" tabIndex={-1}>
         <SectionHeader title={t("settings.appearance")} />
         <div className="space-y-4 p-3">
           <LanguagePicker />
-          <div className="border-t border-white/5 pt-3">
+          <div className="border-t border-border pt-3">
             <AccentThemePicker compact />
           </div>
         </div>
@@ -193,9 +199,9 @@ export function SettingsScreen({
 
 
 
-      <SectionCard>
+      <SectionCard id="atlas-android-network" tabIndex={-1}>
         <SectionHeader title={t("settings.network")} />
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-border">
           <SettingRow
             label={t("settings.dnsProvider")}
             control={
@@ -243,9 +249,9 @@ export function SettingsScreen({
 
       {inTauri && <DeviceHwidSection />}
 
-      <SectionCard>
+      <SectionCard id="atlas-android-about" tabIndex={-1}>
         <SectionHeader title={t("settings.about")} />
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-border">
           <SettingRow
             label="Cloakwire"
             control={
@@ -265,7 +271,7 @@ export function SettingsScreen({
             <button
               type="button"
               onClick={onOpenLogs}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#07080c] text-sm text-foreground active:scale-[0.98] transition"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-[var(--atlas-field)] text-sm text-foreground active:scale-[0.98] transition"
             >
               <Terminal className="h-4 w-4 text-theme-accent" />
               {t("nav.logs")}

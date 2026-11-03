@@ -22,7 +22,7 @@ export function CardHeader({
 }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col space-y-1 p-5 pb-3", className)}
+      className={cn("atlas-section-head flex flex-col space-y-1 p-5 pb-3", className)}
       {...props}
     />
   );
@@ -63,7 +63,7 @@ export function CardContent({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-5 pt-0", className)} {...props} />;
+  return <div className={cn("atlas-section-body p-5 pt-0", className)} {...props} />;
 }
 
 export function CardFooter({

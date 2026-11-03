@@ -67,8 +67,8 @@ export function ProfileImportDialog({plan,records,error,mobile=false,onApply,onC
     </div>
   </div>;
   if(mobile)return <Sheet open onClose={onCancel} title={t("profileImport.title")}>{content}</Sheet>;
-  return <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-    <section role="dialog" aria-modal="true" aria-labelledby="profile-import-title" className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-xl">
+  return <div className="atlas-overlay atlas-center-overlay atlas-desktop-modal">
+    <section role="dialog" aria-modal="true" aria-labelledby="profile-import-title" className="atlas-dialog atlas-import-dialog">
       <h2 id="profile-import-title" className="mb-3 text-lg font-semibold">{t("profileImport.title")}</h2>{content}
     </section>
   </div>;

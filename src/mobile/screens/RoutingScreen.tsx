@@ -1,8 +1,9 @@
+import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import { useRoutingModeDraft } from "@/hooks/useRoutingModeDraft";
 import { describeRoutingMode } from "@/lib/routingMode";
 import { Button } from "@/components/Button";
-import { useEffect, useMemo, useState } from "react";
-import { AppWindow, ChevronDown, Plus, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Route, AppWindow, ChevronDown, Plus, Search, X } from "lucide-react";
 import { vpnListApps, type AppEntry } from "@/lib/vpn";
 import { newRuleId } from "@/lib/presets";
 import { cn } from "@/lib/utils";
@@ -57,14 +58,15 @@ export function RoutingScreen({
   const appList = draft.list;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="atlas-page atlas-routing">
+      <AtlasHeading title={t("routing.title")} icon={Route}/>
       {/* Mode */}
       <SectionCard>
         <SectionHeader
           title={t("home.mode")}
           description={t("routing.modeDesc")}
         />
-        <div className="grid grid-cols-3 gap-2 p-3">
+        <div className="atlas-mode-selector">
           {GLOBAL_MODES.map((m) => {
             const active = r.final_outbound === m.id;
             return (
@@ -78,7 +80,7 @@ export function RoutingScreen({
                   "rounded-xl border py-2.5 px-2 text-xs font-medium transition-all duration-200",
                   active
                     ? "border-theme-accent bg-theme-subtle text-theme-accent font-semibold shadow-sm"
-                    : "border-white/5 bg-[#07080c] text-muted-foreground active:scale-95 hover:text-foreground",
+                    : "border-border bg-[var(--atlas-field)] text-muted-foreground active:scale-95 hover:text-foreground",
                 )}
               >
                 {t(m.labelKey)}
@@ -88,26 +90,23 @@ export function RoutingScreen({
         </div>
       </SectionCard>
 
-      <section className="rounded-xl border border-border p-3 text-sm space-y-2">
-        <p className="font-semibold">{t("routingModes.title")}: {t("routingModes."+summary.mode)}</p>
-        <p className="text-muted-foreground">{t("routingModes.android_scope")}</p>
-        {summary.hasAdditionalRules&&<p className="text-muted-foreground">{t("routingModes.additional")}</p>}
-      </section>
-      {/* Per-app routing */}
       <PerAppSection
+        currentMode={t("routingModes."+summary.mode)} additional={summary.hasAdditionalRules}
         mode={mode}
         appList={appList}
         hasRouteRules={r.rules.length > 0}
         onModeChange={draft.choose}
         onListChange={draft.changeList}
-      />
-
-      {draft.pending&&<section className="rounded-xl border border-border p-3 space-y-3">
+      >
+        {draft.pending&&<section className="atlas-pending space-y-3">
         <p className="text-sm text-muted-foreground">{t("routingModes.pending")}</p>
         {!!draft.planned?.conflicts.length&&<p className="text-sm text-muted-foreground">{t("routingModes.conflict",{modes:draft.planned.conflicts.map(mode=>t("routingModes."+mode)).join(", ")})}</p>}
         {draft.error&&<p role="alert" className="text-sm text-destructive">{t(draft.error)}</p>}
         <div className="flex gap-2"><Button className="min-h-11" onClick={draft.apply}>{t("routingModes.apply")}</Button><Button className="min-h-11" variant="outline" onClick={draft.cancel}>{t("common.cancel")}</Button></div>
       </section>}
+      </PerAppSection>
+
+
       {/* Rule groups */}
       <RuleGroup
         title={t("routing.proxyRoutingRules")}
@@ -161,12 +160,13 @@ function AppIcon({ src }: { src?: string | null }) {
 }
 
 function PerAppSection({
-  mode,
+  currentMode, additional, children, mode,
   appList,
   hasRouteRules,
   onModeChange,
   onListChange,
 }: {
+  currentMode:string; additional:boolean; children?:ReactNode;
   mode: TunAppMode;
   appList: string[];
   hasRouteRules: boolean;
@@ -225,9 +225,10 @@ function PerAppSection({
 
   return (
     <SectionCard>
-      <SectionHeader title={t("routing.perAppRouting")} />
+      <SectionHeader title={t("routing.perAppRouting")} description={t("routingModes.android_scope")} action={<span className="atlas-policy-value">{currentMode}</span>}/>
+      {additional && <p className="px-3 text-xs text-muted-foreground">{t("routingModes.additional")}</p>}
       <div className="space-y-3 p-3">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="atlas-mode-selector">
           {APP_MODES.map((m) => (
             <button
               key={m.id}
@@ -238,7 +239,7 @@ function PerAppSection({
                 "min-h-11 rounded-xl border py-2.5 px-2 text-sm font-medium transition-all duration-200",
                 mode === m.id
                   ? "border-theme-accent bg-theme-subtle text-theme-accent font-semibold shadow-sm"
-                  : "border-white/5 bg-[#07080c] text-muted-foreground active:scale-95 hover:text-foreground",
+                  : "border-border bg-[var(--atlas-field)] text-muted-foreground active:scale-95 hover:text-foreground",
               )}
             >
               {t(m.labelKey)}
@@ -247,7 +248,7 @@ function PerAppSection({
         </div>
 
         {!hasRouteRules && appList.length === 0 && (
-          <div className="rounded-xl border border-white/5 bg-[#07080c] px-3.5 py-2.5 text-xs text-muted-foreground">
+          <div className="rounded-xl border border-border bg-[var(--atlas-field)] px-3.5 py-2.5 text-xs text-muted-foreground">
             {t("routing.addRouteOrSelectApps")}
           </div>
         )}
@@ -257,7 +258,7 @@ function PerAppSection({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#07080c] px-3.5 py-2.5 text-xs text-foreground active:bg-secondary/60 transition"
+              className="flex w-full items-center justify-between rounded-xl border border-border bg-[var(--atlas-field)] px-3.5 py-2.5 text-xs text-foreground active:bg-secondary/60 transition"
             >
               <span className="font-medium">{pickerLabel}</span>
               <ChevronDown
@@ -270,7 +271,7 @@ function PerAppSection({
 
             {expanded && (
               <div className="space-y-2.5">
-                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#07080c] px-3">
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-[var(--atlas-field)] px-3">
                   <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <input
                     value={query}
@@ -296,7 +297,7 @@ function PerAppSection({
                   </p>
                 )}
                 {apps != null && (
-                  <ul className="max-h-72 divide-y divide-white/5 overflow-y-auto rounded-xl border border-white/5 bg-[#07080c]">
+                  <ul className="max-h-72 divide-y divide-border overflow-y-auto rounded-xl border border-border bg-[var(--atlas-field)]">
                     {visibleApps.map((a) => (
                       <li key={a.packageName}>
                         <button
@@ -332,6 +333,7 @@ function PerAppSection({
           </>
         )}
       </div>
+      {children}
     </SectionCard>
   );
 }
@@ -409,7 +411,7 @@ function RuleGroup({
   };
 
   return (
-    <details className="group bento-card rounded-2xl border border-white/5 bg-[#0c0d14]/90 open:bg-[#0c0d14]/90 shadow-lg">
+    <details className="group atlas-disclosure">
       <summary className="flex cursor-pointer select-none list-none items-center gap-2 px-4 py-3.5 text-sm font-semibold tracking-tight text-foreground [&::-webkit-details-marker]:hidden">
         <span className="advanced-arrow text-xs text-muted-foreground" />
         {title}
@@ -417,14 +419,14 @@ function RuleGroup({
           {mine.length}
         </span>
       </summary>
-      <div className="space-y-3 border-t border-white/5 px-4 pb-4 pt-3">
+      <div className="space-y-3 border-t border-border px-4 pb-4 pt-3">
         <p className="text-[11px] text-muted-foreground">{hint}</p>
         {mine.length === 0 ? (
           <p className="py-1 text-[11px] italic text-muted-foreground/70">
             {t("routing.noEntries")}
           </p>
         ) : (
-          <ul className="divide-y divide-white/5 rounded-xl border border-white/5 bg-[#07080c]">
+          <ul className="divide-y divide-border rounded-xl border border-border bg-[var(--atlas-field)]">
             {mine.map((rule) => (
               <li key={rule.id} className="flex items-center gap-3 px-3.5 py-2.5">
                 <div className="min-w-0 flex-1">
@@ -467,7 +469,7 @@ function RuleGroup({
               if (e.key === "Enter") add();
             }}
             placeholder={group === "block" ? "ads.example.com" : "example.com or 1.2.3.0/24"}
-            className="h-10 w-full rounded-xl border border-white/10 bg-[#07080c] px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
+            className="h-10 w-full rounded-xl border border-border bg-[var(--atlas-field)] px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
           />
           <button
             type="button"

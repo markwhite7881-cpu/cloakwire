@@ -1,3 +1,4 @@
+import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import {ProfileHealthBadge} from "./ProfileHealthBadge";
 import {profileRef} from "@/lib/profileEvidence";
 import { manualProfileHint } from "@/lib/manualProfileHint";
@@ -73,36 +74,18 @@ export function ServersTab({
     );
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 p-6">
-      {/* ─── Add: one input, two kinds of payload ───────────────────── */}
-      <Card className="bento-card">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-theme-accent" />
-              {t("servers.title")}
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAddOpen((v) => !v)}
-              className="text-xs"
-            >
-              {addOpen ? t("common.close") : t("common.add")}
-            </Button>
-          </div>
-        </CardHeader>
-        {addOpen && (
-          <CardContent className="space-y-3">
-            <textarea
-              value={pendingLinks}
-              onChange={(e) => onPendingLinksChange(e.target.value)}
-              placeholder={
-                "vless://uuid@host:port?type=tcp&security=reality&pbk=...\n" +
-                "https://provider.example.com/sub?token=ABCD-1234"
-              }
+    <div className="atlas-page atlas-catalog">
+      <AtlasHeading icon={Server} title={t("servers.title")} meta={<span className="atlas-count">{profiles.length}</span>}
+        actions={<Button size="sm" variant="outline" aria-expanded={addOpen} aria-controls="atlas-import" onClick={()=>setAddOpen(v=>!v)}>
+          <Link2 size={15}/>{addOpen?t("common.close"):t("common.add")}</Button>}/>
+      {addOpen && <section id="atlas-import" className="atlas-import">
+        <h3><Link2 size={16}/>{t("servers.addServer")}</h3>
+        <div className="space-y-3">
+            <textarea aria-label={t("servers.addServer")}
+              value={pendingLinks} onChange={(e)=>onPendingLinksChange(e.target.value)}
+              placeholder={"vless://…\nhttps://provider.example.com/sub?token=…"}
               className={cn(
-                "min-h-[110px] w-full resize-y rounded-xl border border-border/80 bg-[#07080c] px-3.5 py-2.5",
+                "min-h-[110px] w-full resize-y rounded-xl border border-border/80 bg-[var(--atlas-field)] px-3.5 py-2.5",
                 "font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/50",
                 "focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent",
               )}
@@ -159,37 +142,11 @@ export function ServersTab({
                 </ul>
               </div>
             )}
-          </CardContent>
-        )}
-      </Card>
+        </div>
+      </section>}
 
-      {/* ─── Subscriptions (collapsible sub-section) ───────────────── */}
-      <Card className="bento-card">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <Rss className="h-4 w-4 text-theme-accent" />
-              {t("servers.subscriptions")}
-              <Badge
-                variant="secondary"
-                className="badge-theme px-2 py-0.5 text-xs font-mono"
-              >
-                {subs.length}
-              </Badge>
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSubOpen((v) => !v)}
-              className="text-xs"
-            >
-              {subOpen ? t("common.close") : t("common.edit")}
-            </Button>
-          </div>
-        </CardHeader>
-        {subOpen && (
-          <CardContent>
-            <SubscriptionsCard
+      <div className="atlas-directory">
+            <SubscriptionsCard expanded={subOpen} onToggle={()=>setSubOpen(v=>!v)}
               subs={subs}
               fetching={subFetching}
               onAdd={onAddSub}
@@ -199,23 +156,21 @@ export function ServersTab({
               onIntervalChange={onSetSubInterval}
               onSelectChild={onSelectSubChild}
             />
-          </CardContent>
-        )}
-      </Card>
+      </div>
 
-      {profiles.some(p=>p.kind!=="manual")&&<Card className="bento-card"><CardContent className="pt-4">
-        <ul className="space-y-2">{profiles.filter(p=>p.kind!=="manual").map(profile=><li key={JSON.stringify(profileRef(profile))} className="min-w-0 rounded-lg border border-border p-3">
+      {profiles.some(p=>p.kind!=="manual")&&<Card className="atlas-section"><CardHeader><CardTitle>{t("atlas.subscriptionProfiles")}</CardTitle></CardHeader><CardContent>
+        <ul className="space-y-2">{profiles.filter(p=>p.kind!=="manual").map(profile=><li key={JSON.stringify(profileRef(profile))} className="atlas-record">
           <span className="break-words text-sm">{profile.kind==="subscription"?profile.label:profile.kind==="ready_config"?profile.name:""}</span>
           <ProfileHealthBadge profileRef={profileRef(profile)}/>
         </li>)}</ul>
       </CardContent></Card>}
       {/* ─── Profile list: Custom / Manual Servers ───────────────────── */}
-      <Card className="bento-card">
+      <Card className="atlas-section">
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
               <Server className="h-4 w-4 text-theme-accent" />
-              {t("servers.manual")}
+              {t("atlas.customProfiles")}
               <Badge
                 variant="secondary"
                 className="badge-theme px-2 py-0.5 text-xs font-mono"
@@ -241,7 +196,7 @@ export function ServersTab({
         </CardHeader>
         <CardContent>
           {manualProfiles.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/80 bg-[#07080c]/60 p-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/80 bg-[var(--atlas-field)] p-8 text-center text-sm text-muted-foreground">
               {t("servers.noCustomServers")}
             </div>
           ) : (

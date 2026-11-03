@@ -7,13 +7,13 @@ import {Button} from "../Button";
 export function RoutingModePanel({settings,engine,onChange}:{settings:GeneratorSettings;engine:EngineKind;onChange:(next:GeneratorSettings)=>void}){
   const {t}=useI18n(),summary=describeRoutingMode(settings,"desktop",engine);
   const draft=useRoutingModeDraft(settings,"desktop",onChange);
-  return <section className="rounded-2xl border border-border bg-card p-5 space-y-4" aria-label={t("routingModes.title")}>
+  return <section className="atlas-policy space-y-4" aria-label={t("routingModes.title")}>
     <div><h3 className="text-sm font-semibold">{t("routingModes.title")}: {t("routingModes."+summary.mode)}</h3>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t("routingModes.scope")}</p>
       {summary.hasAdditionalRules&&<p className="mt-2 text-sm text-muted-foreground">{t("routingModes.additional")}</p>}
       {summary.reason&&<p role="status" className="mt-2 text-sm text-amber-600 dark:text-amber-300">{t("routingModes."+summary.reason)}</p>}
     </div>
-    <div className="grid gap-2 sm:grid-cols-3">{(["all","include","exclude"] as const).map(mode=><Button key={mode} className="min-h-11 h-auto whitespace-normal" variant={(draft.pending?draft.mode:summary.mode)===mode?"default":"outline"} aria-pressed={(draft.pending?draft.mode:summary.mode)===mode} disabled={!summary.available} onClick={()=>draft.choose(mode)}>{t("routingModes."+mode)}</Button>)}</div>
+    <div className="atlas-mode-selector">{(["all","include","exclude"] as const).map(mode=><Button key={mode} className="min-h-11 h-auto whitespace-normal" variant={(draft.pending?draft.mode:summary.mode)===mode?"default":"outline"} aria-pressed={(draft.pending?draft.mode:summary.mode)===mode} disabled={!summary.available} onClick={()=>draft.choose(mode)}>{t("routingModes."+mode)}</Button>)}</div>
     {draft.pending&&<>
       <p className="text-sm text-muted-foreground">{t("routingModes.pending")}</p>
       {draft.mode!=="all"&&<div className="space-y-3">

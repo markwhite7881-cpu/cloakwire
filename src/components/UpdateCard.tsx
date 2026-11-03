@@ -72,7 +72,7 @@ export function UpdateCard({ currentSingboxVersion }: Props) {
   };
 
   return (
-    <div className="bento-card rounded-2xl p-5 space-y-4">
+    <div className="atlas-section atlas-updates space-y-4">
       <div className="flex items-start gap-2.5">
         <ShieldCheck size={16} className="mt-0.5 text-theme-accent" />
         <div className="min-w-0">
@@ -91,7 +91,7 @@ export function UpdateCard({ currentSingboxVersion }: Props) {
         onInstall={installAppUpdate}
       />
 
-      <div className="rounded-xl border border-border/80 bg-[#07080c] p-3.5">
+      <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-3.5">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">
             <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1 uppercase">
@@ -136,7 +136,7 @@ function AppUpdateRow({
   const { t } = useI18n();
   const available = !!update;
   return (
-    <div className="rounded-xl border border-border/80 bg-[#07080c] p-3.5">
+    <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-3.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="min-w-0">
           <div className="text-[11px] font-mono text-muted-foreground uppercase">{t("updates.appShell")}</div>

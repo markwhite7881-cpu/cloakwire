@@ -635,17 +635,9 @@ export default function MobileApp() {
 
   return (
     <div className="atlas-shell atlas-mobile relative flex h-screen flex-col overflow-hidden text-foreground">
-      {/* Header: brand + live status capsule. */}
-      <header className="flex shrink-0 items-center justify-between border-b border-border/40 bg-background/85 px-4 py-3 backdrop-blur-xl pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-theme-subtle ring-1 ring-theme-accent">
-            <img src={cloakwireLogo} alt="Cloakwire" className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-sm font-semibold tracking-tight text-foreground">Cloakwire</h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-full border border-border/40 bg-card/80 px-2.5 py-1 backdrop-blur-md shadow-sm">
+      <header className="atlas-mobile-header">
+        <div className="atlas-brand"><img src={cloakwireLogo} alt=""/><strong>CloakWire</strong></div>
+        <div className="atlas-mobile-status">
           <span className={cn("h-2 w-2 rounded-full", dotCls)} />
           <span className="text-[11px] font-mono text-muted-foreground">
             {vpn.state === "running"
@@ -811,8 +803,7 @@ export default function MobileApp() {
       </ProfileHealthContext.Provider>
 
       {/* Bottom navigation. */}
-      <nav className="shrink-0 border-t border-border/60 bg-card/95 backdrop-blur-2xl pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl">
-        <div className="flex items-stretch px-2 pt-1.5">
+      <nav className="atlas-bottom-nav"><div>
           {tabs.map((t) => {
             const Icon = t.icon;
             const active = t.id === activeTab;
@@ -822,18 +813,10 @@ export default function MobileApp() {
                 type="button"
                 onClick={() => changeTab(t.id)}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "relative flex flex-1 flex-col items-center gap-1 py-1.5 rounded-xl transition-all duration-200",
-                  active
-                    ? "text-theme-accent font-semibold"
-                    : "text-muted-foreground hover:text-foreground/80 active:scale-95",
-                )}
+                className="atlas-bottom-item"
               >
-                {active && (
-                  <span className="absolute inset-0 rounded-xl bg-theme-subtle -z-10" />
-                )}
-                <Icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
-                <span className="text-[10px] tracking-tight">{t.label}</span>
+                <Icon aria-hidden="true" size={19} strokeWidth={active ? 2 : 1.6}/>
+                <span>{t.label}</span>
               </button>
             );
           })}

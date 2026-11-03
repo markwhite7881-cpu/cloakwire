@@ -212,7 +212,7 @@ export function AddSubscriptionSheet({
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
-            className="min-h-[120px] w-full resize-none rounded-xl border border-border/80 bg-[#07080c] px-3.5 py-2.5 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
+            className="min-h-[120px] w-full resize-none rounded-xl border border-border/80 bg-[var(--atlas-field)] px-3.5 py-2.5 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
           />
           <p className="mt-1.5 text-[11px] text-muted-foreground/80">{sourceHint}</p>
         </div>

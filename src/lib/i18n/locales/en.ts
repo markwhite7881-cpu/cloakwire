@@ -1,5 +1,5 @@
 export const en = {
-  atlas: {"globe":"Available countries","unknown":"Country unknown","pick":"Select a server","recent":"Recent servers"},
+  atlas: {"globe":"Available countries","unknown":"Country unknown","pick":"Select a server","recent":"Recent servers","connection":"Connection","atLaunch":"Connect when the app starts.","customProfiles":"Custom servers","subscriptionProfiles":"Subscription profiles"},
   recovery: {
   "engineUnavailable": "The VPN stopped. Connect manually to restore the connection.",
   "trafficBlocked": "Traffic remains blocked by Kill Switch.",
@@ -365,7 +365,7 @@ export const en = {
     skeletonGenerated: "Generated skeleton (no profiles yet — add some and re-generate).",
     configGenerated: "Generated config for {count} profile(s).",
     savedTo: "Saved to {path}",
-    startNotice: "Start the tunnel from the Home tab (Connect button). The Config tab is for editing the generated config and exporting it.",
+    startNotice: "Start the tunnel from the Home tab (Connect button). The Settings tab is for editing the generated config and exporting it.",
     coreBinariesTitle: "Core binaries",
     coreBinariesDesc: "Verified sidecars discovered by the backend",
     tablePath: "Path",
@@ -411,7 +411,7 @@ export const en = {
     noAppsPickedVpn: "No programs picked. Anything you add here will go through the VPN.",
     noAppsPickedDirect: "No programs picked. Anything you add here will always go direct, ignoring the proxy.",
     removeApp: "Remove {name}",
-    tunRequiredBanner: "Routing requires TUN mode. Process-based rules (the pickers below) only work when sing-box is capturing traffic at the OS level. Switch to TUN or Both in the Config tab to enable routing. Current mode: {mode}.",
+    tunRequiredBanner: "Routing requires TUN mode. Process-based rules (the pickers below) only work when sing-box is capturing traffic at the OS level. Switch to TUN or Both in the Settings tab to enable routing. Current mode: {mode}.",
     sameProgramWarning: "Same program in both lists: {programs}. It will go direct (the direct list wins). Remove it from one of the lists if you meant otherwise.",
     advancedRulesTitle: "Advanced Rules & Route Engine",
     rulesAndSetsCount: "({rules} rules, {ruleSets} rule-sets)",

@@ -163,12 +163,12 @@ export function ProxiesCard({ status }: Props) {
   );
 
   return (
-    <div className="bento-card rounded-2xl overflow-hidden">
+    <div className="atlas-section">
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         aria-expanded={!collapsed}
-        className="flex w-full items-center justify-between gap-2 p-5 pb-3 text-left transition-colors hover:bg-card/40"
+        className="atlas-section-head flex w-full items-center justify-between gap-2 text-left"
       >
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -207,7 +207,7 @@ export function ProxiesCard({ status }: Props) {
         />
       </button>
       {!collapsed && (
-        <div className="space-y-2 p-5 pt-0">
+        <div className="atlas-section-body space-y-2">
           {isXrayUnsupported ? (
             <p className="rounded border border-border bg-card/40 p-3 text-[11px] text-muted-foreground">
               {t("proxies.xraySwitchNotice")}

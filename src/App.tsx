@@ -28,6 +28,7 @@ import { TabBar, Tabs, type TabDef } from "@/components/Tabs";
 import { HomeTab } from "@/components/HomeTab";
 import { ServersTab } from "@/components/ServersTab";
 import "@/components/atlas/atlas.css";
+import "@/components/atlas/shell.css";
 import { LogsTab } from "@/components/LogsTab";
 import { ConfigTab } from "@/components/ConfigTab";
 import { RoutingTab } from "@/components/routing/RoutingTab";
@@ -347,6 +348,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [routingWarning, setRoutingWarning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>(readStoredTab);
+  const workspaceMain=useRef<HTMLElement>(null);
+  useEffect(()=>{workspaceMain.current?.scrollTo(0,0);},[activeTab]);
   // Tag of the outbound that the running `proxy` selector is
   // currently routing through. Comes from `GET /proxies/proxy` on
   // the clash API — refreshed alongside status in the poll loop.
@@ -1195,7 +1198,7 @@ export default function App() {
       },
       {
         id: "config",
-        label: t("nav.config"),
+        label: t("nav.settings"),
         icon: Settings2,
         content: (
           <ConfigTab
@@ -1283,50 +1286,17 @@ export default function App() {
   );
 
   return (
-    <div className="atlas-shell atlas-desktop relative flex h-screen flex-col overflow-hidden text-foreground">
+    <div className="atlas-shell atlas-desktop relative h-screen overflow-hidden text-foreground">
 
-      {/* Header — Unified Linear Bento Titlebar with Centered Segmented Nav */}
-      <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-border/80 bg-card/60 px-6 py-3 backdrop-blur-md">
-        {/* Left: Brand */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-theme-subtle ring-1 ring-theme-accent">
-            <img
-              src={cloakwireLogo}
-              alt="Cloakwire"
-              className="h-5 w-5"
-            />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold tracking-tight text-foreground">
-                Cloakwire
-              </h1>
-              <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-mono border-border/70">
-                v{appVersion}
-              </Badge>
-            </div>
-            <p className="text-[11px] font-mono text-muted-foreground">
-              {version || xrayVersion
-                ? [
-                    version ? `sing-box ${version.version}` : null,
-                    xrayVersion ? `Xray ${xrayVersion}` : null,
-                  ].filter(Boolean).join(" · ")
-                : binary?.exists
-                  ? basename(binary.path)
-                  : t("config.scanningBinaries")}
-            </p>
-          </div>
-        </div>
-
-        {/* Center: Segmented Floating Pill Nav */}
+      <header className="atlas-rail">
+        <div className="atlas-brand"><img src={cloakwireLogo} alt=""/><strong>CloakWire</strong></div>
         <TabBar
           tabs={tabs}
           active={activeTab}
           onChange={(id) => setActiveTab(id as TabId)}
         />
 
-        {/* Right: Protection Status Pill */}
-        <div className="flex items-center gap-2">
+        <div className="atlas-rail-session">
           <StatusPill
             status={status.status}
             disabled={busy}
@@ -1342,9 +1312,15 @@ export default function App() {
               }
             }}
           />
+          <div className="atlas-build-info">
+            <span>CloakWire <b>v{appVersion}</b></span>
+            <small>{version || xrayVersion
+              ? [version && `sing-box ${version.version}`, xrayVersion && `Xray ${xrayVersion}`].filter(Boolean).join(" · ")
+              : binary?.exists ? basename(binary.path) : t("config.scanningBinaries")}</small>
+          </div>
         </div>
       </header>
-
+      <div className="atlas-workspace">
       {shouldShowReconnectNotice({
         reconnectInProgress,
         reconnectRequired,
@@ -1379,13 +1355,14 @@ export default function App() {
 
       {/* Body — fills the rest of the viewport with the active tab. */}
       <ProfileHealthContext.Provider value={{sources:profileSources,evidence:activeEvidence(status,diagnostics),attempt:attemptEvidence}}>
-      <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <main ref={workspaceMain} className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
         <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} onApply={profileImport.apply} onCancel={profileImport.cancel} />
       <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
         {(selectionNeedsChoice || selectionMissing) && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {tabs.find((t) => t.id === activeTab)?.content}
       </main>
       </ProfileHealthContext.Provider>
+      </div>
 
       <UpdateModal
         open={updateModalOpen}

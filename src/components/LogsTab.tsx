@@ -1,10 +1,10 @@
+import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { Check, Copy, Terminal } from "lucide-react";
 import { LogView } from "./LogView";
 import { Button } from "./Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./Card";
 import { buildDiagnosticsReport, copyTextToClipboard } from "@/lib/diagnostics";
 import { useI18n } from "@/lib/i18n";
 import type { LogLine } from "@/lib/types";
@@ -46,30 +46,15 @@ export function LogsTab({ logs, onClear }: { logs: LogLine[]; onClear: () => voi
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6">
-      <Card className="bento-card">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-theme-accent" />
-                {t("logs.title")}
-              </CardTitle>
-              <CardDescription>
-                {t("logs.subtitle")}
-              </CardDescription>
-            </div>
+    <div className="atlas-page atlas-log-page">
+      <AtlasHeading title={t("logs.title")} icon={Terminal} description={t("logs.subtitle")} actions={
             <Button variant="outline" size="sm" onClick={() => void copyReport()}>
               {copied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
               {copied ? t("common.copied") : t("common.copy")}
             </Button>
-          </div>
-          {copyError && <p className="text-xs text-destructive">{copyError}</p>}
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          <LogView logs={logs} className="h-[60vh]" onClear={onClear} />
-        </CardContent>
-      </Card>
+      }/>
+      {copyError && <p role="alert" className="text-xs text-destructive">{copyError}</p>}
+      <LogView logs={logs} className="atlas-console" onClear={onClear}/>
     </div>
   );
 }

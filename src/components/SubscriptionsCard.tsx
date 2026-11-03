@@ -15,6 +15,8 @@ export interface SubscriptionsCardProps {
   onRefreshAll: () => void;
   onIntervalChange: (id: string, minutes: number) => void;
   onSelectChild: (subscriptionId: string, childKey: string) => void;
+  expanded?: boolean;
+  onToggle?: () => void;
   onApply?: () => void;
   available?: never;
 }
@@ -28,6 +30,8 @@ export function SubscriptionsCard({
   onRefreshAll,
   onIntervalChange,
   onSelectChild,
+  expanded = true,
+  onToggle,
 }: SubscriptionsCardProps) {
   const { t } = useI18n();
   const [adding, setAdding] = useState(false);
@@ -48,8 +52,8 @@ export function SubscriptionsCard({
   };
 
   return (
-    <div className="bento-card rounded-2xl border border-border/80 text-card-foreground shadow-lg">
-      <div className="flex flex-col space-y-1 p-5 pb-3">
+    <div className="atlas-section">
+      <div className="atlas-section-head">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
             <Rss className="h-4 w-4 text-muted-foreground" />
@@ -58,13 +62,14 @@ export function SubscriptionsCard({
               <Badge variant="outline" className="px-1.5 py-0 text-[10px]">{subs.length}</Badge>
             )}
           </h3>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
+            {onToggle && <Button size="sm" variant="ghost" aria-expanded={expanded} onClick={onToggle}>{t(expanded?"common.close":"common.edit")}</Button>}
             {subs.length > 0 && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefreshAll} title={t("servers.updateAll")}>
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAdding((value) => !value)} title={t("servers.addSubscription")}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {if(!expanded)onToggle?.();setAdding((value) => expanded ? !value : true);}} title={t("servers.addSubscription")}>
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -73,7 +78,7 @@ export function SubscriptionsCard({
           {t("servers.providerMetaNote")}
         </p>
       </div>
-      <div className="space-y-2 p-5 pt-0">
+      {expanded && <div className="atlas-section-body space-y-2">
         {adding && (
           <div className="space-y-2 rounded-md border border-border bg-card/40 p-3">
             <input type="text" placeholder={t("servers.nameOptional")} value={draftName} onChange={(event) => setDraftName(event.target.value)} className="w-full rounded border border-input bg-background px-2 py-1.5 text-xs" />
@@ -111,7 +116,7 @@ export function SubscriptionsCard({
             />
           ))}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -131,7 +136,7 @@ function SubscriptionRow({ sub, loading, onRefresh, onRemove, onIntervalChange, 
   const serverCount = sub.server_count ?? (sub.kind === "link_list" ? 0 : sub.children.length);
 
   return (
-    <div className="rounded-md border border-border bg-card/40 p-3">
+    <div className="atlas-subscription-row">
       <div className="flex items-center gap-2">
         <Rss className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate text-sm font-medium" title={sub.name}>{sub.name}</span>

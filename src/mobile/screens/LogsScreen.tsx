@@ -1,3 +1,4 @@
+import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import { APP_VERSION } from "@/lib/appVersion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Copy, RefreshCw, Terminal } from "lucide-react";
@@ -59,20 +60,17 @@ export function LogsScreen({ onBack }: { onBack: () => void }) {
 
   const lines = text ? String(text).split("\n") : [];
   return (
-    <div className="flex h-full flex-col gap-3 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <div className="atlas-page atlas-log-page">
+      <AtlasHeading title={t("nav.logs")} icon={Terminal} actions={<>
           <button
             type="button"
             onClick={onBack}
             aria-label="Back to settings"
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#07080c] text-foreground active:scale-95 transition"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-[var(--atlas-field)] text-foreground active:scale-95 transition"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <h2 className="text-base font-semibold tracking-tight text-foreground">{t("nav.logs")}</h2>
-        </div>
-        <div className="flex items-center gap-1.5">
+
           <button
             type="button"
             onClick={() => void copyReport()}
@@ -80,7 +78,7 @@ export function LogsScreen({ onBack }: { onBack: () => void }) {
               "flex h-8 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition active:scale-95",
               copied
                 ? "border-theme-accent-subtle bg-theme-subtle text-theme-accent"
-                : "border-white/10 bg-[#07080c] text-foreground",
+                : "border-border bg-[var(--atlas-field)] text-foreground",
             )}
           >
             {copied ? <Check className="h-3.5 w-3.5 text-theme-accent" /> : <Copy className="h-3.5 w-3.5" />}
@@ -90,21 +88,20 @@ export function LogsScreen({ onBack }: { onBack: () => void }) {
             type="button"
             onClick={() => void refresh()}
             disabled={loading}
-            className="flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-[#07080c] px-3 text-xs text-foreground active:scale-95 transition disabled:opacity-50"
+            className="flex h-8 items-center gap-1.5 rounded-xl border border-border bg-[var(--atlas-field)] px-3 text-xs text-foreground active:scale-95 transition disabled:opacity-50"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-theme-accent")} />
             {t("common.refresh")}
           </button>
-        </div>
-      </div>
+      </>}/>
       {error && <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2 text-xs text-destructive">{error}</p>}
       {lines.length === 0 ? (
         <EmptyState icon={Terminal} title={t("logs.emptyLogs")} hint={t("logs.emptyLogsHint")} />
       ) : (
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/5 bg-[#07080c] p-3.5 shadow-inner">
-          <pre className="whitespace-pre-wrap break-all font-mono text-[10px] leading-relaxed text-foreground/80">
+        <div ref={scrollRef} className="atlas-console atlas-log-scroll">
+          <pre className="atlas-mobile-log-lines">
             {lines.map((line, index) => (
-              <div key={index} className={cn(/error|fatal|panic/i.test(line) && "text-destructive font-semibold", /warn/i.test(line) && "text-amber-300", /info/i.test(line) && "text-foreground/90")}>{line || " "}</div>
+              <div key={index} className={cn(/error|fatal|panic/i.test(line) && "text-destructive font-semibold", /warn/i.test(line) && "atlas-warning", /info/i.test(line) && "text-foreground/90")}>{line || " "}</div>
             ))}
           </pre>
         </div>

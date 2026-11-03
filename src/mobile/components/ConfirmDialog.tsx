@@ -39,17 +39,17 @@ export function ConfirmDialog({
   if (!open) return null;
 
   return createPortal(
-    <div data-mobile-sheet="" className="fixed inset-0 z-50 flex items-center justify-center p-6">
+    <div data-mobile-sheet="" className="atlas-overlay atlas-center-overlay">
       <button
         type="button"
         aria-label={cancelLabel}
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+        className="atlas-scrim"
       />
       <div
         role="alertdialog"
         aria-modal="true"
-        className="relative w-full max-w-sm rounded-xl border border-border bg-card p-4 shadow-2xl"
+        aria-label={title} className="atlas-dialog atlas-confirm"
       >
         <div className="flex items-start gap-3">
           <span

@@ -81,7 +81,7 @@ export function RuleRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-xl border bg-[#07080c] transition overflow-hidden",
+        "atlas-rule-row border transition overflow-hidden",
         rule.enabled ? "border-border/80" : "border-border/40 opacity-60",
         isDragging && "shadow-lg ring-1 ring-theme-accent",
       )}
@@ -161,7 +161,7 @@ export function RuleRow({
 
       {/* Inline editor (expanded) */}
       {expanded && (
-        <div className="px-3.5 pb-3.5 pt-2 border-t border-border/60 bg-[#090a0f]">
+        <div className="px-3.5 pb-3.5 pt-2 border-t border-border/60 bg-[var(--atlas-field)]">
           <RuleEditor
             rule={rule}
             outbounds={outbounds}

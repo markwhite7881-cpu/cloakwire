@@ -4,7 +4,7 @@ import {openFixture} from "./fixtures";
 test("explicit policy preserves custom final and restores inactive drafts",async({page},info)=>{
  const {mobile,verify}=await openFixture(page,info,{tab:"routing",customRouting:true});
     const settingsKey='singbox-client.settings.v2';
-    await page.getByText('Application routing:',{exact:false}).first().waitFor();
+    await expect(page.getByRole('heading',{name:mobile?/per.app routing/i:/application routing:/i}).first()).toBeVisible();
     const read=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),settingsKey);
     const before=await read();
     assert.equal(before.routing.final_outbound,mobile?'proxy':'direct','opening must preserve custom final');

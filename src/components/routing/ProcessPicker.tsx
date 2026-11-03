@@ -130,7 +130,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-border/80 bg-[#07080c] overflow-hidden">
+    <div className="mt-3 rounded-xl border border-border/80 bg-[var(--atlas-field)] overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -160,7 +160,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("routing.searchProcessesPlaceholder")}
               disabled={disabled}
-              className="flex-1 rounded-lg bg-[#0b0c12] border border-border/80 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-lg bg-[var(--atlas-field)] border border-border/80 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <Button
               variant="outline"
@@ -221,7 +221,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
 
           {/* List */}
           {filtered.length > 0 && (
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-border/80 bg-[#0b0c12] p-1 divide-y divide-border/20">
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-border/80 bg-[var(--atlas-field)] p-1 divide-y divide-border/20">
               {filtered.map((p) => {
                 const active = selectedSet.has(SELECTED_KEY(p.name));
                 return (

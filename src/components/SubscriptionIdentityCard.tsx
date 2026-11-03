@@ -85,7 +85,7 @@ export function SubscriptionIdentityCard() {
   };
 
   return (
-    <Card className="bento-card">
+    <Card className="atlas-section">
       <CardHeader>
         <div className="space-y-1">
           <CardTitle className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import { manualProfileHint } from "@/lib/manualProfileHint";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -217,37 +218,10 @@ export function ServersScreen({
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold tracking-tight text-foreground">{t("servers.title")}</h2>
-          {engine && (
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2 py-0.5",
-                "text-[10px] font-mono uppercase tracking-wider",
-                engine === "xray"
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                  : "badge-theme",
-              )}
-              title={`Active VPN engine: ${engine}`}
-            >
-              {engine}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setSheetOpen(true)}
-            aria-label={t("servers.addSubscription")}
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-theme-accent text-zinc-950 shadow-theme-accent active:scale-95 transition hover:opacity-90"
-          >
-            <Plus className="h-4 w-4 stroke-[2.5]" />
-          </button>
-        </div>
-      </div>
-
+    <div className="atlas-page atlas-catalog">
+      <AtlasHeading icon={Server} title={t("servers.title")} meta={engine && <span className="atlas-count">{engine}</span>}
+        actions={<button type="button" className="atlas-action" onClick={()=>setSheetOpen(true)} aria-label={t("servers.addSubscription")}>
+          <Plus size={16}/>{t("common.add")}</button>}/>
       {profiles.length === 0 && subs.every((s) => s.kind === "auto" || s.children.length === 0) ? (
         <EmptyState
           icon={Server}
@@ -315,7 +289,7 @@ export function ServersScreen({
                             }
                             className={cn(
                               "flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors",
-                              isSel ? "bg-foreground/5" : "active:bg-accent/60",
+                              isSel ? "atlas-picked" : "active:bg-accent/60",
                             )}
                           >
                             <span
@@ -389,7 +363,7 @@ export function ServersScreen({
                   />
                 </button>
               ) : (
-                <SectionHeader title={group.label} />
+                <SectionHeader title={group.kind==="manual"?t("atlas.customProfiles"):group.label} />
               )}
               {isExpanded && (
                 <ul className="divide-y divide-border">
@@ -414,10 +388,10 @@ export function ServersScreen({
                         <button
                           type="button"
                           onClick={() => supported && onSelect(i)}
-                          disabled={!supported}
+                          disabled={!supported} aria-pressed={isSel}
                           className={cn(
                             "flex min-w-0 flex-1 items-center gap-3 px-3.5 py-3 text-left transition-colors",
-                            isSel ? "bg-foreground/5" : "active:bg-accent/60",
+                            isSel ? "atlas-picked" : "active:bg-accent/60",
                             !supported && "opacity-50",
                           )}
                         >
@@ -581,7 +555,7 @@ function LatencyBadge({ ms, dim }: { ms: number | undefined; dim?: boolean }) {
     tone === "fast"
       ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
       : tone === "medium"
-        ? "border-amber-400/30 bg-amber-500/10 text-amber-300"
+        ? "border-amber-400/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
         : "border-red-400/30 bg-red-500/10 text-red-300";
   return (
     <span

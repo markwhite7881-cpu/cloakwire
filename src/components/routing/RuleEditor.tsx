@@ -119,7 +119,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
                 "rounded-lg px-2.5 py-1 text-xs font-mono transition border",
                 a.kind === kind
                   ? "bg-theme-accent text-zinc-950 border-theme-accent font-medium shadow-sm"
-                  : "bg-[#07080c] text-muted-foreground border-border/80 hover:text-foreground",
+                  : "bg-[var(--atlas-field)] text-muted-foreground border-border/80 hover:text-foreground",
               )}
             >
               {kind}
@@ -131,7 +131,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
             <select
               value={a.outbound}
               onChange={(e) => setAction({ kind: "route", outbound: e.target.value })}
-              className="w-full rounded-lg bg-[#07080c] border border-border/80 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent font-mono"
+              className="w-full rounded-lg bg-[var(--atlas-field)] border border-border/80 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent font-mono"
             >
               <option value="proxy">{t("routing.finalProxySelector")}</option>
               <option value="auto">{t("routing.finalAutoUrltest")}</option>
@@ -371,7 +371,7 @@ function ChipField({ label, values, placeholder, onChange }: ChipFieldProps) {
               }
             }}
             placeholder={placeholder}
-            className="rounded-lg bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent w-36 font-mono"
+            className="rounded-lg bg-[var(--atlas-field)] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent w-36 font-mono"
           />
           <Button variant="ghost" size="sm" onClick={add} title={t("common.add")}>
             <Plus size={12} />
@@ -432,7 +432,7 @@ function PortField({ label, values, onChange }: PortFieldProps) {
               if (e.key === "Enter") { e.preventDefault(); add(); }
             }}
             placeholder="443"
-            className="rounded-lg bg-[#07080c] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent w-24 font-mono"
+            className="rounded-lg bg-[var(--atlas-field)] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent w-24 font-mono"
           />
           <Button variant="ghost" size="sm" onClick={add} title={t("common.add")}>
             <Plus size={12} />
@@ -466,7 +466,7 @@ function ChipsPicker({ label, options, values, onToggle }: ChipsPickerProps) {
                 "rounded-lg px-2.5 py-0.5 text-xs font-mono border transition",
                 active
                   ? "bg-theme-accent text-zinc-950 border-theme-accent font-medium shadow-sm"
-                  : "bg-[#07080c] text-muted-foreground border-border/80 hover:text-foreground",
+                  : "bg-[var(--atlas-field)] text-muted-foreground border-border/80 hover:text-foreground",
               )}
             >
               {opt}

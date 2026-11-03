@@ -241,7 +241,7 @@ export function ConfigBuilder({
   ];
 
   return (
-    <Card className="bento-card">
+    <Card className="atlas-section">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="flex items-center gap-2">
