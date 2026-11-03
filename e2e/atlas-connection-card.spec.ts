@@ -13,12 +13,8 @@ test("the connection card names the selected server once and keeps checks visibl
   await expect(panel.getByRole("button", { name: "Disconnect", exact: true })).toBeVisible();
   await expect(panel.locator(".atlas-connection-controls :is(h1,h2,[role=status])")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Recent servers" }).getByRole("button", { pressed: true })).toContainText("First");
-  if (mobile) {
-    await expect(panel.getByTestId("profile-probe-button")).toHaveCount(0);
-    await expect(panel.locator("details")).not.toHaveAttribute("open", "");
-  } else {
-    await expect(panel.getByTestId("profile-probe-button")).toHaveCount(0);
-  }
+  await expect(panel.getByTestId("profile-probe-button")).toHaveCount(0);
+  if (mobile) await expect(panel.locator("details")).toHaveCount(0);
   await expect(page.locator(".atlas-server-entry").first().getByTestId("profile-probe-button")).toBeVisible();
   const dir = process.env.ATLAS_UI5_SHOTS;
   if (dir) await panel.screenshot({ path: dir + "/" + info.project.name + "-card.png" });

@@ -214,46 +214,43 @@ export function HomeTab({
       <section className="atlas-hero">
         <AtlasGlobe countries={countries} country={country} running={isRunning} bytesPerSecond={(current?.down_bps??0)+(current?.up_bps??0)}/>
         <div className="space-y-2 min-w-0">
-          {isRunning && <h2 className="text-xl font-semibold">{country ? regionNames.of(country) : t("atlas.unknown")}</h2>}
+          <h2 className="text-xl font-semibold" aria-hidden={!isRunning} style={{visibility: isRunning ? "visible" : "hidden"}}>{country ? regionNames.of(country) : t("atlas.unknown")}</h2>
           <ServerPicker profiles={profiles} selectedIndex={selectedIndex} latencyByTag={latency.byTag}
             readyProfileMetadata={readyProfileMetadata} subscriptionNames={subscriptionNames} geoipByIp={geoipByIp} onSelect={onSelect}/>
           <ConnectionControl running={isRunning} transition={isTransition}
             duration={sessionTimer.formatted} disabled={busy || isTransition || (!isRunning && !canStart)}
             onToggle={isRunning ? onDisconnect : onConnect} />
-          <div className="flex items-center justify-between gap-2">
-            <div className="atlas-mode-selector atlas-home-modes">
-                    <button aria-pressed={currentMode === "tun"}
-                      type="button"
-                      onClick={() => handleModeChange("tun")}
-                      disabled={busy || isTransition}
-                      title="TUN"
-                      className="atlas-choice"
-                    >
-                      <ShieldCheck className="h-3 w-3" />
-                      <span>TUN</span>
-                    </button>
-                    <button aria-pressed={currentMode === "system_proxy"}
-                      type="button"
-                      onClick={() => handleModeChange("system_proxy")}
-                      disabled={busy || isTransition}
-                      title={t("home.systemProxy")}
-                      className="atlas-choice"
-                    >
-                      <Globe className="h-3 w-3" />
-                      <span>{t("common.proxy")}</span>
-                    </button>
-                    <button aria-pressed={currentMode === "both"}
-                      type="button"
-                      onClick={() => handleModeChange("both")}
-                      disabled={busy || isTransition}
-                      title={t("common.both")}
-                      className="atlas-choice"
-                    >
-                      <Layers className="h-3 w-3" />
-                      <span>{t("common.both")}</span>
-                    </button>
-                  </div>
-            <span className="text-xs text-muted-foreground">{status.engine==="xray"?"Xray":"sing-box"}</span>
+          <div className="atlas-mode-selector atlas-home-modes">
+            <button aria-pressed={currentMode === "tun"}
+              type="button"
+              onClick={() => handleModeChange("tun")}
+              disabled={busy || isTransition}
+              title="TUN"
+              className="atlas-choice"
+            >
+              <ShieldCheck className="h-3 w-3" />
+              <span>TUN</span>
+            </button>
+            <button aria-pressed={currentMode === "system_proxy"}
+              type="button"
+              onClick={() => handleModeChange("system_proxy")}
+              disabled={busy || isTransition}
+              title={t("home.systemProxy")}
+              className="atlas-choice"
+            >
+              <Globe className="h-3 w-3" />
+              <span>{t("common.proxy")}</span>
+            </button>
+            <button aria-pressed={currentMode === "both"}
+              type="button"
+              onClick={() => handleModeChange("both")}
+              disabled={busy || isTransition}
+              title={t("common.both")}
+              className="atlas-choice"
+            >
+              <Layers className="h-3 w-3" />
+              <span>{t("common.both")}</span>
+            </button>
           </div>
           {showActive && <p className="atlas-active-note">{sessionName === pickedName ? t("atlas.otherActive") : t("home.via")+" "+sessionName}</p>}
           {!profiles.length && <Button size="sm" variant="outline" onClick={onOpenImport}>{t("servers.addServer")}</Button>}

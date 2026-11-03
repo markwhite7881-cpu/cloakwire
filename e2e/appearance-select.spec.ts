@@ -50,10 +50,8 @@ test("Appearance menus support touch, keyboard, dismissal and persisted colors",
   await expect(menu).toHaveCount(0);
   if (mobile) {
     await page.locator(".atlas-bottom-nav button").first().click();
-    await page.locator(".atlas-session-details > summary").click();
-    const mode = page.locator(".atlas-session-details > span");
-    await expect(mode).toBeVisible();
-    expect(await mode.evaluate(el => getComputedStyle(el).fontFamily)).toBe(menuFonts[0]);
+    await expect(page.locator(".atlas-connection-panel details")).toHaveCount(0);
+    expect(await page.locator(".atlas-power").evaluate(el => getComputedStyle(el).fontFamily)).toBe(menuFonts[0]);
   }
   await verify();
 });

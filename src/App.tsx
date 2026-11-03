@@ -1199,7 +1199,6 @@ export default function App() {
             geoipByIp={geoip.byIp}
             readyProfileMetadata={readyProfileMetadata}
             subFetching={subs.fetching}
-            onAddSub={subs.add}
             onRemoveSub={subs.remove}
             onRefreshSub={subs.refreshOne}
             onRefreshAllSubs={subs.refreshAll}
@@ -1284,7 +1283,6 @@ export default function App() {
       onClearProfiles,
       subs.subs,
       subs.fetching,
-      subs.add,
       subs.remove,
       subs.refreshOne,
       subs.refreshAll,
@@ -1328,9 +1326,6 @@ export default function App() {
           />
           <div className="atlas-build-info">
             <span>CloakWire <b>v{appVersion}</b></span>
-            <small>{version || xrayVersion
-              ? [version && `sing-box ${version.version}`, xrayVersion && `Xray ${xrayVersion}`].filter(Boolean).join(" · ")
-              : binary?.exists ? basename(binary.path) : t("config.scanningBinaries")}</small>
           </div>
         </div>
       </header>

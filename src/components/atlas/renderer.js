@@ -180,6 +180,7 @@ export function mountGlobe(scene, countryName) {
     const ratio=Math.min(devicePixelRatio||1,2);
     canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);context.setTransform(ratio,0,0,ratio,0,0);
     radius=Math.max(1,Math.min(width*.46,height*.455));
+    scene.style.setProperty("--atlas-hood-size",radius*2.12+"px");
     overlay.setAttribute('viewBox','0 0 '+Math.max(width,1)+' '+Math.max(height,1));
     const cx=width/2,cy=height/2-1;
     clip.setAttribute('cx',cx);clip.setAttribute('cy',cy);clip.setAttribute('r',radius);

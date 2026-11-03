@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { ExternalLink, Loader2, Plus, RefreshCw, Rss, Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, RefreshCw, Rss, Trash2 } from "lucide-react";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
 import { cn } from "@/lib/utils";
@@ -9,7 +8,6 @@ import type { ProviderMetadata, SubscriptionSummary } from "@/lib/types";
 export interface SubscriptionsCardProps {
   subs: SubscriptionSummary[];
   fetching: Record<string, boolean>;
-  onAdd: (input: { name?: string; url: string; intervalMinutes?: number }) => void;
   onRemove: (id: string) => void;
   onRefresh: (id: string) => void;
   onRefreshAll: () => void;
@@ -24,7 +22,6 @@ export interface SubscriptionsCardProps {
 export function SubscriptionsCard({
   subs,
   fetching,
-  onAdd,
   onRemove,
   onRefresh,
   onRefreshAll,
@@ -34,23 +31,6 @@ export function SubscriptionsCard({
   onToggle,
 }: SubscriptionsCardProps) {
   const { t } = useI18n();
-  const [adding, setAdding] = useState(false);
-  const [draftName, setDraftName] = useState("");
-  const [draftUrl, setDraftUrl] = useState("");
-  const [draftInterval, setDraftInterval] = useState(60);
-
-  const onSubmit = () => {
-    if (!draftUrl.trim()) return;
-    onAdd({
-      name: draftName.trim() || undefined,
-      url: draftUrl.trim(),
-      intervalMinutes: draftInterval,
-    });
-    setDraftName("");
-    setDraftUrl("");
-    setAdding(false);
-  };
-
   return (
     <div className="atlas-section">
       <div className="atlas-section-head">
@@ -69,9 +49,6 @@ export function SubscriptionsCard({
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
             )}
-            <Button variant="ghost" size="icon"  onClick={() => {if(!expanded)onToggle?.();setAdding((value) => expanded ? !value : true);}} title={t("servers.addSubscription")}>
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -79,23 +56,7 @@ export function SubscriptionsCard({
         </p>
       </div>
       {expanded && <div className="atlas-section-body space-y-2">
-        {adding && (
-          <div className="space-y-2 rounded-md border border-border bg-card/40 p-3">
-            <input type="text" placeholder={t("servers.nameOptional")} value={draftName} onChange={(event) => setDraftName(event.target.value)} className="atlas-input w-full" />
-            <input type="url" placeholder="https://provider.example.com/sub?token=…" value={draftUrl} onChange={(event) => setDraftUrl(event.target.value)} className="atlas-input w-full font-mono" />
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                {t("servers.refreshEvery")}
-                <select value={draftInterval} onChange={(event) => setDraftInterval(parseInt(event.target.value, 10))} className="atlas-input">
-                  <option value={15}>15 min</option><option value={30}>30 min</option><option value={60}>1 h</option><option value={360}>6 h</option><option value={1440}>{t("servers.daily")}</option>
-                </select>
-              </label>
-              <Button size="sm" onClick={onSubmit} disabled={!draftUrl.trim()} className="ml-auto">{t("common.add")}</Button>
-            </div>
-          </div>
-        )}
-
-        {subs.length === 0 && !adding && (
+        {subs.length === 0 && (
           <p className="rounded border border-border bg-card/40 p-3 text-[11px] text-muted-foreground">
             {t("servers.noSubscriptionsHint")}
           </p>

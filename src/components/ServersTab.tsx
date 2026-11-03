@@ -28,7 +28,6 @@ export interface ServersTabProps {
   onClearAll: () => void;
   subs: SubscriptionSummary[];
   subFetching: Record<string, boolean>;
-  onAddSub: (sub: { url: string; name?: string; intervalMinutes?: number }) => void;
   onRemoveSub: (id: string) => void;
   onRefreshSub: (id: string) => void;
   onRefreshAllSubs: () => void;
@@ -45,7 +44,6 @@ export function ServersTab({
   onClearAll,
   subs,
   subFetching,
-  onAddSub,
   onRemoveSub,
   onRefreshSub,
   onRefreshAllSubs,
@@ -73,7 +71,6 @@ export function ServersTab({
             <SubscriptionsCard expanded={subOpen} onToggle={()=>setSubOpen(v=>!v)}
               subs={subs}
               fetching={subFetching}
-              onAdd={onAddSub}
               onRemove={onRemoveSub}
               onRefresh={onRefreshSub}
               onRefreshAll={onRefreshAllSubs}

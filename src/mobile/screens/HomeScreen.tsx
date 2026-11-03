@@ -303,10 +303,6 @@ export function HomeScreen({
         </p>}
         {!activeBundle && !profiles.length && <Button variant="outline" size="sm" onClick={onAddSub && onAddLinks ? () => setAddSheetOpen(true) : onOpenServers}>{t("servers.addServer")}</Button>}
         {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
-        <details className="atlas-session-details">
-          <summary>{t("profileProbe.details")}</summary>
-          <span>{t("home.tunMode")} · {vpn.engine === "xray" ? "Xray" : "sing-box"}</span>
-        </details>
       </div>
       <RecoveryNotice />
       {recentRows.length>0 && <section className="atlas-recent" aria-label={t("atlas.recent")}><h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>

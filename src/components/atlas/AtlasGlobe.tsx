@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
+import { GlobeHood } from "./GlobeHood";
 import { mountGlobe } from "./renderer";
 
 interface GlobeProps {
@@ -33,19 +34,21 @@ export function AtlasGlobe({ countries, country, running, bytesPerSecond }: Glob
     lastRate.current = running ? bytesPerSecond : 0;
   }, [bytesPerSecond, running, country]);
   return <div className="atlas-scene" ref={scene} data-running={running}>
-    <canvas role="img" aria-label={t("atlas.globe")} />
-    <svg className="ah-globe-fx" aria-hidden="true">
-      <defs>
-        <clipPath id="cw-sphere-clip"><circle /></clipPath>
-        <radialGradient id="cw-light"><stop offset="0" stopColor="#eff5ff" stopOpacity=".35"/><stop offset="1" stopColor="#eff5ff" stopOpacity="0"/></radialGradient>
-      </defs>
-      <g clipPath="url(#cw-sphere-clip)">
-        <ellipse className="ah-light-sweep" fill="url(#cw-light)" />
-        <g className="ah-country-lines" fill="none" strokeLinejoin="round" strokeLinecap="round">
-          <path className="ah-line-edge"/><path className="ah-line-pulse"/><path className="ah-line-wave" pathLength="1"/>
+    <GlobeHood running={running}>
+      <canvas role="img" aria-label={t("atlas.globe")} />
+      <svg className="ah-globe-fx" aria-hidden="true">
+        <defs>
+          <clipPath id="cw-sphere-clip"><circle /></clipPath>
+          <radialGradient id="cw-light"><stop offset="0" stopColor="#eff5ff" stopOpacity=".35"/><stop offset="1" stopColor="#eff5ff" stopOpacity="0"/></radialGradient>
+        </defs>
+        <g clipPath="url(#cw-sphere-clip)">
+          <ellipse className="ah-light-sweep" fill="url(#cw-light)" />
+          <g className="ah-country-lines" fill="none" strokeLinejoin="round" strokeLinecap="round">
+            <path className="ah-line-edge"/><path className="ah-line-pulse"/><path className="ah-line-wave" pathLength="1"/>
+          </g>
         </g>
-      </g>
-    </svg>
-    <span className="ah-label" aria-hidden="true" />
+      </svg>
+      <span className="ah-label" aria-hidden="true" />
+    </GlobeHood>
   </div>;
 }

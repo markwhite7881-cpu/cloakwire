@@ -37,3 +37,13 @@
 
 .atlas-mobile .atlas-scene{width:100%;height:clamp(170px,49vw,225px)}
 .atlas-mobile .atlas-traffic{min-width:0}
+
+/* The two sides of the cowl straddle the map. Their size follows the same
+   projected radius as the country outline, even in a wide desktop scene. */
+.atlas-hood-stage { position:absolute; inset:0; isolation:isolate; --hood-orb-scale:1; }
+.atlas-hood { position:absolute; left:50%; top:calc(50% - 1px); width:var(--atlas-hood-size,0px); height:var(--atlas-hood-size,0px); transform:translate(-50%,-50%); pointer-events:none; }
+.atlas-hood-rear { z-index:0; }
+.atlas-hood-orb { position:absolute; inset:0; z-index:1; transform:scale(var(--hood-orb-scale)); transform-origin:50% calc(50% - 1px); }
+.atlas-hood-front { z-index:2; }
+.atlas-hood-stage[data-hood=off] > .atlas-hood { visibility:hidden; }
+.atlas-hood-orb .ah-label { font-size:calc(12px / var(--hood-orb-scale)); }

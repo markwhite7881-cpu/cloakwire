@@ -266,13 +266,15 @@
 .atlas-search-field .atlas-input { border: 0; background: transparent; }
 
 .atlas-connection-controls {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0;
+  display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 8px; min-width: 0;
 }
-.atlas-connection-controls { justify-content: flex-start; }
 .atlas-session-time {
   display: inline-flex; align-items: center; gap: 4px; font-size: 12px;
   color: var(--atlas-muted); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
+.atlas-power-label { display:inline-grid; }
+.atlas-power-label > span, .atlas-power-label::after { grid-area:1/1; }
+.atlas-power-label::after { content:attr(data-alternate); visibility:hidden; }
 .atlas-shell .atlas-power {
   --power-fill: var(--atlas-command); --power-ink: var(--atlas-on-command);
   flex: none; min-height: 44px; padding: 8px 16px; gap: 8px;
@@ -285,9 +287,7 @@
 .atlas-shell .atlas-power:disabled {
   background: var(--atlas-field); border-color: var(--atlas-stroke); color: var(--atlas-muted); opacity: 1;
 }
-.atlas-active-note, .atlas-session-details { color: var(--atlas-muted); font-size: 12px; overflow-wrap: anywhere; }
-.atlas-session-details summary { cursor: pointer; min-height: 32px; padding-block: 7px; }
-.atlas-session-details > span { display: block; padding-bottom: 5px; }
+.atlas-active-note { color: var(--atlas-muted); font-size: 12px; overflow-wrap: anywhere; }
 .atlas-server-dialog {
   position: fixed; inset: 0; margin: auto; width: min(34rem,calc(100% - 32px)); max-height: 85dvh;
   padding: 20px; border: 1px solid var(--atlas-stroke); background: var(--atlas-tile); color: var(--atlas-ink);

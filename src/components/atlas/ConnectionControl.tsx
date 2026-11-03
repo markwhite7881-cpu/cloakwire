@@ -12,15 +12,17 @@ interface Props {
 
 export function ConnectionControl({ running, transition, disabled, duration, onToggle }: Props) {
   const { t } = useI18n();
+  const label = t(running ? "common.disconnect" : "common.connect");
+  const alternate = t(running ? "common.connect" : "common.disconnect");
   return (
     <div className="atlas-connection-controls">
+      <Button type="button" className="atlas-power" aria-label={label} data-running={running} aria-busy={transition} disabled={disabled} onClick={onToggle}>
+        {transition ? <Loader2 size={17} aria-hidden="true" className="animate-spin" /> : <Power size={17} aria-hidden="true" />}
+        <span className="atlas-power-label" aria-hidden="true" data-alternate={alternate}><span>{label}</span></span>
+      </Button>
       {running && duration && <span className="atlas-session-time" title={t("home.sessionTime")}>
         <Clock size={13} aria-hidden="true" />{duration}
       </span>}
-      <Button type="button" className="atlas-power" data-running={running} aria-busy={transition} disabled={disabled} onClick={onToggle}>
-        {transition ? <Loader2 size={17} aria-hidden="true" className="animate-spin" /> : <Power size={17} aria-hidden="true" />}
-        {t(running ? "common.disconnect" : "common.connect")}
-      </Button>
     </div>
   );
 }
