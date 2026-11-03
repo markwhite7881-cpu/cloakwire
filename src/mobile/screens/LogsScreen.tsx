@@ -1,3 +1,4 @@
+import { Button } from "@/components/Button";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import { APP_VERSION } from "@/lib/appVersion";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -62,37 +63,29 @@ export function LogsScreen({ onBack }: { onBack: () => void }) {
   return (
     <div className="atlas-page atlas-log-page">
       <AtlasHeading title={t("nav.logs")} icon={Terminal} actions={<>
-          <button
+          <Button size="icon" variant="outline"
             type="button"
             onClick={onBack}
             aria-label="Back to settings"
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-[var(--atlas-field)] text-foreground active:scale-95 transition"
           >
             <ArrowLeft className="h-4 w-4" />
-          </button>
+          </Button>
 
-          <button
+          <Button size="sm" variant="outline"
             type="button"
             onClick={() => void copyReport()}
-            className={cn(
-              "flex h-8 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition active:scale-95",
-              copied
-                ? "border-theme-accent-subtle bg-theme-subtle text-theme-accent"
-                : "border-border bg-[var(--atlas-field)] text-foreground",
-            )}
           >
             {copied ? <Check className="h-3.5 w-3.5 text-theme-accent" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? t("common.copied") : t("common.diagnostics")}
-          </button>
-          <button
+          </Button>
+          <Button size="sm" variant="outline"
             type="button"
             onClick={() => void refresh()}
             disabled={loading}
-            className="flex h-8 items-center gap-1.5 rounded-xl border border-border bg-[var(--atlas-field)] px-3 text-xs text-foreground active:scale-95 transition disabled:opacity-50"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-theme-accent")} />
             {t("common.refresh")}
-          </button>
+          </Button>
       </>}/>
       {error && <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2 text-xs text-destructive">{error}</p>}
       {lines.length === 0 ? (

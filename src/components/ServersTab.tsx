@@ -84,11 +84,7 @@ export function ServersTab({
             <textarea aria-label={t("servers.addServer")}
               value={pendingLinks} onChange={(e)=>onPendingLinksChange(e.target.value)}
               placeholder={"vless://…\nhttps://provider.example.com/sub?token=…"}
-              className={cn(
-                "min-h-[110px] w-full resize-y rounded-xl border border-border/80 bg-[var(--atlas-field)] px-3.5 py-2.5",
-                "font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/50",
-                "focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent",
-              )}
+              className="atlas-input min-h-[110px] w-full resize-y font-mono"
               spellCheck={false}
             />
             <div className="flex items-center gap-2">
@@ -96,7 +92,7 @@ export function ServersTab({
                 size="sm"
                 onClick={onParse}
                 disabled={parsing || !pendingLinks.trim()}
-                className="flex-1 bg-theme-accent hover:opacity-90 text-zinc-950 font-medium transition"
+                className="flex-1"
               >
                 {parsing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
@@ -173,7 +169,6 @@ export function ServersTab({
               {t("atlas.customProfiles")}
               <Badge
                 variant="secondary"
-                className="badge-theme px-2 py-0.5 text-xs font-mono"
               >
                 {manualProfiles.length}
               </Badge>
@@ -186,7 +181,6 @@ export function ServersTab({
                   if (window.confirm(t("servers.clearManualConfirm"))) onClearAll();
                 }}
                 title={t("servers.clearManual")}
-                className="text-xs text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="h-3.5 w-3.5 mr-1" />
                 {t("servers.clearManual")}

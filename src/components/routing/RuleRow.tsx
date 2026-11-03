@@ -1,3 +1,4 @@
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 // RuleRow — one rule in the sortable list.
 //
 // Compact (collapsed): drag handle, status pill, label, action summary,
@@ -9,7 +10,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronUp, GripVertical, Power, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Trash2 } from "lucide-react";
 import { Badge } from "../Badge";
 import { Button } from "../Button";
 import { RuleEditor } from "./RuleEditor";
@@ -98,19 +99,8 @@ export function RuleRow({
           <GripVertical size={16} />
         </button>
 
-        <button
-          type="button"
-          onClick={() => onChange({ ...rule, enabled: !rule.enabled })}
-          title={rule.enabled ? t("common.disabled") : t("common.enabled")}
-          className={cn(
-            "p-1 rounded-md transition",
-            rule.enabled
-              ? "text-theme-accent hover:opacity-80"
-              : "text-muted-foreground/50 hover:text-muted-foreground",
-          )}
-        >
-          <Power size={14} />
-        </button>
+        <AtlasSwitch label={(rule.label || t("routing.unnamedRule"))+" · "+t("common.enabled")} checked={rule.enabled}
+          onChange={enabled=>onChange({...rule,enabled})} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -125,10 +115,6 @@ export function RuleRow({
                   ? "secondary"
                   : "default"
               }
-              className={cn(
-                "text-[10px] font-mono",
-                rule.action.kind === "route" && "badge-theme",
-              )}
             >
               {actionSummary}
             </Badge>

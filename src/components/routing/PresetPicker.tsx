@@ -35,7 +35,7 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
   );
 
   return (
-    <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-4 space-y-4">
+    <div className="atlas-editor-section space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-foreground">{t("routing.starterRulesTitle")}</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -71,16 +71,11 @@ export function PresetPicker({ onAddRule, onAddRuleSet }: Props) {
           </div>
           <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-[var(--atlas-field)] p-0.5 text-xs">
             {(["all", "loyalsoldier", "meta"] as const).map((s) => (
-              <button
+              <button aria-pressed={source === s}
                 key={s}
                 type="button"
                 onClick={() => setSource(s)}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-xs font-mono transition",
-                  source === s
-                    ? "bg-theme-accent text-zinc-950 font-medium shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
+                className="atlas-choice"
               >
                 {s}
               </button>

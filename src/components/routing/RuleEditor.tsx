@@ -1,3 +1,4 @@
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 // RuleEditor — inline editor for one CustomRule.
 //
 // When a `RuleRow` is expanded, this component renders BELOW the row
@@ -86,7 +87,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
     <div className="rounded-md border border-border bg-card/30 p-4 space-y-4">
       {/* Label */}
       <div>
-        <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">
+        <label className="block text-xs text-muted-foreground mb-1">
           {t("routing.label")}
         </label>
         <input
@@ -94,18 +95,18 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
           value={rule.label ?? ""}
           onChange={(e) => setLabel(e.target.value)}
           placeholder={t("routing.labelPlaceholder")}
-          className="w-full rounded-md bg-background border border-input px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="atlas-input w-full"
         />
       </div>
 
       {/* Action */}
       <div>
-        <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1 font-mono">
+        <label className="block text-xs text-muted-foreground mb-1 font-mono">
           {t("routing.action")}
         </label>
         <div className="flex flex-wrap items-center gap-2">
           {ACTION_KINDS.map((kind) => (
-            <button
+            <button aria-pressed={a.kind === kind}
               key={kind}
               type="button"
               onClick={() => {
@@ -115,12 +116,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
                 else if (kind === "sniff") setAction({ kind });
                 else if (kind === "resolve") setAction({ kind });
               }}
-              className={cn(
-                "rounded-lg px-2.5 py-1 text-xs font-mono transition border",
-                a.kind === kind
-                  ? "bg-theme-accent text-zinc-950 border-theme-accent font-medium shadow-sm"
-                  : "bg-[var(--atlas-field)] text-muted-foreground border-border/80 hover:text-foreground",
-              )}
+              className="atlas-choice"
             >
               {kind}
             </button>
@@ -131,7 +127,7 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
             <select
               value={a.outbound}
               onChange={(e) => setAction({ kind: "route", outbound: e.target.value })}
-              className="w-full rounded-lg bg-[var(--atlas-field)] border border-border/80 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent font-mono"
+              className="atlas-input w-full font-mono"
             >
               <option value="proxy">{t("routing.finalProxySelector")}</option>
               <option value="auto">{t("routing.finalAutoUrltest")}</option>
@@ -212,15 +208,10 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
           onChange={(v) => updateArray("rule_set", v)}
         />
         <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id={`invert-${rule.id}`}
-            checked={rule.invert === true}
-            onChange={(e) =>
-              onChange({ ...rule, invert: e.target.checked || undefined })
-            }
-            className="rounded border-input bg-background"
-          />
+          <AtlasSwitch
+              id={`invert-${rule.id}`} label={t("routing.invert")} checked={rule.invert === true}
+              onChange={enabled => onChange({ ...rule, invert: enabled || undefined })}
+            />
           <label htmlFor={`invert-${rule.id}`} className="text-sm text-foreground/80 select-none">
             {t("routing.invert")}
           </label>
@@ -285,19 +276,14 @@ export function RuleEditor({ rule, outbounds, onChange }: Props) {
               onChange={(v) => updateArray("inbound", v)}
             />
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <AtlasSwitch
                 id={`private-${rule.id}`}
+                label={t("routing.matchPrivateIps")}
                 checked={m.ip_is_private === true}
-                onChange={(e) =>
-                  onChange({
-                    ...rule,
-                    matchers: e.target.checked
-                      ? { ...m, ip_is_private: true }
-                      : omitKey(m, "ip_is_private"),
-                  })
-                }
-                className="rounded border-input bg-background"
+                onChange={enabled => onChange({
+                  ...rule,
+                  matchers: enabled ? { ...m, ip_is_private: true } : omitKey(m, "ip_is_private"),
+                })}
               />
               <label htmlFor={`private-${rule.id}`} className="text-sm text-foreground/80 select-none">
                 {t("routing.matchPrivateIps")}
@@ -339,7 +325,7 @@ function ChipField({ label, values, placeholder, onChange }: ChipFieldProps) {
 
   return (
     <div>
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">{label}</label>
+      <label className="block text-xs text-muted-foreground mb-1">{label}</label>
       <div className="flex flex-wrap gap-1.5 items-center">
         {arr.map((v) => (
           <span
@@ -371,7 +357,7 @@ function ChipField({ label, values, placeholder, onChange }: ChipFieldProps) {
               }
             }}
             placeholder={placeholder}
-            className="rounded-lg bg-[var(--atlas-field)] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent w-36 font-mono"
+            className="atlas-input font-mono"
           />
           <Button variant="ghost" size="sm" onClick={add} title={t("common.add")}>
             <Plus size={12} />
@@ -403,7 +389,7 @@ function PortField({ label, values, onChange }: PortFieldProps) {
   const remove = (n: number) => onChange(arr.filter((x) => x !== n));
   return (
     <div>
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1 font-mono">{label}</label>
+      <label className="block text-xs text-muted-foreground mb-1 font-mono">{label}</label>
       <div className="flex flex-wrap gap-1.5 items-center">
         {arr.map((n) => (
           <span
@@ -432,7 +418,7 @@ function PortField({ label, values, onChange }: PortFieldProps) {
               if (e.key === "Enter") { e.preventDefault(); add(); }
             }}
             placeholder="443"
-            className="rounded-lg bg-[var(--atlas-field)] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent w-24 font-mono"
+            className="atlas-input w-24 font-mono"
           />
           <Button variant="ghost" size="sm" onClick={add} title={t("common.add")}>
             <Plus size={12} />
@@ -453,21 +439,16 @@ interface ChipsPickerProps {
 function ChipsPicker({ label, options, values, onToggle }: ChipsPickerProps) {
   return (
     <div>
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1 font-mono">{label}</label>
+      <label className="block text-xs text-muted-foreground mb-1 font-mono">{label}</label>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => {
           const active = values.includes(opt);
           return (
-            <button
+            <button aria-pressed={active}
               key={opt}
               type="button"
               onClick={() => onToggle(opt)}
-              className={cn(
-                "rounded-lg px-2.5 py-0.5 text-xs font-mono border transition",
-                active
-                  ? "bg-theme-accent text-zinc-950 border-theme-accent font-medium shadow-sm"
-                  : "bg-[var(--atlas-field)] text-muted-foreground border-border/80 hover:text-foreground",
-              )}
+              className="atlas-choice"
             >
               {opt}
             </button>

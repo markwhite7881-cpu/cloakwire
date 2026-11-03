@@ -1,3 +1,4 @@
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 // RoutingTab — main container for the "Routing" page.
 //
@@ -184,7 +185,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
             </span>
           )}
           {!isTunActive && (
-            <span className="ml-auto text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300 font-medium">
+            <span className="ml-auto text-[10px] text-amber-700 dark:text-amber-300 font-medium">
               {t("common.readOnly")}
             </span>
           )}
@@ -217,28 +218,18 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
           {/* General settings — sniff, final, auto_detect_interface */}
           <div
             className={cn(
-              "rounded-xl border border-border/80 bg-[var(--atlas-field)] p-4",
+              "atlas-editor-section",
               !isTunActive && "pointer-events-none opacity-60",
             )}
             aria-disabled={!isTunActive}
           >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={r.sniff}
-                  onChange={(e) => updateRouting({ sniff: e.target.checked })}
-                  className="rounded border-input bg-background accent-brand focus:ring-brand"
-                />
+                <AtlasSwitch label={t("routing.sniffProtocol")} checked={r.sniff} disabled={!isTunActive} onChange={enabled=>updateRouting({ sniff: enabled })} />
                 {t("routing.sniffProtocol")}
               </label>
               <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={r.auto_detect_interface}
-                  onChange={(e) => updateRouting({ auto_detect_interface: e.target.checked })}
-                  className="rounded border-input bg-background accent-brand focus:ring-brand"
-                />
+                <AtlasSwitch label={t("routing.autoDetectInterface")} checked={r.auto_detect_interface} disabled={!isTunActive} onChange={enabled=>updateRouting({ auto_detect_interface: enabled })} />
                 {t("routing.autoDetectInterface")}
               </label>
               <div>
@@ -246,7 +237,7 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
                 <select
                   value={r.final_outbound}
                   onChange={(e) => updateRouting({ final_outbound: e.target.value })}
-                  className="w-full rounded-md bg-[var(--atlas-field)] border border-border/80 px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent"
+                  className="atlas-input w-full"
                 >
                   <option value="direct">{t("routing.finalDirectSimple")}</option>
                   <option value="proxy">{t("routing.finalProxySelector")}</option>
@@ -317,9 +308,9 @@ export function RoutingTab({ profiles, settings, onSettingsChange, engine = "sin
             </Button>
           </div>
           {jsonOpen && (
-            <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-4">
+            <div className="atlas-editor-section">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground font-mono">
+                <span className="text-xs text-muted-foreground font-mono">
                   {t("routing.jsonTitle")}
                 </span>
                 <Button variant="ghost" size="sm" onClick={onCopyJson} title={t("common.copy")}>

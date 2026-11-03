@@ -1,3 +1,4 @@
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 // RuleSetsPanel — manage the list of CustomRuleSet (external Loyalsoldier /
 // meta-rules-dat / user-added URLs).
 //
@@ -48,7 +49,7 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
   };
 
   return (
-    <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-4 space-y-3">
+    <div className="atlas-editor-section space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-foreground">{t("routing.ruleSetsTitle")}</h3>
@@ -73,22 +74,16 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
           <div
             key={rs.tag}
             className={cn(
-              "rounded-lg border border-border/80 bg-[var(--atlas-field)] px-3.5 py-2.5",
+              "atlas-record",
               !rs.enabled && "opacity-60",
             )}
           >
             <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="checkbox"
-                checked={rs.enabled}
-                onChange={(e) => update(rs.tag, { enabled: e.target.checked })}
-                title={`${t("common.enabled")} / ${t("common.disabled")}`}
-                className="rounded border-input bg-background accent-brand focus:ring-brand"
-              />
+              <AtlasSwitch label={rs.tag+" · "+t("common.enabled")} checked={rs.enabled} onChange={enabled=>update(rs.tag,{enabled})} />
               <code className="text-xs text-theme-accent font-mono font-medium">{rs.tag}</code>
-              <Badge variant="secondary" className="font-mono text-[10px]">{rs.type}</Badge>
-              {rs.format && <Badge variant="outline" className="font-mono text-[10px]">{rs.format}</Badge>}
-              {rs.update_interval && <Badge variant="outline" className="font-mono text-[10px]">↻ {rs.update_interval}</Badge>}
+              <Badge variant="secondary">{rs.type}</Badge>
+              {rs.format && <Badge variant="outline">{rs.format}</Badge>}
+              {rs.update_interval && <Badge variant="outline" >↻ {rs.update_interval}</Badge>}
               <Button
                 variant="ghost"
                 size="sm"
@@ -106,7 +101,7 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
                   value={rs.url ?? ""}
                   onChange={(e) => update(rs.tag, { url: e.target.value })}
                   placeholder="https://…/geoip-cn.srs"
-                  className="w-full rounded-md bg-[var(--atlas-field)] border border-border/80 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent font-mono"
+                  className="atlas-input w-full font-mono"
                 />
               </div>
             )}
@@ -117,7 +112,7 @@ export function RuleSetsPanel({ ruleSets, onChange }: Props) {
                   value={rs.path ?? ""}
                   onChange={(e) => update(rs.tag, { path: e.target.value })}
                   placeholder="C:\rules\my.srs"
-                  className="w-full rounded-md bg-background border border-input px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                  className="atlas-input w-full font-mono"
                 />
               </div>
             )}

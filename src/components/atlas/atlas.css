@@ -3,12 +3,8 @@
 .dark .atlas-shell{--atlas-ground:#0a0d12;--atlas-tile:#10141a;--atlas-line:#232a34;--card:216 24% 8%;--background:218 29% 5%;--border:217 20% 17%;--muted-foreground:214 14% 68%}
 .oled .atlas-shell{--atlas-ground:#000;--atlas-tile:#050608;--atlas-line:#191c21}
 .atlas-shell.mesh-bg{background-image:none}
-html .atlas-shell .bento-card,html .atlas-shell .bento-card-subtle{background:var(--atlas-tile)!important;border:1px solid var(--atlas-line)!important;box-shadow:none!important;backdrop-filter:none}
 .atlas-shell header{background:var(--atlas-ground);border-color:var(--atlas-line);box-shadow:none}
-.atlas-shell .shadow-theme-accent,.atlas-shell .glow-accent{box-shadow:none!important}
-.atlas-shell .bg-theme-gradient{background-image:none!important;background-color:rgb(var(--accent-rgb))}
 .dark .atlas-shell .bg-theme-subtle{background-color:rgba(var(--accent-rgb),.075)!important}
-.atlas-shell .uppercase.tracking-wider{letter-spacing:0;text-transform:none}
 .atlas-scene{position:relative;height:clamp(260px,29vw,322px);min-width:0;align-self:center}
 .atlas-scene canvas,.atlas-scene .ah-globe-fx{width:100%;height:100%;display:block}
 .atlas-scene .ah-globe-fx{position:absolute;inset:0;pointer-events:none}
@@ -33,9 +29,6 @@ html .atlas-shell .bento-card,html .atlas-shell .bento-card-subtle{background:va
 .atlas-route-summary{display:flex;align-items:center;gap:12px;padding:14px 18px}
 .atlas-route-summary button{margin-left:auto}
 .atlas-options{display:flex;gap:8px;flex-wrap:wrap}
-.atlas-options button{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--atlas-line,hsl(var(--border)));border-radius:8px;background:transparent;color:inherit;font-size:13px}
-.atlas-options button[aria-pressed=true]{background:rgba(var(--accent-rgb),.07);border-color:rgba(var(--accent-rgb),.45);color:var(--accent-badge-text)}
-.atlas-options button:focus-visible{outline:2px solid rgb(var(--accent-rgb));outline-offset:2px}
 .atlas-traffic>svg{width:100%;height:72px;overflow:visible}
 .dark .atlas-shell [role=tablist]{background:var(--atlas-tile);box-shadow:none}
 .atlas-shell [role=tab][aria-selected=true]{background:rgba(var(--accent-rgb),.08);box-shadow:none}
@@ -44,4 +37,3 @@ html .atlas-shell .bento-card,html .atlas-shell .bento-card-subtle{background:va
 
 .atlas-mobile .atlas-scene{width:100%;height:clamp(170px,49vw,225px)}
 .atlas-mobile .atlas-traffic{min-width:0}
-.atlas-mobile .atlas-options button{min-height:44px}

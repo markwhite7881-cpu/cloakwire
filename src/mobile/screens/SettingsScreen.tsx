@@ -1,3 +1,4 @@
+import { Button } from "@/components/Button";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import { SettingsIndex } from "@/components/atlas/SettingsIndex";
 import {RecoverySetting} from "@/components/RecoverySettings";
@@ -10,7 +11,7 @@ import { cn } from "@/lib/utils";
 import type { CustomRule, GeneratorSettings, KillSwitchMode, RoutingOptions } from "@/lib/types";
 import { newRuleId } from "@/lib/presets";
 import { SectionCard, SectionHeader, SettingRow } from "../components/SectionCard";
-import { Switch } from "../components/Switch";
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 import { type MobileEngine } from "@/mobile/lib/settings";
 import { AccentThemePicker } from "@/components/AccentThemePicker";
 import { LanguagePicker } from "@/components/LanguagePicker";
@@ -51,8 +52,6 @@ const DNS_PRESETS: { id: string; label: string; local: string; remote: string }[
 
 const IPV6_RULE_LABEL = "Reject IPv6";
 
-const HWID_INPUT_CLS =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring";
 
 function isIpv6RejectRule(rule: CustomRule): boolean {
   return (
@@ -146,8 +145,6 @@ export function SettingsScreen({
       (p) => p.local === settings.local_dns && p.remote === settings.remote_dns,
     )?.id ?? "custom";
 
-  const inputCls =
-    "rounded-xl border border-border bg-[var(--atlas-field)] px-3 py-2 text-xs text-foreground focus:outline-none focus:border-theme-accent focus:ring-1 focus:ring-theme-accent";
 
   return (
     <div className="atlas-page atlas-settings">
@@ -161,7 +158,7 @@ export function SettingsScreen({
             label={t("settings.autoConnect")}
             hint={t("atlas.atLaunch")}
             control={
-              <Switch
+              <AtlasSwitch
                 checked={autoConnect}
                 onChange={onAutoConnectChange}
                 label={t("settings.autoConnect")}
@@ -176,7 +173,7 @@ export function SettingsScreen({
                 : t("settings.remoteRuleSetsHint", { count: remoteSets.length })
             }
             control={
-              <Switch
+              <AtlasSwitch
                 checked={remoteEnabled}
                 onChange={setRemoteEnabled}
                 disabled={remoteSets.length === 0}
@@ -211,7 +208,7 @@ export function SettingsScreen({
                   const p = DNS_PRESETS.find((x) => x.id === e.target.value);
                   if (p) update({ local_dns: p.local, remote_dns: p.remote });
                 }}
-                className={cn(inputCls, "max-w-[180px]")}
+                className="atlas-input max-w-[180px]"
               >
                 {DNS_PRESETS.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -240,7 +237,7 @@ export function SettingsScreen({
                     update({ mixed_port: n });
                   }
                 }}
-                className={cn(inputCls, "w-24 text-right font-mono")}
+                className="atlas-input w-24 text-right font-mono"
               />
             }
           />
@@ -268,27 +265,27 @@ export function SettingsScreen({
             }
           />
           <div className="px-4 py-3">
-            <button
+            <Button size="default" variant="outline"
               type="button"
               onClick={onOpenLogs}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-[var(--atlas-field)] text-sm text-foreground active:scale-[0.98] transition"
+              className="w-full"
             >
               <Terminal className="h-4 w-4 text-theme-accent" />
               {t("nav.logs")}
-            </button>
+            </Button>
           </div>
           <div className="px-4 py-3">
-            <button
+            <Button size="default" variant="default"
               type="button"
               onClick={onRefreshAllSubs}
               disabled={subsFetching}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-theme-accent text-zinc-950 text-sm font-semibold shadow-theme-accent active:scale-[0.98] transition hover:opacity-90 disabled:opacity-50"
+              className="w-full"
             >
               <RefreshCw
                 className={cn("h-4 w-4 stroke-[2.5]", subsFetching && "animate-spin")}
               />
               {t("servers.updateAll")}
-            </button>
+            </Button>
           </div>
         </div>
       </SectionCard>
@@ -386,21 +383,20 @@ function DeviceHwidSection() {
           {t("servers.deviceHwidDesc")}
         </p>
         <div className="space-y-1">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
+          <div className="text-[11px] text-muted-foreground/70">
             {t("servers.currentHwid")}
           </div>
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-muted/40 px-2 py-1.5 font-mono text-[11px] text-foreground">
               {info?.effective ?? (info === null ? "…" : "—")}
             </code>
-            <button
+            <Button size="sm" variant="outline"
               type="button"
               onClick={copy}
               disabled={!info?.effective}
-              className="rounded-md border border-border px-2 py-1 text-[11px] text-foreground active:bg-accent disabled:opacity-50"
             >
               {t("common.copy")}
-            </button>
+            </Button>
           </div>
         </div>
         {info?.custom && (
@@ -408,28 +404,26 @@ function DeviceHwidSection() {
             <span className="font-mono text-foreground">{info.custom}</span>{" "}
             is a custom override (auto is{" "}
             <span className="font-mono text-foreground">{info.auto ?? "—"}</span>).
-            <button
+            <Button size="sm" variant="ghost"
               type="button"
               onClick={clear}
               disabled={busy}
-              className="ml-2 underline decoration-dotted underline-offset-2 active:text-foreground disabled:opacity-50"
             >
               {t("servers.clearOverride")}
-            </button>
+            </Button>
           </p>
         )}
         {!editing ? (
-          <button
+          <Button size="sm" variant="outline"
             type="button"
             onClick={() => {
               setEditing(true);
               setDraft(info?.custom ?? "");
             }}
             disabled={busy}
-            className="rounded-md border border-border px-3 py-1.5 text-foreground active:bg-accent disabled:opacity-50"
           >
             {info?.custom ? t("servers.changeOverride") : t("servers.pasteFromOtherDevice")}
-          </button>
+          </Button>
         ) : (
           <div className="space-y-2">
             <input
@@ -443,18 +437,17 @@ function DeviceHwidSection() {
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              className={cn(HWID_INPUT_CLS, "font-mono text-xs")}
+              className="atlas-input font-mono"
             />
             <div className="flex gap-2">
-              <button
+              <Button size="sm" variant="default"
                 type="button"
                 onClick={save}
                 disabled={busy || !draft.trim()}
-                className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground shadow-sm active:bg-primary/90 disabled:opacity-50"
               >
                 {t("servers.saveOverride")}
-              </button>
-              <button
+              </Button>
+              <Button size="sm" variant="outline"
                 type="button"
                 onClick={() => {
                   setEditing(false);
@@ -462,21 +455,19 @@ function DeviceHwidSection() {
                   setError(null);
                 }}
                 disabled={busy}
-                className="rounded-md border border-border px-3 py-1.5 text-foreground active:bg-accent disabled:opacity-50"
               >
                 {t("common.cancel")}
-              </button>
+              </Button>
             </div>
           </div>
         )}
-        <button
+        <Button size="sm" variant="ghost"
           type="button"
           onClick={resetAuto}
           disabled={busy}
-          className="text-[11px] underline decoration-dotted underline-offset-2 active:text-foreground disabled:opacity-50"
         >
           {t("servers.regenerateDeviceHwid")}
-        </button>
+        </Button>
         {error && <p className="text-destructive">{error}</p>}
       </div>
     </SectionCard>

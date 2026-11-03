@@ -220,7 +220,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
             <span className="truncate text-sm font-medium" title={name}>
               {name} {identityHint && <span className="font-mono text-xs text-muted-foreground">{identityHint}</span>}
             </span>
-            <Badge variant={variant} className="px-1.5 py-0 text-[10px]">
+            <Badge variant={variant} >
               {protocolTag(outbound)}
             </Badge>
             <ProfileHealthBadge profileRef={manualId?{kind:"manual",id:manualId}:null}/>
@@ -252,7 +252,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+
             onClick={onToggleJson}
             title={showJson ? t("servers.hideJson") : t("servers.showSingboxJson")}
           >
@@ -265,7 +265,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+
             onClick={onRemove}
             title={t("common.delete")}
           >
@@ -290,7 +290,6 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
                   variant="ghost"
                   size="sm"
                   onClick={onCopyJson}
-                  className="h-6 px-2 text-[10px]"
                 >
                   {copied ? (
                     <>

@@ -1,3 +1,4 @@
+import { Button } from "@/components/Button";
 import type {ReactNode} from "react";
 import { useState } from "react";
 import { AlertCircle, Copy, X } from "lucide-react";
@@ -34,14 +35,13 @@ export function ConnectionErrorCard({ error, onDismiss, actions }: { error: stri
               <h2 className="font-semibold">{details.title}</h2>
               <p>{details.reason}</p>
               <p className="text-foreground/90"><span className="font-medium">{t("profileCheck.nextStep")}: </span>{details.action}</p>
-              <button
+              <Button size="lg" variant="outline"
                 type="button"
                 onClick={() => void copyReport()}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-destructive/25 px-2 py-1 hover:bg-destructive/10"
               >
                 <Copy aria-hidden="true" className="h-3.5 w-3.5" />
                 {copyState === "copied" ? t("common.copied") : t("profileCheck.copyReport")}
-              </button>
+              </Button>
               {copyState === "failed" && <p role="status">{t("profileCheck.copyUnavailable")}</p>}
             </>
           ) : engineStopped || recoveryExhausted ? <><p>{t(recoveryExhausted ? "recovery.exhausted" : "recovery.engineUnavailable")}</p>{error.startsWith("Kill Switch:")&&<p>{t("recovery.trafficBlocked")}</p>}</> : <p>{error}</p>}

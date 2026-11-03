@@ -1,3 +1,4 @@
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import { SettingsIndex } from "@/components/atlas/SettingsIndex";
 import { useState } from "react";
@@ -109,7 +110,7 @@ export function ConfigTab({
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 justify-start truncate bg-[var(--atlas-field)]"
+              className="flex-1 justify-start truncate"
               onClick={onPickConfig}
             >
               <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
@@ -160,27 +161,8 @@ export function ConfigTab({
                 {t("notify.notificationsDesc")}
               </p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={notificationsEnabled}
-              onClick={() => void handleToggleNotifications(!notificationsEnabled)}
-              className={cn(
-                "relative h-5 w-10 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-accent",
-                notificationsEnabled
-                  ? "border-theme-accent/50 bg-theme-accent/20"
-                  : "border-border bg-foreground/5",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 h-4 w-4 rounded-full transition-all duration-200",
-                  notificationsEnabled
-                    ? "left-[22px] bg-theme-accent shadow-sm"
-                    : "left-0.5 bg-muted-foreground",
-                )}
-              />
-            </button>
+            <AtlasSwitch label={t("notify.notificationsTitle")} checked={notificationsEnabled}
+              onChange={enabled=>void handleToggleNotifications(enabled)} />
           </div>
         </CardContent>
       </Card>
@@ -241,7 +223,7 @@ function Row({
 }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      <p className="text-[10px] text-muted-foreground">
         {label}
       </p>
       <p

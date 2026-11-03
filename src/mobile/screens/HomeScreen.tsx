@@ -1,3 +1,4 @@
+import { Button } from "@/components/Button";
 import { AtlasGlobe } from "@/components/atlas/AtlasGlobe";
 import { HomeTraffic } from "@/components/SpeedTestTab";
 import {RecoveryNotice} from "@/components/RecoverySettings";
@@ -5,6 +6,7 @@ import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import type {ReactNode} from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Globe,
   ChevronDown,
   Clock,
   Loader2,
@@ -200,7 +202,7 @@ export function HomeScreen({
     const result: ServerBlock[] = [];
     for (const group of serverCatalog) {
       if (group.kind === "manual") {
-        result.push({ type: "manual", id: group.id, label: group.label, entries: group.entries });
+        result.push({ type: "manual", id: group.id, label: t("atlas.customProfiles"), entries: group.entries });
       }
     }
     const groupedBySub = new Map(
@@ -227,7 +229,7 @@ export function HomeScreen({
       }
     }
     return result;
-  }, [serverCatalog, subs]);
+  }, [serverCatalog, subs, t]);
 
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(() =>
     loadExpandedSubscriptions(true),
@@ -290,27 +292,24 @@ export function HomeScreen({
   return (
     <div className="flex flex-col gap-3 p-4 pb-8">
       <AtlasGlobe countries={countries} running={isRunning} country={/^[A-Z]{2}$/.test(code)?code:null} bytesPerSecond={(current?.down_bps??0)+(current?.up_bps??0)} />
-      <div className="bento-card relative flex min-w-0 flex-col gap-2 overflow-clip rounded-xl p-4">
+      <div className="atlas-panel atlas-connection-panel relative flex min-w-0 flex-col gap-2 overflow-clip p-4">
         {/* Top Active Server Selector Pill */}
         <div className="relative z-10 flex w-full items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => setServerPickerOpen(true)}
-            className={cn(
-              "flex items-center gap-2 rounded-full border border-white/10 bg-background/80 px-3 py-1.5 text-xs shadow-sm backdrop-blur-md",
-              "active:bg-secondary transition-all max-w-[200px] truncate",
-            )}
+            className="atlas-server-trigger"
           >
             {flag ? (
               <FlagIcon code={flag.code} size={15} className="shrink-0" />
             ) : (
-              <span className="text-xs">🌐</span>
+              <Globe size={15} aria-hidden="true"/>
             )}
             <span className="truncate font-medium text-foreground">{serverLine}</span>
             <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
           </button>
 
-          <span className="rounded-lg border border-white/10 bg-background/60 px-2 py-0.5 font-mono text-[10px] text-muted-foreground shadow-sm">
+          <span className="atlas-meta">
             {vpn.engine === "xray" ? "Xray Core" : "sing-box"}
           </span>
         </div>
@@ -318,13 +317,13 @@ export function HomeScreen({
         <div className="flex flex-col items-start gap-2">
           <div className="flex w-full items-center justify-between gap-2">
             <h1 className="text-lg font-semibold">{headline}</h1>
-            <button type="button" disabled={vpn.busy || isTransition || !vpn.ready}
+            <Button size="sm" variant="default" type="button" disabled={vpn.busy || isTransition || !vpn.ready}
               aria-label={isRunning ? t("common.disconnect") : t("common.connect")}
               onClick={()=>{triggerHaptic("medium");if(isRunning)void vpn.disconnect();else void onConnect();}}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-theme-accent px-3 text-sm font-semibold text-zinc-950 disabled:opacity-50">
+              >
               {isTransition?<Loader2 size={16} className="animate-spin"/>:<Power size={16}/>}
               {t(isRunning?"common.disconnect":"common.connect")}
-            </button>
+            </Button>
           </div>
           <div className="space-y-1">
             <button
@@ -351,7 +350,7 @@ export function HomeScreen({
 
             {isRunning && uptimeSecs != null && (
               <div className="flex items-center justify-center pt-1">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/60 px-2.5 py-0.5 font-mono text-[10px] text-muted-foreground shadow-sm">
+                <span className="atlas-meta inline-flex items-center gap-1.5">
                   <Clock className="h-3 w-3 text-theme-accent" />
                   <span>{t("home.sessionTime")}: {formatDuration(uptimeSecs)}</span>
                 </span>
@@ -365,7 +364,7 @@ export function HomeScreen({
           <div className="divide-y divide-border">{recentRows.map(key=>{
             const row=locations.get(key)!;
             return <button type="button" key={key} aria-pressed={key===pickedKey}
-              className="flex min-h-9 w-full items-center gap-2 text-left text-sm" onClick={()=>{
+              className="atlas-pick-row" onClick={()=>{
                 triggerHaptic("selection");
                 if(row.bundle)void onSelectBundleChild(row.bundle);else if(row.index!=null)onSelect(row.index);
               }}><FlagIcon code={row.country} size={15}/><span className="min-w-0 truncate">{row.name}</span></button>;
@@ -374,7 +373,7 @@ export function HomeScreen({
         {probeCard}
 
         {/* Hero Footer */}
-        <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-3 text-[11px] font-mono text-muted-foreground/70">
+        <div className="relative z-10 flex items-center justify-between border-t border-border pt-3 text-[11px] font-mono text-muted-foreground/70">
           <span>{t("home.tunMode")}</span>
           <span>{vpn.engine === "xray" ? "Xray Core" : "sing-box Core"}</span>
         </div>
@@ -385,19 +384,18 @@ export function HomeScreen({
       {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
 
       {/* ─── Bento 3: Per-App Routing Summary ─────────────────────── */}
-      <div className="bento-card flex flex-col justify-between rounded-3xl p-4 shadow-xl">
+      <div className="atlas-panel atlas-home-section flex flex-col justify-between p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <Shield className="h-3.5 w-3.5 text-theme-accent" />
             {t("home.perAppRouting")}
           </div>
-          <button
+          <Button size="sm" variant="ghost"
             type="button"
             onClick={onOpenRouting}
-            className="flex items-center gap-0.5 text-xs font-medium text-theme-accent hover:underline active:opacity-80"
           >
             {t("home.manageRouting")}
-          </button>
+          </Button>
         </div>
         <button
           type="button"
@@ -415,34 +413,34 @@ export function HomeScreen({
         vpnActive={isRunning} activeProfileName={isRunning?connectedName:null}/>
 
       {/* ─── Bento 4: All Servers List & Quick Add ────────────────── */}
-      <div className="bento-card flex flex-col rounded-3xl p-4 shadow-xl">
+      <div className="atlas-panel atlas-home-section flex flex-col p-4">
         <div className="mb-2 flex items-center justify-between px-1">
-          <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
             <Server className="h-3.5 w-3.5 text-theme-accent" />
             <span>All Servers</span>
-            <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <span className="atlas-count">
               {totalServersCount}
             </span>
           </div>
-          <button
+          <Button size="sm" variant="outline"
             type="button"
             onClick={() => setAddSheetOpen(true)}
-            className="flex items-center gap-1 rounded-xl badge-theme px-3 py-1 text-xs font-medium shadow-sm transition active:scale-95"
+
             title="Add server or subscription"
           >
             <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
             <span>Add</span>
-          </button>
+          </Button>
         </div>
 
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-border">
           {blocks.map((block) => {
             const isExpanded = block.type === "manual" || expandedBlocks.has(block.id);
             return (
               <div key={block.id} className="py-1">
                 {block.type === "manual" ? (
                   block.entries.length > 1 && (
-                    <div className="px-1 py-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/70">
+                    <div className="px-1 py-2 font-mono text-[11px] text-muted-foreground/70">
                       {block.label} ({block.entries.length})
                     </div>
                   )
@@ -477,7 +475,7 @@ export function HomeScreen({
                         {t("servers.noServersLoaded")}
                       </p>
                     ) : (
-                      <ul className="divide-y divide-white/5">
+                      <ul className="divide-y divide-border">
                         {block.children.map((child) => {
                           const isSel =
                             !!activeBundle &&
@@ -486,7 +484,7 @@ export function HomeScreen({
                           const latency = childLatency.get(`${block.id}:${child.key}`);
                           return (
                             <li key={`home-bundle-${block.id}-${child.key}`}>
-                              <button
+                              <button aria-pressed={isSel}
                                 type="button"
                                 onClick={() => {
                                   triggerHaptic("selection");
@@ -497,10 +495,7 @@ export function HomeScreen({
                                     childName: child.name,
                                   });
                                 }}
-                                className={cn(
-                                  "flex w-full items-center gap-3.5 rounded-xl px-2 py-3 text-left transition-colors",
-                                  isSel ? "bg-theme-subtle text-theme-accent font-medium" : "active:bg-white/5",
-                                )}
+                                className="atlas-pick-row"
                               >
                                 <span
                                   className={cn(
@@ -534,7 +529,7 @@ export function HomeScreen({
                       {t("servers.noServersLoaded")}
                     </p>
                   ) : (
-                    <ul className="divide-y divide-white/5">
+                    <ul className="divide-y divide-border">
                       {block.entries.map((entry) => {
                         const profile = entry.profile;
                         const supported = isSupported(profile);
@@ -547,7 +542,7 @@ export function HomeScreen({
                         const latency = supported ? latencyState.byTag.get(profile.tag) : undefined;
                         return (
                           <li key={entry.manualId ?? `home-server-${entry.profileIndex}`}>
-                            <button
+                            <button aria-pressed={entry.selected}
                               type="button"
                               onClick={() => {
                                 if (supported) {
@@ -556,11 +551,7 @@ export function HomeScreen({
                                 }
                               }}
                               disabled={!supported}
-                              className={cn(
-                                "flex w-full items-center gap-3.5 rounded-xl px-2 py-3 text-left transition-colors",
-                                entry.selected ? "bg-theme-subtle text-theme-accent font-medium" : "active:bg-white/5",
-                                !supported && "cursor-not-allowed opacity-50",
-                              )}
+                              className="atlas-pick-row"
                             >
                               <span
                                 className={cn(
@@ -610,18 +601,13 @@ export function HomeScreen({
         title={t("home.selectServer")}
       >
         <div className="space-y-3 pb-4">
-          <button
+          <button aria-pressed={selectedIndex === -1}
             type="button"
             onClick={() => {
               onSelect(-1);
               setServerPickerOpen(false);
             }}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition",
-              selectedIndex === -1
-                ? "bg-theme-subtle text-theme-accent border-theme-accent font-medium"
-                : "bg-[#07080c] border-white/5 active:bg-secondary/80 text-foreground",
-            )}
+            className="atlas-pick-row"
           >
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-xs">
               ∞
@@ -634,7 +620,7 @@ export function HomeScreen({
 
           {blocks.map((block) => (
             <div key={`sheet-block-${block.id}`} className="space-y-1.5 pt-1">
-              <p className="px-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+              <p className="px-1 text-[11px] text-muted-foreground">
                 {block.label}
               </p>
               {block.type === "bundle" ? (
@@ -646,7 +632,7 @@ export function HomeScreen({
                       activeBundle.childKey === child.key;
                     const latency = childLatency.get(`${block.id}:${child.key}`);
                     return (
-                      <button
+                      <button aria-pressed={isSel}
                         key={`sheet-child-${child.key}`}
                         type="button"
                         onClick={() => {
@@ -658,12 +644,7 @@ export function HomeScreen({
                           });
                           setServerPickerOpen(false);
                         }}
-                        className={cn(
-                          "flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition",
-                          isSel
-                            ? "bg-theme-subtle text-theme-accent border-theme-accent font-medium"
-                            : "bg-[#07080c] border-white/5 active:bg-secondary/80 text-foreground",
-                        )}
+                        className="atlas-pick-row"
                       >
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">{child.name}</span>
                         <LatencyBadge ms={latency} />
@@ -684,7 +665,7 @@ export function HomeScreen({
                     });
                     const latency = supported ? latencyState.byTag.get(profile.tag) : undefined;
                     return (
-                      <button
+                      <button aria-pressed={entry.selected}
                         key={entry.manualId ?? `sheet-entry-${entry.profileIndex}`}
                         type="button"
                         onClick={() => {
@@ -695,13 +676,7 @@ export function HomeScreen({
                           }
                         }}
                         disabled={!supported}
-                        className={cn(
-                          "flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition",
-                          entry.selected
-                            ? "bg-theme-subtle text-theme-accent border-theme-accent font-medium"
-                            : "bg-[#07080c] border-white/5 active:bg-secondary/80 text-foreground",
-                          !supported && "opacity-50",
-                        )}
+                        className="atlas-pick-row"
                       >
                         {code ? (
                           <FlagIcon code={code} size={16} className="shrink-0" />
@@ -740,14 +715,14 @@ function LatencyBadge({ ms }: { ms: number | undefined }) {
   const tone = ms < 250 ? "fast" : ms < 700 ? "medium" : "slow";
   const toneClass =
     tone === "fast"
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
       : tone === "medium"
-        ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-        : "border-red-500/30 bg-red-500/10 text-red-400";
+        ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+        : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400";
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] tabular-nums shrink-0",
+        "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] tabular-nums shrink-0",
         toneClass,
       )}
     >

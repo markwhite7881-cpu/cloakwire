@@ -39,7 +39,7 @@ export function UpdateModal({
         {/* Top Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-theme-accent-subtle bg-theme-subtle text-theme-accent shadow-inner">
+            <div className="atlas-dialog-symbol">
               <Download className="h-5 w-5" />
             </div>
             <div>
@@ -53,21 +53,21 @@ export function UpdateModal({
               </div>
             </div>
           </div>
-          <button
+          <Button size="icon" variant="ghost"
             type="button"
             onClick={onDismiss}
             disabled={busy}
-            className="rounded-full p-1 text-muted-foreground transition hover:bg-white/10 hover:text-foreground disabled:opacity-50"
+
             title={t("common.close")}
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Release notes */}
         {notes && (
-          <div className="mt-4 max-h-48 overflow-y-auto rounded-2xl border border-border bg-background/50 p-3.5 text-xs text-muted-foreground/90 font-mono leading-relaxed space-y-1">
-            <p className="font-semibold text-foreground/90 font-sans uppercase tracking-wider text-[10px]">
+          <div className="mt-4 max-h-48 overflow-y-auto atlas-notes p-3.5 text-xs text-muted-foreground/90 font-mono leading-relaxed space-y-1">
+            <p className="font-semibold text-foreground/90 font-sans text-[10px]">
               {t("updates.whatsNew")}
             </p>
             <div className="whitespace-pre-wrap">{notes}</div>
@@ -89,7 +89,6 @@ export function UpdateModal({
             size="sm"
             onClick={onDismiss}
             disabled={busy}
-            className="rounded-xl px-4 text-xs text-muted-foreground hover:bg-white/5 hover:text-foreground"
           >
             {t("updates.later")}
           </Button>
@@ -98,7 +97,6 @@ export function UpdateModal({
             size="sm"
             onClick={() => void onUpdate()}
             disabled={busy}
-            className="flex items-center gap-1.5 rounded-xl bg-theme-accent px-5 text-xs font-semibold text-black hover:opacity-90 active:scale-95 shadow-theme-accent"
           >
             {busy ? (
               <>

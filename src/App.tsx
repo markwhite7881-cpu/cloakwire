@@ -29,6 +29,7 @@ import { HomeTab } from "@/components/HomeTab";
 import { ServersTab } from "@/components/ServersTab";
 import "@/components/atlas/atlas.css";
 import "@/components/atlas/shell.css";
+import "@/components/atlas/controls.css";
 import { LogsTab } from "@/components/LogsTab";
 import { ConfigTab } from "@/components/ConfigTab";
 import { RoutingTab } from "@/components/routing/RoutingTab";

@@ -247,7 +247,7 @@ export function ConfigBuilder({
           <CardTitle className="flex items-center gap-2">
             <FileCog className="h-4 w-4 text-theme-accent" />
             {t("config.builderTitle")}
-            <Badge variant="secondary" className="badge-theme ml-1 px-1.5 py-0 text-[10px]">
+            <Badge variant="secondary" >
               {profiles.length}
             </Badge>
           </CardTitle>
@@ -269,26 +269,21 @@ export function ConfigBuilder({
         <RecoverySetting />
         {/* Tunnel mode picker */}
         <div className="space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <p className="text-[10px] text-muted-foreground">
             {t("config.tunnelMode")}
           </p>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          <div className="atlas-choice-grid">
             {tunnelModes.map((m) => {
               const active = settings.tunnel_mode === m.value;
               return (
-                <button
+                <button aria-pressed={active}
                   key={m.value}
                   onClick={() => update("tunnel_mode", m.value)}
-                  className={cn(
-                    "rounded-md border px-2 py-1.5 text-left transition-colors",
-                    active
-                      ? "border-theme-accent bg-theme-subtle text-foreground shadow-sm"
-                      : "border-border bg-card/30 hover:bg-accent",
-                  )}
+                  className="atlas-choice"
                   title={m.hint}
                 >
                   <div className="text-xs font-medium">{m.label}</div>
-                  <div className="text-[9px] text-muted-foreground">
+                  <div className="atlas-choice-hint">
                     {m.hint}
                   </div>
                 </button>
@@ -299,14 +294,14 @@ export function ConfigBuilder({
 
         {/* Routing lives on the dedicated "Routing" tab (Routing 2.0).
             This block now only contains network/transport + DNS settings. */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label className="flex items-center gap-2 rounded-md border border-border bg-card/30 px-2 py-1.5 text-xs">
+        <div className="atlas-field-list">
+          <label className="atlas-field-row">
             <span className="text-muted-foreground">{t("config.mixedPort")}</span>
             <input
               type="number"
               min={1}
               max={65535}
-              className="ml-auto w-20 rounded border border-input bg-background px-2 py-0.5 font-mono text-[11px]"
+              className="atlas-input ml-auto w-20 font-mono"
               value={settings.mixed_port ?? 2080}
               onChange={(e) =>
                 update(
@@ -316,12 +311,12 @@ export function ConfigBuilder({
               }
             />
           </label>
-          <label className="flex items-center gap-2 rounded-md border border-border bg-card/30 px-2 py-1.5 text-xs">
+          <label className="atlas-field-row">
             <span className="text-muted-foreground">{t("config.tunInterface")}</span>
             <input
               type="text"
               placeholder="singbox-tun"
-              className="ml-auto w-44 truncate rounded border border-input bg-background px-2 py-0.5 font-mono text-[11px]"
+              className="atlas-input ml-auto w-44 font-mono"
               value={settings.tun_interface_name ?? ""}
               onChange={(e) =>
                 update("tun_interface_name", e.target.value || null)
@@ -329,12 +324,12 @@ export function ConfigBuilder({
               title={t("config.tunInterfaceHint")}
             />
           </label>
-          <label className="flex items-center gap-2 rounded-md border border-border bg-card/30 px-2 py-1.5 text-xs">
+          <label className="atlas-field-row">
             <span className="text-muted-foreground">{t("config.localDns")}</span>
             <input
               type="text"
               placeholder="1.1.1.1"
-              className="ml-auto w-44 truncate rounded border border-input bg-background px-2 py-0.5 font-mono text-[11px]"
+              className="atlas-input ml-auto w-44 font-mono"
               value={settings.local_dns ?? ""}
               onChange={(e) =>
                 update("local_dns", e.target.value || null)
@@ -342,12 +337,12 @@ export function ConfigBuilder({
               title={t("config.localDnsHint")}
             />
           </label>
-          <label className="flex items-center gap-2 rounded-md border border-border bg-card/30 px-2 py-1.5 text-xs">
+          <label className="atlas-field-row">
             <span className="text-muted-foreground">{t("config.remoteDns")}</span>
             <input
               type="text"
               placeholder="https://8.8.8.8/dns-query"
-              className="ml-auto w-44 truncate rounded border border-input bg-background px-2 py-0.5 font-mono text-[11px]"
+              className="atlas-input ml-auto w-44 font-mono"
               value={settings.remote_dns ?? ""}
               onChange={(e) =>
                 update("remote_dns", e.target.value || null)

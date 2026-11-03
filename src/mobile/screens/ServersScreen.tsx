@@ -1,3 +1,4 @@
+import { Button } from "@/components/Button";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import { manualProfileHint } from "@/lib/manualProfileHint";
@@ -220,8 +221,8 @@ export function ServersScreen({
   return (
     <div className="atlas-page atlas-catalog">
       <AtlasHeading icon={Server} title={t("servers.title")} meta={engine && <span className="atlas-count">{engine}</span>}
-        actions={<button type="button" className="atlas-action" onClick={()=>setSheetOpen(true)} aria-label={t("servers.addSubscription")}>
-          <Plus size={16}/>{t("common.add")}</button>}/>
+        actions={<Button size="sm" variant="default" type="button" onClick={()=>setSheetOpen(true)} aria-label={t("servers.addSubscription")}>
+          <Plus size={16}/>{t("common.add")}</Button>}/>
       {profiles.length === 0 && subs.every((s) => s.kind === "auto" || s.children.length === 0) ? (
         <EmptyState
           icon={Server}
@@ -389,11 +390,7 @@ export function ServersScreen({
                           type="button"
                           onClick={() => supported && onSelect(i)}
                           disabled={!supported} aria-pressed={isSel}
-                          className={cn(
-                            "flex min-w-0 flex-1 items-center gap-3 px-3.5 py-3 text-left transition-colors",
-                            isSel ? "atlas-picked" : "active:bg-accent/60",
-                            !supported && "opacity-50",
-                          )}
+                          className="atlas-pick-row"
                         >
                           <span
                             className={cn(
@@ -422,7 +419,7 @@ export function ServersScreen({
                           <LatencyBadge ms={ms} dim={pinging && ms == null} />
                         </button>
                         {deletable && (
-                          <button
+                          <Button size="icon" variant="ghost"
                             type="button"
                             onClick={() =>
                               setPendingDelete({
@@ -432,10 +429,9 @@ export function ServersScreen({
                               })
                             }
                             aria-label={`Delete ${profileLabel(o)}`}
-                            className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground active:bg-destructive/10 active:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         )}
                       </li>
                     );
@@ -466,12 +462,11 @@ export function ServersScreen({
                     )}
                   </p>
                 </div>
-                <button
+                <Button size="icon" variant="ghost"
                   type="button"
                   onClick={() => void onRefreshSub(s.id)}
                   disabled={subFetching[s.id]}
                   aria-label={`Refresh ${s.name}`}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground active:bg-accent active:text-foreground disabled:opacity-50"
                 >
                   <RefreshCw
                     className={cn(
@@ -479,8 +474,8 @@ export function ServersScreen({
                       subFetching[s.id] && "animate-spin",
                     )}
                   />
-                </button>
-                <button
+                </Button>
+                <Button size="icon" variant="ghost"
                   type="button"
                   onClick={() =>
                     setPendingDelete({
@@ -490,10 +485,9 @@ export function ServersScreen({
                     })
                   }
                   aria-label={`Remove ${s.name}`}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground active:bg-destructive/10 active:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -543,7 +537,7 @@ function LatencyBadge({ ms, dim }: { ms: number | undefined; dim?: boolean }) {
       <span
         aria-label={dim ? "Latency unavailable after ping" : "Latency not measured"}
         className={cn(
-          "rounded-full border border-border px-2 py-0.5 font-mono text-[10px] tabular-nums",
+          "rounded border border-border px-2 py-0.5 text-[11px] tabular-nums",
           dim ? "text-muted-foreground/40" : "text-muted-foreground/70",
         )}
       >
@@ -553,15 +547,15 @@ function LatencyBadge({ ms, dim }: { ms: number | undefined; dim?: boolean }) {
   }
   const toneClass =
     tone === "fast"
-      ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+      ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
       : tone === "medium"
         ? "border-amber-400/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-        : "border-red-400/30 bg-red-500/10 text-red-300";
+        : "border-red-400/30 bg-red-500/10 text-red-700 dark:text-red-300";
   return (
     <span
       aria-label={`Latency ${ms} milliseconds, ${tone}`}
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] tabular-nums",
+        "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] tabular-nums",
         toneClass,
       )}
     >

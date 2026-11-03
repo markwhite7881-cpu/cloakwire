@@ -52,7 +52,7 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
   const fmt=(n:number)=>n.toLocaleString(locale,{maximumFractionDigits:1});
   const handleClearHistory=()=>{clearSpeedTestHistory();setHistory([]);setLastResult(null);};
   const phase = progress?.phase === "ping" ? "phasePing" : progress?.phase === "upload" ? "phaseUpload" : "phaseDownload";
-  return <section className="atlas-traffic bento-card rounded-xl p-4 space-y-2">
+  return <section className="atlas-panel atlas-traffic p-4 space-y-2">
     <div className="flex items-center justify-between gap-2">
       <h2 className="text-sm font-semibold">{t(progress?"speedtest.title":"home.traffic")}</h2>
       <Button size="sm" variant="outline" onClick={progress?stop:start}><Gauge size={15}/>{t(progress?"speedtest.stopTest":"nav.speedtest")}</Button>
@@ -71,7 +71,7 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
     {lastResult && <p role="status" className="text-xs">{lastResult.serverName} · ↓ {fmt(lastResult.downloadSpeed)} / ↑ {fmt(lastResult.uploadSpeed)} Mbps · {lastResult.ping} ms</p>}
     <details><summary className="text-xs text-muted-foreground cursor-pointer">{t("speedtest.recentHistory")} · {history.length}</summary>
       {/* Recent Test History Card */}
-      <Card className="bento-card">
+      <Card className="atlas-history">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -85,7 +85,6 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
                 variant="ghost"
                 size="sm"
                 onClick={handleClearHistory}
-                className="h-7 text-xs text-muted-foreground hover:text-destructive gap-1 px-2"
               >
                 <Trash2 className="h-3 w-3" />
                 <span>{t("speedtest.clearHistory")}</span>
@@ -127,19 +126,19 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
 
                   <div className="flex items-center gap-4 text-right tabular-nums">
                     <div>
-                      <span className="text-[10px] uppercase text-muted-foreground block">Down</span>
-                      <span className="font-semibold text-emerald-400">
+                      <span className="text-[10px] text-muted-foreground block">Down</span>
+                      <span className="font-semibold text-foreground">
                         {item.downloadSpeed.toFixed(1)} Mbps
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase text-muted-foreground block">Up</span>
-                      <span className="font-semibold text-blue-400">
+                      <span className="text-[10px] text-muted-foreground block">Up</span>
+                      <span className="font-semibold text-foreground">
                         {item.uploadSpeed.toFixed(1)} Mbps
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase text-muted-foreground block">Ping</span>
+                      <span className="text-[10px] text-muted-foreground block">Ping</span>
                       <span className="font-medium text-foreground">{item.ping} ms</span>
                     </div>
                   </div>

@@ -66,7 +66,7 @@ export function LogView({ logs, onClear, className }: Props) {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+
             onClick={() => setPaused((p) => !p)}
             title={t("logs.autoScroll")}
           >
@@ -76,7 +76,7 @@ export function LogView({ logs, onClear, className }: Props) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+
               onClick={onClear}
               title={t("logs.clear")}
             >

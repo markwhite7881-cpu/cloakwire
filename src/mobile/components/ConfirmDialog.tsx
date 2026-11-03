@@ -1,3 +1,4 @@
+import { Button } from "@/components/Button";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
@@ -72,25 +73,18 @@ export function ConfirmDialog({
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button
+          <Button size="sm" variant="outline"
             type="button"
             onClick={onClose}
-            className="h-9 rounded-md border border-border px-3 text-sm text-foreground active:bg-accent"
           >
             {cancelLabel}
-          </button>
-          <button
+          </Button>
+          <Button size="sm" variant={destructive ? "destructive" : "default"}
             type="button"
             onClick={onConfirm}
-            className={cn(
-              "h-9 rounded-md px-3 text-sm font-medium text-white",
-              destructive
-                ? "bg-destructive active:bg-destructive/90"
-                : "bg-primary active:bg-primary/90",
-            )}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,

@@ -166,7 +166,7 @@ function AppUpdateRow({
             <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
           </Button>
           {available && (
-            <Button size="sm" onClick={onInstall} disabled={busy} className="bg-theme-accent hover:opacity-90 text-zinc-950 font-medium">
+            <Button size="sm" onClick={onInstall} disabled={busy} >
               <Download size={12} className="mr-1" />
               {busy ? t("updates.installing") : t("updates.installAndRestart")}
             </Button>

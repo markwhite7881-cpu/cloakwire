@@ -1,3 +1,4 @@
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 import {createContext,useContext,useEffect,useState,useSyncExternalStore,type ReactNode} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {RecoverySettings,type RecoveryPreferenceState} from "@/lib/recoverySettings";
@@ -42,16 +43,14 @@ export function RecoverySettingsProvider({mobile,children}:{mobile:boolean;child
 /** One control in each shell; changing it never regenerates a VPN profile. */
 export function RecoverySetting(){
  const {t}=useI18n(),{preference,status,setEnabled}=useContext(Context);
- return <div className="py-3" data-testid="recovery-setting">
-  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4">
+ return <div className="atlas-recovery" data-testid="recovery-setting">
+  <label className="atlas-setting-row atlas-recovery-row">
    <span className="min-w-0">
     <span className="block text-sm font-medium">{t("recovery.title")}</span>
     <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{t("recovery.hint")}</span>
    </span>
-   <input type="checkbox" role="switch" aria-label={t("recovery.title")}
-    checked={preference.enabled} disabled={preference.busy}
-    onChange={event=>void setEnabled(event.target.checked)}
-    className="h-5 w-5 shrink-0 accent-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 disabled:opacity-50"/>
+   <AtlasSwitch label={t("recovery.title")} checked={preference.enabled} disabled={preference.busy}
+     onChange={enabled=>void setEnabled(enabled)} />
   </label>
   {preference.enabled&&status?.enabled&&status.phase==="unavailable"&&status.issue==="unsupported_probe"&&<p className="mt-2 text-xs leading-relaxed text-muted-foreground">{t("recovery.unsupported")}</p>}
   {preference.issue&&<p role="alert" className="mt-2 text-xs text-destructive">{t("recovery."+preference.issue+"Failed")}</p>}

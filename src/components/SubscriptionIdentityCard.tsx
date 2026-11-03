@@ -100,7 +100,7 @@ export function SubscriptionIdentityCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("servers.effectiveHwid")}</p>
+          <p className="text-[10px] text-muted-foreground">{t("servers.effectiveHwid")}</p>
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded border border-border bg-muted/40 px-2 py-1.5 font-mono text-[11px]">
               {loading ? t("common.loading") : info?.effective ?? t("common.unknown")}
@@ -129,7 +129,7 @@ export function SubscriptionIdentityCard() {
               placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
               spellCheck={false}
               autoComplete="off"
-              className="w-full rounded border border-input bg-background px-2 py-1.5 font-mono text-[11px]"
+              className="atlas-input w-full font-mono"
             />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setDraft(""); }} disabled={busy}>

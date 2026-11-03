@@ -1,3 +1,4 @@
+import { Button } from "@/components/Button";
 import { humanError } from "@/lib/profileCheck";
 import { useEffect, useState } from "react";
 import { Clipboard, Loader2, Plus } from "lucide-react";
@@ -163,12 +164,12 @@ export function AddSubscriptionSheet({
         : t("servers.pasteLinksHint");
 
   return (
-    <Sheet open={open} onClose={onClose} title={t("servers.addSubscription")}>
+    <Sheet open={open} onClose={onClose} title={t("atlas.importSources")}>
       <div className="space-y-4">
         {clipboardContent && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-theme-accent-subtle bg-theme-subtle p-3 shadow-sm animate-in fade-in slide-in-from-top-1">
+          <div className="atlas-source-preview">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-theme-accent">
+              <div className="atlas-field-caption inline-flex items-center gap-1.5">
                 <Clipboard className="h-3 w-3" />
                 <span>{t("servers.linkInClipboard")}</span>
               </div>
@@ -176,29 +177,27 @@ export function AddSubscriptionSheet({
                 {clipboardContent}
               </p>
             </div>
-            <button
+            <Button size="sm" variant="outline"
               type="button"
               onClick={() => void pasteFromClipboard()}
-              className="shrink-0 rounded-lg bg-theme-accent px-3 py-1.5 text-xs font-semibold text-zinc-950 shadow transition active:scale-95 hover:opacity-90"
             >
               {t("common.paste")}
-            </button>
+            </Button>
           </div>
         )}
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground" htmlFor="server-source">
+            <label className="atlas-field-caption" htmlFor="server-source">
               {t("servers.subscriptionUrl")}
             </label>
-            <button
+            <Button size="sm" variant="ghost"
               type="button"
               onClick={() => void pasteFromClipboard()}
-              className="flex items-center gap-1 font-mono text-[11px] text-theme-accent hover:underline active:opacity-80"
             >
               <Clipboard className="h-3 w-3" />
               <span>{t("common.pasteFromClipboard")}</span>
-            </button>
+            </Button>
           </div>
           <textarea
             id="server-source"
@@ -212,21 +211,17 @@ export function AddSubscriptionSheet({
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
-            className="min-h-[120px] w-full resize-none rounded-xl border border-border/80 bg-[var(--atlas-field)] px-3.5 py-2.5 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
+            className="atlas-input min-h-[120px] w-full resize-none font-mono"
           />
           <p className="mt-1.5 text-[11px] text-muted-foreground/80">{sourceHint}</p>
         </div>
 
         {error && <p className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 text-xs text-destructive">{error}</p>}
-        <button
+        <Button size="default" variant="default"
           type="button"
           onClick={() => void submit()}
           disabled={busy || source.trim().length === 0}
-          className={cn(
-            "flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold",
-            "bg-theme-accent text-zinc-950 shadow-theme-accent active:scale-[0.98] transition hover:opacity-90",
-            "disabled:pointer-events-none disabled:opacity-50",
-          )}
+          className="w-full"
         >
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -234,7 +229,7 @@ export function AddSubscriptionSheet({
             <Plus className="h-4 w-4 stroke-[2.5]" />
           )}
           {t("common.add")}
-        </button>
+        </Button>
       </div>
     </Sheet>
   );

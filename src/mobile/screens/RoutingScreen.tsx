@@ -14,7 +14,7 @@ import type {
   RoutingOptions,
 } from "@/lib/types";
 import { SectionCard, SectionHeader } from "../components/SectionCard";
-import { Switch } from "../components/Switch";
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 import { useI18n } from "@/lib/i18n";
 
 const inTauri =
@@ -76,12 +76,7 @@ export function RoutingScreen({
                 onClick={() => updateRouting({ final_outbound: m.id })}
                 aria-pressed={active}
                 title={t(m.hintKey)}
-                className={cn(
-                  "rounded-xl border py-2.5 px-2 text-xs font-medium transition-all duration-200",
-                  active
-                    ? "border-theme-accent bg-theme-subtle text-theme-accent font-semibold shadow-sm"
-                    : "border-border bg-[var(--atlas-field)] text-muted-foreground active:scale-95 hover:text-foreground",
-                )}
+                className="atlas-choice"
               >
                 {t(m.labelKey)}
               </button>
@@ -235,12 +230,7 @@ function PerAppSection({
               type="button"
               onClick={() => onModeChange(m.id)}
               aria-pressed={mode === m.id}
-              className={cn(
-                "min-h-11 rounded-xl border py-2.5 px-2 text-sm font-medium transition-all duration-200",
-                mode === m.id
-                  ? "border-theme-accent bg-theme-subtle text-theme-accent font-semibold shadow-sm"
-                  : "border-border bg-[var(--atlas-field)] text-muted-foreground active:scale-95 hover:text-foreground",
-              )}
+              className="atlas-choice"
             >
               {t(m.labelKey)}
             </button>
@@ -248,7 +238,7 @@ function PerAppSection({
         </div>
 
         {!hasRouteRules && appList.length === 0 && (
-          <div className="rounded-xl border border-border bg-[var(--atlas-field)] px-3.5 py-2.5 text-xs text-muted-foreground">
+          <div className="atlas-notes py-2 text-xs text-muted-foreground">
             {t("routing.addRouteOrSelectApps")}
           </div>
         )}
@@ -258,7 +248,7 @@ function PerAppSection({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl border border-border bg-[var(--atlas-field)] px-3.5 py-2.5 text-xs text-foreground active:bg-secondary/60 transition"
+              className="atlas-picker-trigger"
             >
               <span className="font-medium">{pickerLabel}</span>
               <ChevronDown
@@ -271,13 +261,13 @@ function PerAppSection({
 
             {expanded && (
               <div className="space-y-2.5">
-                <div className="flex items-center gap-2 rounded-xl border border-border bg-[var(--atlas-field)] px-3">
+                <div className="atlas-search-field">
                   <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={t("routing.searchApps")}
-                    className="h-9 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                    className="atlas-input w-full"
                   />
                 </div>
                 {error && <p className="text-xs text-destructive">{error}</p>}
@@ -297,14 +287,14 @@ function PerAppSection({
                   </p>
                 )}
                 {apps != null && (
-                  <ul className="max-h-72 divide-y divide-border overflow-y-auto rounded-xl border border-border bg-[var(--atlas-field)]">
+                  <ul className="atlas-pick-list max-h-72 overflow-y-auto">
                     {visibleApps.map((a) => (
                       <li key={a.packageName}>
                         <button
                           type="button"
                           onClick={() => toggle(a.packageName)}
                           aria-pressed={selected.has(a.packageName)}
-                          className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left active:bg-secondary/60 transition"
+                          className="atlas-pick-row"
                         >
                           <span
                             className={cn(
@@ -415,7 +405,7 @@ function RuleGroup({
       <summary className="flex cursor-pointer select-none list-none items-center gap-2 px-4 py-3.5 text-sm font-semibold tracking-tight text-foreground [&::-webkit-details-marker]:hidden">
         <span className="advanced-arrow text-xs text-muted-foreground" />
         {title}
-        <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono text-[10px] font-normal text-muted-foreground">
+        <span className="atlas-count">
           {mine.length}
         </span>
       </summary>
@@ -426,7 +416,7 @@ function RuleGroup({
             {t("routing.noEntries")}
           </p>
         ) : (
-          <ul className="divide-y divide-border rounded-xl border border-border bg-[var(--atlas-field)]">
+          <ul className="atlas-pick-list divide-y divide-border">
             {mine.map((rule) => (
               <li key={rule.id} className="flex items-center gap-3 px-3.5 py-2.5">
                 <div className="min-w-0 flex-1">
@@ -437,7 +427,7 @@ function RuleGroup({
                     {summarizeMatchers(rule)}
                   </p>
                 </div>
-                <Switch
+                <AtlasSwitch
                   checked={rule.enabled}
                   label={rule.label || "rule"}
                   onChange={(v) =>
@@ -448,15 +438,14 @@ function RuleGroup({
                     )
                   }
                 />
-                <button
+                <Button size="icon" variant="ghost"
                   type="button"
                   onClick={() => onChange(rules.filter((r) => r.id !== rule.id))}
                   aria-label={t("common.delete")}
                   title={t("common.delete")}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 transition"
                 >
                   <X className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -469,18 +458,17 @@ function RuleGroup({
               if (e.key === "Enter") add();
             }}
             placeholder={group === "block" ? "ads.example.com" : "example.com or 1.2.3.0/24"}
-            className="h-10 w-full rounded-xl border border-border bg-[var(--atlas-field)] px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-accent"
+            className="atlas-input w-full font-mono"
           />
-          <button
+          <Button size="icon" variant="default"
             type="button"
             onClick={add}
             disabled={!value.trim()}
             aria-label={t("common.add")}
             title={t("common.add")}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-theme-accent text-zinc-950 shadow-theme-accent active:scale-95 transition hover:opacity-90 disabled:opacity-50"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
-          </button>
+          </Button>
         </div>
       </div>
     </details>

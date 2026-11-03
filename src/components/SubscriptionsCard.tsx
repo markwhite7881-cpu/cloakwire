@@ -59,17 +59,17 @@ export function SubscriptionsCard({
             <Rss className="h-4 w-4 text-muted-foreground" />
             {t("servers.subscriptions")}
             {subs.length > 0 && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">{subs.length}</Badge>
+              <Badge variant="outline">{subs.length}</Badge>
             )}
           </h3>
           <div className="flex items-center gap-1">
             {onToggle && <Button size="sm" variant="ghost" aria-expanded={expanded} onClick={onToggle}>{t(expanded?"common.close":"common.edit")}</Button>}
             {subs.length > 0 && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefreshAll} title={t("servers.updateAll")}>
+              <Button variant="ghost" size="icon"  onClick={onRefreshAll} title={t("servers.updateAll")}>
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {if(!expanded)onToggle?.();setAdding((value) => expanded ? !value : true);}} title={t("servers.addSubscription")}>
+            <Button variant="ghost" size="icon"  onClick={() => {if(!expanded)onToggle?.();setAdding((value) => expanded ? !value : true);}} title={t("servers.addSubscription")}>
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -81,12 +81,12 @@ export function SubscriptionsCard({
       {expanded && <div className="atlas-section-body space-y-2">
         {adding && (
           <div className="space-y-2 rounded-md border border-border bg-card/40 p-3">
-            <input type="text" placeholder={t("servers.nameOptional")} value={draftName} onChange={(event) => setDraftName(event.target.value)} className="w-full rounded border border-input bg-background px-2 py-1.5 text-xs" />
-            <input type="url" placeholder="https://provider.example.com/sub?token=…" value={draftUrl} onChange={(event) => setDraftUrl(event.target.value)} className="w-full rounded border border-input bg-background px-2 py-1.5 font-mono text-[11px]" />
+            <input type="text" placeholder={t("servers.nameOptional")} value={draftName} onChange={(event) => setDraftName(event.target.value)} className="atlas-input w-full" />
+            <input type="url" placeholder="https://provider.example.com/sub?token=…" value={draftUrl} onChange={(event) => setDraftUrl(event.target.value)} className="atlas-input w-full font-mono" />
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 {t("servers.refreshEvery")}
-                <select value={draftInterval} onChange={(event) => setDraftInterval(parseInt(event.target.value, 10))} className="rounded border border-input bg-background px-1 py-0.5 font-mono text-[11px]">
+                <select value={draftInterval} onChange={(event) => setDraftInterval(parseInt(event.target.value, 10))} className="atlas-input font-mono">
                   <option value={15}>15 min</option><option value={30}>30 min</option><option value={60}>1 h</option><option value={360}>6 h</option><option value={1440}>{t("servers.daily")}</option>
                 </select>
               </label>
@@ -140,18 +140,18 @@ function SubscriptionRow({ sub, loading, onRefresh, onRemove, onIntervalChange, 
       <div className="flex items-center gap-2">
         <Rss className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate text-sm font-medium" title={sub.name}>{sub.name}</span>
-        {engine && <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{engine}</Badge>}
-        <Badge variant="outline" className="px-1.5 py-0 text-[10px]">{t("servers.nodesCount", { count: serverCount })}</Badge>
+        {engine && <Badge variant="secondary">{engine}</Badge>}
+        <Badge variant="outline">{t("servers.nodesCount", { count: serverCount })}</Badge>
         {sub.last_error && (
           <span className="rounded bg-destructive/10 px-1.5 py-0 text-[10px] text-destructive" title={sub.last_error.message}>
             {sub.last_error.kind || "error"}
           </span>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh} disabled={loading} title={t("servers.refreshNow")}>
+          <Button variant="ghost" size="icon"  onClick={onRefresh} disabled={loading} title={t("servers.refreshNow")}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} title={t("servers.deleteSubscription")}>
+          <Button variant="ghost" size="icon"  onClick={onRemove} title={t("servers.deleteSubscription")}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -162,7 +162,7 @@ function SubscriptionRow({ sub, loading, onRefresh, onRemove, onIntervalChange, 
       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
         <span>{t("servers.lastUpdated")}: {fetched}</span><span>·</span>
         <span className={cn(sub.last_error ? "text-destructive" : "text-foreground/70")}>{sub.last_error?.message ?? t("common.ready")}</span><span>·</span>
-        <select value={sub.interval_minutes} onChange={(event) => onIntervalChange(parseInt(event.target.value, 10))} className="rounded border border-input bg-background px-1 py-0 font-mono text-[10px]">
+        <select value={sub.interval_minutes} onChange={(event) => onIntervalChange(parseInt(event.target.value, 10))} className="atlas-input font-mono">
           <option value={15}>15m</option><option value={30}>30m</option><option value={60}>1h</option><option value={360}>6h</option><option value={1440}>24h</option>
         </select>
       </div>
@@ -174,8 +174,8 @@ function SubscriptionRow({ sub, loading, onRefresh, onRemove, onIntervalChange, 
           {sub.children.map((child) => {
             const active = sub.active_child_key === child.key;
             return (
-              <Button key={child.key} type="button" variant={active ? "secondary" : "ghost"} size="sm" className="h-7 gap-1 px-2 text-[10px]" onClick={() => onSelectChild(child.key)} aria-pressed={active} title={`Select ${child.name}`}>
-                <Badge variant="outline" className="px-1 py-0 text-[9px]">{child.engine === "singbox" ? "sing-box" : "Xray"}</Badge>
+              <Button key={child.key} type="button" variant={active ? "secondary" : "ghost"} size="sm"  onClick={() => onSelectChild(child.key)} aria-pressed={active} title={`Select ${child.name}`}>
+                <Badge variant="outline">{child.engine === "singbox" ? "sing-box" : "Xray"}</Badge>
                 <span className="max-w-36 truncate">{child.name}</span>
               </Button>
             );

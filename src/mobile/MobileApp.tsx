@@ -1,3 +1,4 @@
+import { Button } from "@/components/Button";
 import {useProfileProbe} from "./useProfileProbe";
 import {ProfileProbeCard} from "./components/ProfileProbeCard";
 import {profilePreparation} from "@/lib/profilePreparations";
@@ -687,11 +688,10 @@ export default function MobileApp() {
                 </span>
               )}
             </span>
-            <button
+            <Button size="sm" variant="default"
               type="button"
               onClick={() => void reconnect()}
               disabled={vpn.busy || reconnectInProgress}
-              className="flex h-8 items-center gap-1.5 rounded-xl bg-theme-accent px-3 text-xs font-semibold text-zinc-950 shadow-sm transition active:scale-95 disabled:opacity-50"
             >
               <RefreshCw
                 className={cn(
@@ -700,7 +700,7 @@ export default function MobileApp() {
                 )}
               />
               {reconnectFailed ? t("common.retry") : t("settings.reconnectNow")}
-            </button>
+            </Button>
           </div>
         )}
         <div

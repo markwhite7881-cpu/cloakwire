@@ -1,5 +1,5 @@
 export const en = {
-  atlas: {"globe":"Available countries","unknown":"Country unknown","pick":"Select a server","recent":"Recent servers","connection":"Connection","atLaunch":"Connect when the app starts.","customProfiles":"Custom servers","subscriptionProfiles":"Subscription profiles"},
+  atlas: {"globe":"Available countries","unknown":"Country unknown","pick":"Select a server","recent":"Recent servers","connection":"Connection","atLaunch":"Connect when the app starts.","customProfiles":"Custom servers","subscriptionProfiles":"Subscription profiles","importSources":"Import a server or subscription"},
   recovery: {
   "engineUnavailable": "The VPN stopped. Connect manually to restore the connection.",
   "trafficBlocked": "Traffic remains blocked by Kill Switch.",

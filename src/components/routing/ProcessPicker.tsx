@@ -130,9 +130,10 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-border/80 bg-[var(--atlas-field)] overflow-hidden">
+    <div className="atlas-process-picker mt-3">
       <button
         type="button"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         disabled={disabled}
         className={cn(
@@ -145,7 +146,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
           {open ? t("routing.hideProcessList") : t("routing.pickFromProcesses")}
         </span>
         {selected.length > 0 && (
-          <span className="badge-theme text-[10px] font-mono px-2 py-0.5 rounded-full">
+          <span className="atlas-meta">
             {t("routing.activeProcessesCount", { count: selected.length })}
           </span>
         )}
@@ -160,7 +161,7 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("routing.searchProcessesPlaceholder")}
               disabled={disabled}
-              className="flex-1 rounded-lg bg-[var(--atlas-field)] border border-border/80 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-theme-accent focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              className="atlas-input flex-1"
             />
             <Button
               variant="outline"
@@ -221,21 +222,16 @@ export function ProcessPicker({ selected, onChange, disabled }: Props) {
 
           {/* List */}
           {filtered.length > 0 && (
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-border/80 bg-[var(--atlas-field)] p-1 divide-y divide-border/20">
+            <div className="atlas-pick-list max-h-56 overflow-y-auto">
               {filtered.map((p) => {
                 const active = selectedSet.has(SELECTED_KEY(p.name));
                 return (
-                  <button
+                  <button aria-pressed={active}
                     key={p.pid}
                     type="button"
                     onClick={() => toggle(p.name)}
                     disabled={disabled}
-                    className={cn(
-                      "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs text-left rounded-md transition",
-                      "hover:bg-theme-subtle",
-                      active && "bg-theme-subtle text-theme-accent font-medium",
-                      disabled && "opacity-50 cursor-not-allowed hover:bg-transparent",
-                    )}
+                    className="atlas-pick-row"
                   >
                     <span className="flex items-center gap-2 min-w-0">
                       <span

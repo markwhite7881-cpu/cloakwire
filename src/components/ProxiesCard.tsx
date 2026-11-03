@@ -175,20 +175,20 @@ export function ProxiesCard({ status }: Props) {
             <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
               <Network className="h-4 w-4 text-theme-accent" />
               {t("proxies.title")}
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
+              <Badge variant="secondary" >
                 {groups.length}
               </Badge>
             </h3>
             {capability === "available" ? (
-              <Badge variant="default" className="px-1.5 py-0 text-[10px]">
+              <Badge variant="default" >
                 {t("proxies.liveBadge")}
               </Badge>
             ) : capability === "xray_unsupported" ? (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+              <Badge variant="outline" >
                 {t("proxies.unavailableBadge")}
               </Badge>
             ) : (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+              <Badge variant="outline" >
                 {t("proxies.notRunningBadge")}
               </Badge>
             )}
@@ -285,7 +285,7 @@ function ProxyGroup({
     <div className="rounded-md border border-border bg-card/40">
       <div className="flex items-center justify-between gap-2 border-b border-border bg-card/30 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <Badge variant="default" className="px-1.5 py-0 text-[10px]">
+          <Badge variant="default" >
             {info.type}
           </Badge>
           <span className="truncate text-sm font-medium" title={name}>
@@ -311,7 +311,7 @@ function ProxyGroup({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+
             onClick={() => onTest(name)}
             disabled={testing === name}
             title={t("proxies.testLatency")}
@@ -332,17 +332,11 @@ function ProxyGroup({
             // find the last matching history entry
             null;
           return (
-            <button
+            <button aria-pressed={active}
               key={member}
               onClick={() => isSelector && !disabled && onSelect(member)}
               disabled={disabled || !isSelector || pending}
-              className={cn(
-                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors",
-                active && "bg-foreground/10 ring-1 ring-foreground/20",
-                !active && "hover:bg-accent",
-                (!isSelector || disabled) && "cursor-default",
-                isSelector && !disabled && "cursor-pointer",
-              )}
+              className="atlas-pick-row"
               title={isSelector ? t("proxies.switchProxyTitle", { group: name, member }) : member}
             >
               {active ? (

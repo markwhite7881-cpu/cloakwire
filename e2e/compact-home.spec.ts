@@ -4,7 +4,7 @@ import {openFixture} from "./fixtures";
 test("Android check stays inside the connection hero and remains compact after retry",async({page},info)=>{
  test.skip(info.project.name!=="mobile");
  const {verify}=await openFixture(page,info,{profileProbe:true,running:true,selectedFirst:true,tab:"home"});
- const hero=page.locator(".bento-card").filter({has:page.getByRole("heading",{name:"Connected",exact:true})});
+ const hero=page.locator(".atlas-connection-panel").filter({has:page.getByRole("heading",{name:"Connected",exact:true})});
  const card=hero.getByTestId("profile-probe-card");
  await expect(card).toBeVisible();
  // Focus scrolling during the screen's entrance must not leave this clipped hero shifted.

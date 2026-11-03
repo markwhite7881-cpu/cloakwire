@@ -46,15 +46,7 @@ export function StatusPill({
 }) {
   const { t } = useI18n();
   const cfg = CONFIG[status] ?? CONFIG.stopped;
-  const interactive = Boolean(onClick) && !disabled &&
-    status !== "starting" && status !== "stopping";
-  const className = cn(
-    "inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1.5 backdrop-blur",
-    "text-foreground",
-    interactive &&
-      "cursor-pointer transition-colors hover:border-foreground/40 hover:bg-card/80",
-    disabled && "cursor-not-allowed opacity-50",
-  );
+  const className = "atlas-session-control";
 
   const localizedLabel = (() => {
     switch (status) {
@@ -79,7 +71,6 @@ export function StatusPill({
         className={cn(
           "h-2 w-2 rounded-full",
           cfg.dot,
-          status === "running" && "animate-pulse-dot",
         )}
       />
       <span className="text-sm font-medium">{localizedLabel}</span>
