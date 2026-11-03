@@ -1,3 +1,5 @@
+import { ServerCheck } from "./ServerCheck";
+import { ServerLatency } from "./ServerLatency";
 import { ConnectionControl } from "./atlas/ConnectionControl";
 import { AtlasGlobe } from "./atlas/AtlasGlobe";
 import { HomeTraffic } from "./SpeedTestTab";
@@ -9,7 +11,7 @@ import {profileRef} from "@/lib/profileEvidence";
 import type {ReactNode} from "react";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { presentConnection } from "@/lib/connectionPresentation";
-import type { DesktopHealthSnapshot, SessionIdentity } from "@/lib/connectionHealth";
+import type { DesktopHealthSnapshot } from "@/lib/connectionHealth";
 import { connectionProfileStorageKey } from "@/lib/lastServer";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -26,7 +28,7 @@ import { Card } from "@/components/Card";
 import { FlagIcon } from "@/components/FlagIcon";
 import { useTrafficStream } from "@/hooks/useTrafficStream";
 import { useSessionTimer } from "@/hooks/useSessionTimer";
-import { latencyToBars, useServerLatency } from "@/hooks/useServerLatency";
+import { useServerLatency } from "@/hooks/useServerLatency";
 import { cn } from "@/lib/utils";
 import { flagForProfile } from "@/lib/flags";
 import { profileLabel, profileEndpoint, isSupported } from "@/lib/outbound";
@@ -44,9 +46,6 @@ export interface HomeTabProps {
   errorActions?:ReactNode;
   runtimeActions?:ReactNode;
   diagnostics?: DesktopHealthSnapshot|null;
-  onRetryHealth?: (expected:SessionIdentity)=>Promise<void>;
-  healthActionBusy?:boolean;
-  healthActionMessage?:string|null;
   statusLabel: Status;
   busy: boolean;
   error: string | null;
@@ -83,7 +82,7 @@ export interface HomeTabProps {
 
 export function HomeTab({
   status,errorActions,runtimeActions,
-  diagnostics=null,onRetryHealth,healthActionBusy=false,healthActionMessage,
+  diagnostics=null,
   statusLabel,
   busy,
   error,
@@ -221,13 +220,48 @@ export function HomeTab({
           <ConnectionControl running={isRunning} transition={isTransition}
             duration={sessionTimer.formatted} disabled={busy || isTransition || (!isRunning && !canStart)}
             onToggle={isRunning ? onDisconnect : onConnect} />
+          <div className="flex items-center justify-between gap-2">
+            <div className="atlas-mode-selector atlas-home-modes">
+                    <button aria-pressed={currentMode === "tun"}
+                      type="button"
+                      onClick={() => handleModeChange("tun")}
+                      disabled={busy || isTransition}
+                      title="TUN"
+                      className="atlas-choice"
+                    >
+                      <ShieldCheck className="h-3 w-3" />
+                      <span>TUN</span>
+                    </button>
+                    <button aria-pressed={currentMode === "system_proxy"}
+                      type="button"
+                      onClick={() => handleModeChange("system_proxy")}
+                      disabled={busy || isTransition}
+                      title={t("home.systemProxy")}
+                      className="atlas-choice"
+                    >
+                      <Globe className="h-3 w-3" />
+                      <span>{t("common.proxy")}</span>
+                    </button>
+                    <button aria-pressed={currentMode === "both"}
+                      type="button"
+                      onClick={() => handleModeChange("both")}
+                      disabled={busy || isTransition}
+                      title={t("common.both")}
+                      className="atlas-choice"
+                    >
+                      <Layers className="h-3 w-3" />
+                      <span>{t("common.both")}</span>
+                    </button>
+                  </div>
+            <span className="text-xs text-muted-foreground">{status.engine==="xray"?"Xray":"sing-box"}</span>
+          </div>
           {showActive && <p className="atlas-active-note">{sessionName === pickedName ? t("atlas.otherActive") : t("home.via")+" "+sessionName}</p>}
           {!profiles.length && <Button size="sm" variant="outline" onClick={onOpenImport}>{t("servers.addServer")}</Button>}
         </div>
       </section>
       {(isRunning || healthView.issue || healthView.state === "crashed") && <ConnectionStatus view={healthView} showHeading={healthView.state === "crashed"} hideSessionName={isRunning && !!healthView.session && [pickedName, sessionName].includes(healthView.session.display_name)}
-        onRetry={healthView.session&&onRetryHealth?()=>{void onRetryHealth(healthView.session!);}:undefined}
-        onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined} busy={healthActionBusy} message={healthActionMessage} actions={runtimeActions}/>}
+
+        onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined} actions={runtimeActions}/>}
       <RecoveryNotice />
       {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} actions={errorActions} />}
 
@@ -236,6 +270,7 @@ export function HomeTab({
         {recentRows.map(index=><ProfileChoice key={connectionProfileStorageKey(profiles[index]) || index} row={{index,profile:profiles[index]}} selectedIndex={selectedIndex}
           readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latency.byTag} onSelect={index => { if (index !== selectedIndex) onSelect(index); }} compact />)}
       </section>}
+      <HomeTraffic key={[status.run_id,status.status,selectedKey].join(":")} samples={trafficLive.samples} current={current} vpnActive={isRunning} activeProfileName={activeName}/>
       <section className="atlas-panel atlas-route-summary">
         <div className="min-w-0"><h2 className="text-sm font-semibold">{t("routingModes.title")}</h2>
           <p className="text-xs text-muted-foreground">{route && t("routingModes."+(route.reason || route.mode))}</p>
@@ -246,42 +281,6 @@ export function HomeTab({
         </div>
         <Button size="sm" variant="outline" onClick={()=>onNavigateTab?.("routing")}>{t("common.edit")}</Button>
       </section>
-      <div className="flex items-center justify-between gap-2">
-        <div className="atlas-mode-selector atlas-home-modes">
-                <button aria-pressed={currentMode === "tun"}
-                  type="button"
-                  onClick={() => handleModeChange("tun")}
-                  disabled={busy || isTransition}
-                  title="TUN"
-                  className="atlas-choice"
-                >
-                  <ShieldCheck className="h-3 w-3" />
-                  <span>TUN</span>
-                </button>
-                <button aria-pressed={currentMode === "system_proxy"}
-                  type="button"
-                  onClick={() => handleModeChange("system_proxy")}
-                  disabled={busy || isTransition}
-                  title={t("home.systemProxy")}
-                  className="atlas-choice"
-                >
-                  <Globe className="h-3 w-3" />
-                  <span>{t("common.proxy")}</span>
-                </button>
-                <button aria-pressed={currentMode === "both"}
-                  type="button"
-                  onClick={() => handleModeChange("both")}
-                  disabled={busy || isTransition}
-                  title={t("common.both")}
-                  className="atlas-choice"
-                >
-                  <Layers className="h-3 w-3" />
-                  <span>{t("common.both")}</span>
-                </button>
-              </div>
-        <span className="text-xs text-muted-foreground">{status.engine==="xray"?"Xray":"sing-box"}</span>
-      </div>
-      <HomeTraffic key={[status.run_id,status.status,selectedKey].join(":")} samples={trafficLive.samples} current={current} vpnActive={isRunning} activeProfileName={activeName}/>
       {/* All-servers strip — quick visual switcher. */}
       {profiles.length > 0 && (
         <Card className="atlas-home-section p-4">
@@ -416,6 +415,7 @@ function ProfileChoice({
   onSelect,
   onSelectionDone,
   compact,
+  showCheck = false,
 }: {
   row: IndexedHomeProfile;
   selectedIndex: number;
@@ -425,10 +425,11 @@ function ProfileChoice({
   onSelect: (index: number) => void;
   onSelectionDone?: () => void;
   compact: boolean;
+  showCheck?: boolean;
 }) {
   const display = connectionProfileDisplay(row.profile, readyProfileMetadata, geoipByIp, latencyByTag);
   const isSelected = row.index === selectedIndex;
-  return (
+  const picker = (
     <button aria-pressed={isSelected}
       type="button"
       onClick={(e) => {
@@ -441,9 +442,10 @@ function ProfileChoice({
       <FlagIcon code={display.code} size={compact ? 16 : 14} className="shrink-0 self-center" />
       <span className="min-w-0 flex-1 font-medium"><span className="block truncate">{display.label}</span><ProfileHealthBadge profileRef={profileRef(row.profile)}/></span>
       {compact && <span className="text-[10px] text-muted-foreground">{display.protocol}</span>}
-      <LatencyBadge ms={display.ms} />
+      <ServerLatency ms={display.ms} />
     </button>
   );
+  return showCheck ? <div className="atlas-server-entry">{picker}<ServerCheck profileRef={profileRef(row.profile)} /></div> : picker;
 }
 
 function GroupedHomeProfileRows({
@@ -507,7 +509,7 @@ function GroupedHomeProfileRows({
           {mode === "grid" ? (
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
               {grouped.manual.map((row) => (
-                <ProfileChoice key={connectionProfileStorageKey(row.profile) ?? row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} />
+                <ProfileChoice key={connectionProfileStorageKey(row.profile) ?? row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} showCheck />
               ))}
             </div>
           ) : <ul className="list-none space-y-1">{renderRows(grouped.manual)}</ul>}
@@ -535,7 +537,7 @@ function GroupedHomeProfileRows({
             {isExpanded && (mode === "grid" ? (
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 pt-1">
                 {group.rows.map((row) => (
-                  <ProfileChoice key={connectionProfileStorageKey(row.profile) ?? row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} />
+                  <ProfileChoice key={connectionProfileStorageKey(row.profile) ?? row.index} row={row} selectedIndex={selectedIndex} readyProfileMetadata={readyProfileMetadata} geoipByIp={geoipByIp} latencyByTag={latencyByTag} onSelect={onSelect} onSelectionDone={onSelectionDone} compact={false} showCheck />
                 ))}
               </div>
             ) : <ul className="list-none space-y-1 pt-1">{renderRows(group.rows)}</ul>)}
@@ -613,7 +615,7 @@ function ServerPicker({
       >
         <FlagIcon code={selectedFlag.code} size={16} className="shrink-0" />
         <span className="max-w-[180px] truncate font-medium">{selectedName}</span>
-        <LatencyBadge ms={selectedMs} compact />
+        <ServerLatency ms={selectedMs} compact />
         <ChevronDown
           className={cn(
             "h-3 w-3 text-muted-foreground transition-transform",
@@ -675,41 +677,5 @@ function ServerPicker({
         </div>
       )}
     </div>
-  );
-}
-
-/** Compact "▮▮▮▮ 47ms" badge. `compact` drops the bars (just the
- *  number) for the small pill at the top of the hero. */
-function LatencyBadge({ ms, compact = false }: { ms: number | undefined; compact?: boolean }) {
-  if (ms == null) {
-    return (
-      <span className="text-[10px] text-muted-foreground/60">—</span>
-    );
-  }
-  const bars = latencyToBars(ms);
-  return (
-    <span className="flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground">
-      {!compact && <SignalBars level={bars} />}
-      <span>{ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`}</span>
-    </span>
-  );
-}
-
-/** Four little vertical bars, lit up to `level` (0..4). */
-function SignalBars({ level }: { level: number }) {
-  const heights = [3, 5, 7, 9];
-  return (
-    <span className="flex items-end gap-[1.5px]" aria-label={`signal ${level} of 4`}>
-      {heights.map((h, i) => (
-        <span
-          key={i}
-          className={cn(
-            "w-[2px] rounded-sm",
-            i < level ? "bg-foreground/70" : "bg-foreground/15",
-          )}
-          style={{ height: h }}
-        />
-      ))}
-    </span>
   );
 }

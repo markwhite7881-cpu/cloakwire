@@ -1,11 +1,12 @@
 import {test,expect} from "playwright/test";
 import {openFixture} from "./fixtures";
 
-test("Android check stays inside the connection hero and remains compact after retry",async({page},info)=>{
+test("Android check stays on the server row and does not interrupt the running connection",async({page},info)=>{
  test.skip(info.project.name!=="mobile");
  const {verify}=await openFixture(page,info,{profileProbe:true,running:true,selectedFirst:true,tab:"home"});
  const hero=page.locator(".atlas-connection-panel");
- const card=hero.getByTestId("profile-probe-card");
+ await expect(hero.getByTestId("profile-probe-button")).toHaveCount(0);
+ const card=page.locator(".atlas-server-entry").filter({hasText:"First"}).first();
  await expect(card).toBeVisible();
  // Focus scrolling during the screen's entrance must not leave this clipped hero shifted.
  await hero.evaluate(e=>e.scrollBy({left:48}));
@@ -13,11 +14,8 @@ test("Android check stays inside the connection hero and remains compact after r
  const check=card.getByRole("button",{name:"Check server",exact:true});
  await check.click();
  await expect(card).toContainText("Access verified");
- expect((await card.boundingBox())!.height).toBeLessThanOrEqual(64);
  expect(await hero.evaluate(e=>e.scrollLeft)).toBe(0);
- const heroBox=(await hero.boundingBox())!,cardBox=(await card.boundingBox())!;
- expect(cardBox.x).toBeGreaterThanOrEqual(heroBox.x);
- expect(cardBox.x+cardBox.width).toBeLessThanOrEqual(heroBox.x+heroBox.width);
+ expect(await card.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
  await check.click();
  await expect.poll(()=>page.evaluate(()=>(window as any).probeStarts)).toBe(2);
  await expect(page.locator("canvas").first()).toBeVisible();
@@ -34,7 +32,7 @@ test("Android compact check can be cancelled without touching the running VPN",a
    ?new Promise((resolve,reject)=>{w.releaseProbe=()=>invoke(cmd,args).then(resolve,reject);})
    :invoke(cmd,args);
  });
- const card=page.getByTestId("profile-probe-card");
+ const card=page.locator(".atlas-server-entry").filter({hasText:"First"}).first();
  await card.getByRole("button",{name:"Проверить сервер",exact:true}).click();
  await page.evaluate(()=>{document.documentElement.style.zoom="2";});
  expect(await card.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
@@ -50,7 +48,7 @@ test("Android compact check can be cancelled without touching the running VPN",a
 test("Android compact failure keeps its explanation and retry available",async({page},info)=>{
  test.skip(info.project.name!=="mobile");
  const {verify}=await openFixture(page,info,{profileProbe:true,running:true,selectedFirst:true,tab:"home"});
- const card=page.getByTestId("profile-probe-card");
+ const card=page.locator(".atlas-server-entry").filter({hasText:"First"}).first();
  await card.getByRole("button",{name:"Check server",exact:true}).click();
  await expect(card).toContainText("Access verified");
  await page.evaluate(()=>{
@@ -58,7 +56,6 @@ test("Android compact failure keeps its explanation and retry available",async({
   w.selectedProbe={...w.selectedProbe,outcome:"failed",issue:"timeout"};
   w.probeListener.onmessage({selected_profile:w.selectedProbe,active_session:null});
  });
- await card.getByText("Details",{exact:true}).click();
  await expect(card).toContainText("did not finish in time");
  await expect(card.getByRole("button",{name:"Check server",exact:true})).toBeEnabled();
  await verify();
@@ -68,17 +65,17 @@ for(const locale of ["en","ru","zh-CN"])test("compact check wraps localized resu
  const mobile=info.project.name==="mobile";
  await page.setViewportSize(mobile?{width:360,height:844}:{width:1040,height:780});
  const {verify}=await openFixture(page,info,{locale,running:true,selectedFirst:true,tab:"home",...(mobile?{profileProbe:true}:{health:"healthy" as const})});
- const card=page.getByTestId(mobile?"profile-probe-card":"connection-health");
+ const card=page.locator(".atlas-server-entry").filter({hasText:"First"}).first();
  await expect(card).toBeVisible();
  if(mobile){
-  await page.getByTestId("profile-probe-button").click();
+  await card.getByTestId("profile-probe-button").click();
   await expect(card.getByTestId("profile-health")).toBeVisible();
  }
- expect((await card.boundingBox())!.height).toBeLessThanOrEqual(64);
+ expect((await card.boundingBox())!.height).toBeGreaterThanOrEqual(44);
  if(locale==="en")await page.screenshot({path:info.outputPath("compact-home.png"),fullPage:true});
  await page.evaluate(()=>{document.documentElement.style.zoom="2";});
  expect(await card.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
- const button=card.getByRole("button").first();
+ const button=card.getByTestId("profile-probe-button");
  await button.focus();await expect(button).toBeFocused();
  const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(86);
  await verify();

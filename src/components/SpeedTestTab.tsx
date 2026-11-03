@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Gauge, Globe, ShieldCheck, Trash2, History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { useI18n } from "@/lib/i18n";
 import { SpeedTestRunner, loadSpeedTestHistory, clearSpeedTestHistory, type SpeedTestProgress, type SpeedTestResult } from "@/lib/speedtest";
 import type { TrafficSample } from "@/lib/types";
+import { TrafficGraph, type TrafficPoint } from "./TrafficGraph";
 
-type Point = { down: number; up: number };
 export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: {
   samples: TrafficSample[]; current: TrafficSample | null; vpnActive: boolean; activeProfileName: string | null;
 }) {
   const { t, locale } = useI18n();
   const runner = useRef<SpeedTestRunner | null>(null);
   const [progress, setProgress] = useState<SpeedTestProgress | null>(null);
-  const [testPoints, setTestPoints] = useState<Point[]>([]);
+  const [testPoints, setTestPoints] = useState<TrafficPoint[]>([]);
   const [history, setHistory] = useState<SpeedTestResult[]>(loadSpeedTestHistory);
   const [error, setError] = useState("");
   const [lastResult, setLastResult] = useState<SpeedTestResult|null>(null);
@@ -34,9 +34,13 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
       const result = await test.run({vpnActive, serverName:activeProfileName || (vpnActive ? t("speedtest.vpnActive") : t("speedtest.directRoute"))}, p => {
         if (runner.current !== test) return;
         setProgress(p);
-        if (p.phase === "download" || p.phase === "upload") setTestPoints(previous => [...previous.slice(-59), {
-        down:p.phase === "download" ? p.currentSpeed : 0, up:p.phase === "upload" ? p.currentSpeed : 0
-        }]);
+        // Phase announcements have no measurements. Upload's first announcement still holds the download speed.
+        const download = p.phase === "download" && (p.samples.length > 0 || p.downloadMbps > 0);
+        const upload = p.phase === "upload" && p.samples.length > 0;
+        if (download || upload) {
+          const point = { source: p, down: download ? p.currentSpeed : 0, up: upload ? p.currentSpeed : 0 };
+          setTestPoints(previous => [...previous.slice(-59), point]);
+        }
       });
       if (runner.current === test) { setLastResult(result);setHistory(loadSpeedTestHistory()); }
     } catch(err) {
@@ -45,10 +49,14 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
       if(runner.current === test) { runner.current=null;setProgress(null); }
     }
   }
-  const points = progress ? testPoints : samples.slice(-60).map(s=>({down:s.down_bps * 8 / 1e6, up:s.up_bps * 8 / 1e6}));
-  const rates = progress ? points.at(-1) : {down:(current?.down_bps ?? 0)*8/1e6,up:(current?.up_bps ?? 0)*8/1e6};
-  const scale = Math.max(.1,...points.flatMap(p=>[p.up,p.down]));
-  const line=(series:keyof Point)=>points.map((p,i)=>[(60-points.length+i)*1000/59,68-62*p[series]/scale].join(",")).join(" ");
+  const livePoints = useMemo(() => samples.slice(-60).map(s => ({
+    source: s, down: s.down_bps * 8 / 1e6, up: s.up_bps * 8 / 1e6,
+  })), [samples]);
+  const points = progress ? testPoints : livePoints;
+  const rates = progress ? {
+    down: progress.phase === "download" ? progress.currentSpeed : 0,
+    up: progress.phase === "upload" && progress.samples.length > 0 ? progress.currentSpeed : 0,
+  } : { down: (current?.down_bps ?? 0) * 8 / 1e6, up: (current?.up_bps ?? 0) * 8 / 1e6 };
   const fmt=(n:number)=>n.toLocaleString(locale,{maximumFractionDigits:1});
   const handleClearHistory=()=>{clearSpeedTestHistory();setHistory([]);setLastResult(null);};
   const phase = progress?.phase === "ping" ? "phasePing" : progress?.phase === "upload" ? "phaseUpload" : "phaseDownload";
@@ -62,11 +70,7 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
       {progress && <span>{t("speedtest."+phase)} · {Math.round(progress.progressPercent)}%</span>}
       {!progress && current && <span>{t("home.totalTraffic")} ↓ {fmt(current.down_total/1048576)} MiB · ↑ {fmt(current.up_total/1048576)} MiB</span>}
     </div>
-    <svg viewBox="0 0 1000 72" preserveAspectRatio="none" role="img" aria-label={t(progress?"speedtest.title":"home.traffic")}>
-      {[6,37,68].map(y=><line key={y} x1="0" x2="1000" y1={y} y2={y} stroke="var(--atlas-line)"/>)}
-      <polyline points={line("down")} fill="none" stroke="var(--accent-badge-text)" strokeWidth="2" vectorEffect="non-scaling-stroke"/>
-      <polyline points={line("up")} fill="none" stroke="currentColor" opacity=".7" strokeDasharray="4 3" strokeWidth="1.6" vectorEffect="non-scaling-stroke"/>
-    </svg>
+    <TrafficGraph key={progress ? "test" : "live"} points={points} label={t(progress ? "speedtest.title" : "home.traffic")}/>
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     {lastResult && <p role="status" className="text-xs">{lastResult.serverName} · ↓ {fmt(lastResult.downloadSpeed)} / ↑ {fmt(lastResult.uploadSpeed)} Mbps · {lastResult.ping} ms</p>}
     <details><summary className="text-xs text-muted-foreground cursor-pointer">{t("speedtest.recentHistory")} · {history.length}</summary>

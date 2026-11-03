@@ -13,15 +13,16 @@ test("health describes the accepted session and expires without a green claim",a
   await verify();
 });
 test("runtime cause is readable and repeated retry only checks the owning session",async({page},info)=>{
-  const {verify}=await openFixture(page,info,{health:"reality",running:true,tab:"home",selectedFirst:true});
+  const {verify}=await openFixture(page,info,{health:"reality",boundSource:true,running:true,tab:"home",selectedFirst:true});
   const card=page.getByTestId("connection-health");
   await expect(card).toContainText("could not verify the Reality server");
   await expect(card).not.toContainText("UUID");
-  const retry=card.getByRole("button",{name:"Check again",exact:true});
+  const row=page.locator(".atlas-server-entry").filter({hasText:"First"}).first();
+ const retry=row.getByRole("button",{name:"Check server",exact:true});
   await retry.evaluate((element:HTMLButtonElement)=>{element.click();element.click();});
   await expect.poll(()=>page.evaluate(()=>(window as any).probeCalls?.length??0)).toBe(1);
   expect(await page.evaluate(()=>(window as any).probeCalls[0].run_id)).toBe("7");
-  await expect(card.getByRole("button",{name:"Checking server access…",exact:true})).toBeDisabled();
+  await expect(row.getByRole("button",{name:"Checking server access…",exact:true})).toBeDisabled();
   await verify();
 });
 test("old health cannot relabel a new accepted run",async({page},info)=>{

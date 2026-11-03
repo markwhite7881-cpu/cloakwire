@@ -1,3 +1,4 @@
+import { ServerCheck } from "./ServerCheck";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import {ProfileHealthBadge} from "./ProfileHealthBadge";
 import {profileRef} from "@/lib/profileEvidence";
@@ -85,6 +86,7 @@ export function ServersTab({
         <ul className="space-y-2">{profiles.filter(p=>p.kind!=="manual").map(profile=><li key={JSON.stringify(profileRef(profile))} className="atlas-record">
           <span className="break-words text-sm">{profile.kind==="subscription"?profile.label:profile.kind==="ready_config"?profile.name:""}</span>
           <ProfileHealthBadge profileRef={profileRef(profile)}/>
+          <ServerCheck profileRef={profileRef(profile)} />
         </li>)}</ul>
       </CardContent></Card>}
       {/* ─── Profile list: Custom / Manual Servers ───────────────────── */}

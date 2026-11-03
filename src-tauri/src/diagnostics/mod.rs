@@ -8,9 +8,10 @@ pub mod types;
 #[tauri::command]
 pub fn get_connection_health(
     pm: tauri::State<'_, std::sync::Arc<crate::process::ProcessManager>>,
+    probes: tauri::State<'_, selected::SelectedProbes>,
 ) -> types::HealthSnapshot {
     types::HealthSnapshot {
-        selected_profile: None,
+        selected_profile: probes.snapshot(),
         active_session: pm.diagnostics.snapshot().health,
     }
 }
@@ -19,8 +20,9 @@ pub fn get_connection_health(
 pub fn cancel_profile_probe(
     operation_id: String,
     pm: tauri::State<'_, std::sync::Arc<crate::process::ProcessManager>>,
+    probes: tauri::State<'_, selected::SelectedProbes>,
 ) -> bool {
-    pm.diagnostics.cancel(&operation_id)
+    probes.coordinator.cancel(&operation_id) || pm.diagnostics.cancel(&operation_id)
 }
 
 pub mod probe_config;
@@ -45,6 +47,10 @@ mod network_tests;
 pub mod desktop;
 #[cfg(all(test, not(target_os = "android")))]
 mod desktop_tests;
+#[cfg(not(target_os = "android"))]
+pub mod selected;
+#[cfg(all(test, not(target_os = "android")))]
+mod selected_tests;
 
 #[cfg(all(test, not(target_os = "android")))]
 mod desktop_native_tests;

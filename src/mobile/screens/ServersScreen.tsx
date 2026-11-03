@@ -1,3 +1,4 @@
+import { ServerCheck } from "@/components/ServerCheck";
 import { Button } from "@/components/Button";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
 import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
@@ -277,7 +278,7 @@ export function ServersScreen({
                         activeBundle.subscriptionId === s.id &&
                         activeBundle.childKey === child.key;
                       return (
-                        <li key={`bundle-child-${s.id}-${child.key}`}>
+                        <li className="atlas-server-entry" key={`bundle-child-${s.id}-${child.key}`}>
                           <button
                             type="button"
                             onClick={() =>
@@ -288,10 +289,7 @@ export function ServersScreen({
                                 childName: child.name,
                               })
                             }
-                            className={cn(
-                              "flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors",
-                              isSel ? "atlas-picked" : "active:bg-accent/60",
-                            )}
+                            aria-pressed={isSel} className="atlas-pick-row"
                           >
                             <span
                               className={cn(
@@ -326,6 +324,7 @@ export function ServersScreen({
                               />
                             ) : null}
                           </button>
+                          <ServerCheck profileRef={{kind:"ready",subscription_id:s.id,child_key:child.key}} />
                         </li>
                       );
                     })}
@@ -384,7 +383,7 @@ export function ServersScreen({
                     return (
                       <li
                         key={manualId ?? `srv-${i}-${supported ? profileEndpoint(o) : "x"}`}
-                        className="flex items-center"
+                        className="atlas-server-entry"
                       >
                         <button
                           type="button"
@@ -418,6 +417,7 @@ export function ServersScreen({
                           </span>
                           <LatencyBadge ms={ms} dim={pinging && ms == null} />
                         </button>
+                        {supported && <ServerCheck profileIndex={i} />}
                         {deletable && (
                           <Button size="icon" variant="ghost"
                             type="button"

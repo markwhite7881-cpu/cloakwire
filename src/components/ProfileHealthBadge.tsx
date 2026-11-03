@@ -9,7 +9,7 @@ export function ProfileHealthBadge({profileRef,profileIndex,accessOnly=false}:{p
  useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),5000);return()=>clearInterval(timer)},[]);
  const source=profileRef?sources.find(s=>s&&sameProfileRef(s.profile_ref,profileRef))??null:profileIndex!=null?sources[profileIndex]??null:null;
  const previous=history?.slice().reverse().find(item=>sameSource(source,item.source));
- const chosen=attempt&&sameSource(source,attempt.source)?attempt:previous??evidence;
+ const chosen=[attempt,previous,evidence].filter((item):item is ProfileEvidence=>!!item && sameSource(source,item.source) && (!accessOnly || item.kind==="access")).sort((a,b)=>b.checked_at-a.checked_at)[0] ?? null;
  const badge=badgeForProfile(source,accessOnly&&chosen?.kind!=="access"?null:chosen,Math.max(now,Date.now()));
  if(badge.state==="unknown")return null;
  const time=badge.time&&Number.isFinite(badge.time)?new Intl.DateTimeFormat(locale,{hour:"2-digit",minute:"2-digit"}).format(new Date(badge.time)):null;

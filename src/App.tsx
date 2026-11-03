@@ -1,3 +1,5 @@
+import { ServerCheckContext } from "@/components/ServerCheck";
+import { useDesktopServerChecks } from "@/hooks/useDesktopServerChecks";
 import { useRecentServers } from "@/hooks/useRecentServers";
 import { ServerImportDialog } from "@/components/ServerImportDialog";
 import {profilePreparation} from "@/lib/profilePreparations";
@@ -671,6 +673,9 @@ export default function App() {
     }finally{healthActionPending.current=false;setHealthActionBusy(false);}
   },[refresh,t]);
 
+  const serverChecks = useDesktopServerChecks(profiles, profileSources, settings, status, diagnostics, retryHealth,
+    healthActionBusy, healthActionMessage, busy || manualStore.blocked);
+
   // One-time static fetch: binary path/version. The version literally
   // cannot change while the app is running, so it doesn't belong in
   // the 1.8 s status poll.
@@ -1156,9 +1161,7 @@ export default function App() {
             errorActions={<ProfileErrorActions {...cardActions}/>}
             runtimeActions={!error?<ProfileErrorActions {...cardActions}/>:undefined}
             diagnostics={diagnostics}
-            onRetryHealth={retryHealth}
-            healthActionBusy={healthActionBusy}
-            healthActionMessage={healthActionMessage}
+
             onDismissError={() => setError(null)}
             canStart={canStartManagedSelection(profiles, selectedIndex)}
             configName={configPath ? basename(configPath) : null}
@@ -1365,7 +1368,8 @@ export default function App() {
       )}
 
       {/* Body — fills the rest of the viewport with the active tab. */}
-      <ProfileHealthContext.Provider value={{sources:profileSources,evidence:activeEvidence(status,diagnostics),attempt:attemptEvidence}}>
+      <ServerCheckContext.Provider value={serverChecks.control}>
+      <ProfileHealthContext.Provider value={{sources:profileSources,evidence:activeEvidence(status,diagnostics),attempt:attemptEvidence,history:serverChecks.history}}>
       <main ref={workspaceMain} className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
         {importOpen && !profileImport.plan && <ServerImportDialog value={pendingLinks} busy={parsing}
           failures={parseErrors} error={importError ?? (manualStore.blocked ? t("profileStorage."+manualStore.state.status) : null)} onChange={value => {
@@ -1379,6 +1383,7 @@ export default function App() {
         {tabs.find((t) => t.id === activeTab)?.content}
       </main>
       </ProfileHealthContext.Provider>
+      </ServerCheckContext.Provider>
       </div>
 
       <UpdateModal

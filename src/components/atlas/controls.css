@@ -153,11 +153,17 @@
 }
 .atlas-shell .atlas-mode-selector > button:disabled { opacity: .62; cursor: default; }
 .atlas-shell .atlas-mode-selector > button:focus-visible { outline-offset: 2px; }
+.atlas-mobile .atlas-routing .atlas-mode-selector {
+  display: flex; flex-wrap: wrap;
+}
+.atlas-mobile .atlas-routing .atlas-mode-selector > button {
+  flex: 1 1 0; min-width: min-content; white-space: normal; overflow-wrap: normal;
+}
 .atlas-home-modes { display: flex; flex-wrap: wrap; }
 .atlas-shell .atlas-home-modes > button::before { display: none; }
 .atlas-home-modes > button[aria-pressed=true] > svg { color: var(--accent-badge-text); }
 .atlas-session-control { font-size: 12px; color: var(--atlas-muted); }
-.atlas-server-trigger { justify-content: space-between; max-width: 100%; }
+.atlas-server-trigger { justify-content: space-between; max-width: 100%; border-radius: 10px; }
 .atlas-tag, .atlas-meta {
   display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
   border: 1px solid var(--atlas-line); border-radius: 4px;
@@ -193,6 +199,41 @@
 .atlas-pick-row[aria-pressed=true] { background: var(--atlas-selected); box-shadow: inset 2px 0 var(--accent-badge-text); }
 .atlas-pick-row:hover:not([aria-pressed=true]) { background: var(--atlas-field); }
 .atlas-mobile .atlas-pick-row { min-height: 44px; }
+
+:is(.atlas-recent,.atlas-home-section,.atlas-popover,.atlas-sheet,.atlas-catalog) .atlas-pick-row,
+.atlas-shell .atlas-server-entry, .atlas-catalog :is(.atlas-profile-row,.atlas-record),
+.atlas-catalog .atlas-subscription-row button[aria-pressed] {
+  border: 1px solid var(--atlas-line); border-radius: 10px; background: var(--atlas-tile);
+  box-shadow: none;
+}
+.atlas-catalog :is(.atlas-profile-row,.atlas-record) { padding: 10px 12px; }
+:is(.atlas-recent,.atlas-home-section,.atlas-popover,.atlas-sheet,.atlas-catalog) .atlas-pick-row[aria-pressed=true],
+.atlas-server-entry:has(> .atlas-pick-row[aria-pressed=true]),
+.atlas-catalog .atlas-subscription-row button[aria-pressed=true] {
+  border-color: var(--accent-badge-text); background: var(--atlas-selected);
+}
+.atlas-shell .atlas-server-entry {
+  display: grid; grid-template-columns: minmax(0,1fr) auto; grid-auto-flow: column;
+  align-items: center; min-width: 0; padding-inline-end: 3px;
+}
+.atlas-server-entry:has(> :nth-child(3)) { grid-template-columns: minmax(0,1fr) auto auto; }
+.atlas-server-entry > button, .atlas-server-entry .atlas-server-check > button { grid-row: 1; }
+.atlas-shell .atlas-server-entry > .atlas-pick-row {
+  border: 0; border-radius: inherit; background: transparent; box-shadow: none;
+}
+.atlas-shell .atlas-server-entry > .atlas-pick-row:focus-visible { outline-offset: -2px; }
+.atlas-server-check { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.atlas-server-check > button { min-width: 44px; min-height: 44px; }
+.atlas-server-entry .atlas-server-check { display: contents; }
+.atlas-check-message { font-size: 12px; overflow-wrap: anywhere; }
+.atlas-server-entry .atlas-check-message { grid-column: 1 / -1; grid-row: 2; margin: 0 10px 8px; }
+@media (hover: hover) {
+  .atlas-server-entry:has(> .atlas-pick-row:not([aria-pressed=true]):hover) { background: var(--atlas-field); }
+}
+.atlas-mobile :is(.atlas-recent > div,ul.divide-y:has(> li .atlas-pick-row)) {
+  display: grid; gap: 4px;
+}
+.atlas-mobile ul.divide-y > li:not(.atlas-server-entry):has(.atlas-pick-row) { border-block: 0; }
 .atlas-source-preview {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   border-inline-start: 2px solid var(--accent-badge-text); padding: 8px 12px;
@@ -262,3 +303,11 @@
 .atlas-import-errors p { font-weight: 600; }
 .atlas-import-errors ul { max-height: 100px; overflow: auto; }
 .atlas-server-dialog :focus-visible { outline: 2px solid var(--atlas-command); outline-offset: 2px; }
+
+.atlas-server-entry { container-type: inline-size; }
+@container (max-width: 180px) {
+  .atlas-server-entry > .atlas-pick-row { grid-column: 1 / -1; flex-wrap: wrap; gap: 4px; }
+  .atlas-server-entry > .atlas-pick-row > .min-w-0 { flex-basis: 100%; overflow-wrap: anywhere; }
+  .atlas-server-entry .atlas-server-check > button, .atlas-server-entry > button:not(.atlas-pick-row) { grid-row: 2; }
+  .atlas-server-entry .atlas-check-message { grid-row: 3; }
+}

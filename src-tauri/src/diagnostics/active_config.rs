@@ -228,6 +228,47 @@ fn proxy(kind: &str) -> bool {
             | "ssh"
     )
 }
+/// Resolve a fixed sing-box leaf. Both active and isolated probes must reject
+/// cached selector state, urltest groups, missing members and selector cycles.
+pub(super) fn singbox_target(
+    original: &Value,
+    initial: &str,
+    members: &mut Vec<(String, String)>,
+) -> Result<String, HealthIssue> {
+    let unsupported = HealthIssue::UnsupportedProbe;
+    let list = original["outbounds"].as_array().ok_or(unsupported)?;
+    let mut tag = initial.to_owned();
+    let mut visited = std::collections::HashSet::new();
+    loop {
+        if !visited.insert(tag.clone()) || visited.len() > 16 {
+            return Err(unsupported);
+        }
+        let entry = list
+            .iter()
+            .find(|v| v["tag"].as_str() == Some(&tag))
+            .ok_or(unsupported)?;
+        let kind = entry["type"].as_str().ok_or(unsupported)?;
+        if proxy(kind) {
+            break Ok(tag);
+        }
+        if kind != "selector" {
+            return Err(unsupported);
+        }
+        if original["experimental"]["cache_file"]["enabled"] == true {
+            return Err(unsupported);
+        }
+        let available = entry["outbounds"].as_array().ok_or(unsupported)?;
+        let selected = entry["default"]
+            .as_str()
+            .or_else(|| available.first().and_then(Value::as_str))
+            .ok_or(unsupported)?;
+        if !available.iter().any(|v| v.as_str() == Some(selected)) {
+            return Err(unsupported);
+        }
+        members.push((tag.clone(), selected.to_owned()));
+        tag = selected.into();
+    }
+}
 pub fn prepare_active_copy(
     original: &Value,
     engine: EngineKind,
@@ -254,40 +295,8 @@ pub fn prepare_active_copy(
                     clash["secret"].as_str().unwrap_or("").to_owned(),
                 ));
             }
-            let mut tag = original["route"]["final"]
-                .as_str()
-                .ok_or(unsupported)?
-                .to_owned();
-            let mut visited = std::collections::HashSet::new();
-            loop {
-                if !visited.insert(tag.clone()) || visited.len() > 16 {
-                    return Err(unsupported);
-                }
-                let entry = list
-                    .iter()
-                    .find(|v| v["tag"].as_str() == Some(&tag))
-                    .ok_or(unsupported)?;
-                let kind = entry["type"].as_str().ok_or(unsupported)?;
-                if proxy(kind) {
-                    break tag;
-                }
-                if kind != "selector" {
-                    return Err(unsupported);
-                }
-                if original["experimental"]["cache_file"]["enabled"] == true {
-                    return Err(unsupported);
-                }
-                let available = entry["outbounds"].as_array().ok_or(unsupported)?;
-                let selected = entry["default"]
-                    .as_str()
-                    .or_else(|| available.first().and_then(Value::as_str))
-                    .ok_or(unsupported)?;
-                if !available.iter().any(|v| v.as_str() == Some(selected)) {
-                    return Err(unsupported);
-                }
-                members.push((tag.clone(), selected.to_owned()));
-                tag = selected.into();
-            }
+            let initial = original["route"]["final"].as_str().ok_or(unsupported)?;
+            singbox_target(original, initial, &mut members)?
         }
         EngineKind::Xray => {
             if original["routing"]["balancers"]

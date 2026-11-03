@@ -1,4 +1,4 @@
-//! Internal desktop adapter. Not registered as IPC or attached to the live session.
+//! Isolated desktop adapter. Its private core is independent of the live session.
 //! Only loopback listeners and interface-bound outbound sockets; never OS routing.
 use super::{
     coordinator::{ProbeCoordinator, ProbeLease},

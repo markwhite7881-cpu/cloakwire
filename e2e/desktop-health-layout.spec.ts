@@ -19,7 +19,7 @@ for(const item of cases)test(`health card fits ${item.locale} ${item.theme} ${it
   if(item.health==="healthy"||item.health==="checking")await expect(card).toHaveAttribute("title",/Long accepted server/);
   else await expect(page.locator(".atlas-hero .atlas-active-note")).toContainText("Long accepted server");
   expect(await card.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
-  const buttons=card.getByRole("button");
+  const buttons=page.locator(".atlas-server-entry").first().getByTestId("profile-probe-button");
   for(const button of await buttons.all()){
     const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(43*item.zoom);
   }

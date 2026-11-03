@@ -1,3 +1,5 @@
+import { ServerCheck } from "@/components/ServerCheck";
+import { ServerLatency } from "@/components/ServerLatency";
 import { ConnectionControl } from "@/components/atlas/ConnectionControl";
 import { sameProfileRef, type ProfileRef } from "@/lib/connectionHealth";
 import { Button } from "@/components/Button";
@@ -39,7 +41,7 @@ const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export function HomeScreen({
-  vpn,errorActions,probeCard,selectedRef,recent = [],
+  vpn,errorActions,selectedRef,recent = [],
   profiles,
   groups,
   selectedIndex,
@@ -58,7 +60,6 @@ export function HomeScreen({
   vpn: VpnConnection;
   recent?: readonly string[];
   errorActions?:ReactNode;
-  probeCard?:ReactNode;
   selectedRef?: ProfileRef | null;
   profiles: Outbound[];
   groups: ServerGroup[];
@@ -301,7 +302,6 @@ export function HomeScreen({
           {actualName && actualName !== serverLine ? t("home.via")+" "+actualName : t("atlas.otherActive")}
         </p>}
         {!activeBundle && !profiles.length && <Button variant="outline" size="sm" onClick={onAddSub && onAddLinks ? () => setAddSheetOpen(true) : onOpenServers}>{t("servers.addServer")}</Button>}
-        {probeCard}
         {connectionError && <ConnectionErrorCard key={connectionError} error={connectionError} onDismiss={vpn.clearError} actions={errorActions} />}
         <details className="atlas-session-details">
           <summary>{t("profileProbe.details")}</summary>
@@ -312,14 +312,20 @@ export function HomeScreen({
       {recentRows.length>0 && <section className="atlas-recent" aria-label={t("atlas.recent")}><h2 className="text-xs text-muted-foreground">{t("atlas.recent")}</h2>
         <div className="divide-y divide-border">{recentRows.map(key=>{
           const row=locations.get(key)!;
+          const profile = row.index != null ? profiles[row.index] : undefined;
+          const ms = row.bundle ? childLatency.get(row.bundle.subscriptionId + ":" + row.bundle.childKey)
+            : profile && isSupported(profile) ? latencyState.byTag.get(profile.tag) : undefined;
           return <button type="button" key={key} aria-pressed={key===pickedKey}
             className="atlas-pick-row" onClick={()=>{
               if (key === pickedKey) return;
               triggerHaptic("selection");
               if(row.bundle)void onSelectBundleChild(row.bundle);else if(row.index!=null)onSelect(row.index);
-            }}><FlagIcon code={row.country} size={15}/><span className="min-w-0 truncate">{row.name}</span></button>;
+            }}><FlagIcon code={row.country} size={15}/><span className="min-w-0 flex-1 truncate">{row.name}</span><ServerLatency ms={ms} /></button>;
         })}</div>
       </section>}
+
+      <HomeTraffic key={JSON.stringify([vpn.since,vpn.state,pickedKey])} samples={traffic.samples} current={current}
+        vpnActive={isRunning} activeProfileName={isRunning?connectedName:null}/>
 
       {/* ─── Bento 3: Per-App Routing Summary ─────────────────────── */}
       <div className="atlas-panel atlas-home-section flex flex-col justify-between p-4">
@@ -347,15 +353,12 @@ export function HomeScreen({
         </button>
       </div>
 
-      <HomeTraffic key={JSON.stringify([vpn.since,vpn.state,pickedKey])} samples={traffic.samples} current={current}
-        vpnActive={isRunning} activeProfileName={isRunning?connectedName:null}/>
-
       {/* ─── Bento 4: All Servers List & Quick Add ────────────────── */}
       <div className="atlas-panel atlas-home-section flex flex-col p-4">
         <div className="mb-2 flex items-center justify-between px-1">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Server className="h-3.5 w-3.5 text-theme-accent" />
-            <span>All Servers</span>
+            <span>{t("servers.all")}</span>
             <span className="atlas-count">
               {totalServersCount}
             </span>
@@ -367,7 +370,7 @@ export function HomeScreen({
             title="Add server or subscription"
           >
             <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
-            <span>Add</span>
+            <span>{t("common.add")}</span>
           </Button>
         </div>
 
@@ -421,7 +424,7 @@ export function HomeScreen({
                             activeBundle.childKey === child.key;
                           const latency = childLatency.get(`${block.id}:${child.key}`);
                           return (
-                            <li key={`home-bundle-${block.id}-${child.key}`}>
+                            <li className="atlas-server-entry" key={`home-bundle-${block.id}-${child.key}`}>
                               <button aria-pressed={isSel}
                                 type="button"
                                 onClick={() => {
@@ -449,6 +452,7 @@ export function HomeScreen({
                                   <span className="block truncate text-sm font-medium text-foreground">
                                     {child.name}
                                   </span>
+                                  <ProfileHealthBadge profileRef={{kind:"ready",subscription_id:block.id,child_key:child.key}}/>
                                   {child.endpoint && (
                                     <span className="block truncate text-[11px] text-muted-foreground/80">
                                       {child.endpoint.host}:{child.endpoint.port}
@@ -457,6 +461,7 @@ export function HomeScreen({
                                 </span>
                                 <LatencyBadge ms={latency} />
                               </button>
+                              <ServerCheck profileRef={{kind:"ready",subscription_id:block.id,child_key:child.key}} />
                             </li>
                           );
                         })}
@@ -479,7 +484,7 @@ export function HomeScreen({
                         const ep = supported ? profileEndpoint(profile) : null;
                         const latency = supported ? latencyState.byTag.get(profile.tag) : undefined;
                         return (
-                          <li key={entry.manualId ?? `home-server-${entry.profileIndex}`}>
+                          <li className="atlas-server-entry" key={entry.manualId ?? `home-server-${entry.profileIndex}`}>
                             <button aria-pressed={entry.selected}
                               type="button"
                               onClick={() => {
@@ -520,6 +525,7 @@ export function HomeScreen({
 
                               <LatencyBadge ms={latency} />
                             </button>
+                            {supported && <ServerCheck profileIndex={entry.profileIndex} />}
                           </li>
                         );
                       })}

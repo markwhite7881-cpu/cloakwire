@@ -1,9 +1,9 @@
 import type {ReactNode} from "react";
-import {AlertCircle,CheckCircle2,RefreshCw,Server} from "lucide-react";
+import {AlertCircle,CheckCircle2,Server} from "lucide-react";
 import {useI18n} from "@/lib/i18n";
 import type {ConnectionPresentation} from "@/lib/connectionPresentation";
-export function ConnectionStatus({view,onRetry,onChooseServer,busy=false,message,showHeading=true,hideSessionName=false,actions}:{
-  view:ConnectionPresentation;onRetry?:()=>void;onChooseServer?:()=>void;busy?:boolean;message?:string|null;showHeading?:boolean;hideSessionName?:boolean;actions?:ReactNode;
+export function ConnectionStatus({view,onChooseServer,showHeading=true,hideSessionName=false,actions}:{
+  view:ConnectionPresentation;onChooseServer?:()=>void;showHeading?:boolean;hideSessionName?:boolean;actions?:ReactNode;
 }){
   const {t,locale}=useI18n();
   const code=view.issue?.code??view.health?.issue;
@@ -21,14 +21,9 @@ export function ConnectionStatus({view,onRetry,onChooseServer,busy=false,message
     {view.issue&&<p className="font-medium">{t(view.issue.severity==="notice"?"health.notice":"health.stoppedReason")}{view.issue.count>1? ` · ${view.issue.count}`:""}</p>}
     {code&&<p role={view.issue?"alert":undefined} className="break-words text-foreground/90">{t(`health.reasons.${code}`)}</p>}
     {time&&<p className="text-xs text-muted-foreground">{t("health.checked",{time})}{view.health?.outcome==="healthy"&&view.health?.latency_ms!=null?` · ${view.health.latency_ms} ms`:""}</p>}
-    {view.canRetry&&onRetry&&<button type="button" onClick={onRetry} title={compact?t("health.retry"):undefined} disabled={busy||view.state==="checking"} className={`inline-flex min-h-11 min-w-11 justify-center items-center gap-2 rounded-lg px-2 py-1 font-medium hover:bg-muted disabled:opacity-50 ${compact?"text-muted-foreground":"border border-border"}`}>
-      <RefreshCw aria-hidden="true" className={`h-4 w-4 ${busy||view.state==="checking"?"animate-spin motion-reduce:animate-none":""}`}/>
-      <span className={compact&&time&&view.state!=="checking"?"sr-only":undefined}>{t(view.state==="checking"?"health.checking":"health.retry")}</span>
-    </button>}
     {needsAttention&&onChooseServer&&<button type="button" onClick={onChooseServer} className="ml-2 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
       <Server aria-hidden="true" className="h-4 w-4"/>{t("health.choose")}
     </button>}
     {needsAttention&&actions}
-    {message&&<p role="status" className="text-xs text-muted-foreground">{message}</p>}
   </section>;
 }

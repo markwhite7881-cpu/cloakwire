@@ -1,8 +1,8 @@
 import { useRecentServers } from "@/hooks/useRecentServers";
 import { recentBundleKey, recentProfileKey } from "./lib/serverGrouping";
 import { Button } from "@/components/Button";
-import {useProfileProbe} from "./useProfileProbe";
-import {ProfileProbeCard} from "./components/ProfileProbeCard";
+import {useServerCardChecks} from "./useServerCardChecks";
+import { ServerCheckContext } from "@/components/ServerCheck";
 import {profilePreparation} from "@/lib/profilePreparations";
 import {vpnBeginPreparation,vpnCancelPreparation} from "@/lib/vpn";
 import {ProfileHealthContext} from "@/components/ProfileHealthBadge";
@@ -278,9 +278,10 @@ export default function MobileApp() {
 
   const connection = useVpnConnection(connectionProfiles, settings);
   const probeSource=(selectionNeedsChoice||selectionMissing)?null:activeBundle?readySources.find(source=>source.profile_ref.kind==="ready"&&source.profile_ref.subscription_id===activeBundle.subscriptionId&&source.profile_ref.child_key===activeBundle.childKey)??null:profileSources[selectedIndex]??null;
-  const profileProbe=useProfileProbe(probeSource,activeBundle?null:profiles[selectedIndex]??null,settings);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const vpn = { ...connection, busy: connection.busy || selectionBusy };
+
+  const profileProbe = useServerCardChecks(probeSource, allSources, profiles, settings, vpn.busy || manualStore.blocked);
 
   const markConnectionDirty = () => {
     setReconnectRequired((previous) => nextReconnectRequired(previous, vpn.state));
@@ -667,6 +668,7 @@ export default function MobileApp() {
       </header>
 
       {/* Content */}
+      <ServerCheckContext.Provider value={profileProbe.control}>
       <ProfileHealthContext.Provider value={{sources:allSources,evidence:vpn.profileCheck??null,attempt:profileProbe.evidence,history:profileProbe.history}}>
       <main
         ref={contentRef}
@@ -727,7 +729,7 @@ export default function MobileApp() {
               vpn={vpn}
               errorActions={<ProfileErrorActions {...cardActions}/>}
               selectedRef={probeSource?.profile_ref}
-              probeCard={<ProfileProbeCard probe={profileProbe} source={probeSource} disabled={vpn.busy||manualStore.blocked}/>}
+
               profiles={profiles}
               groups={serverGroups}
               selectedIndex={selectedIndex}
@@ -817,6 +819,7 @@ export default function MobileApp() {
         </div>
       </main>
       </ProfileHealthContext.Provider>
+      </ServerCheckContext.Provider>
 
       {/* Bottom navigation. */}
       <nav className="atlas-bottom-nav"><div>

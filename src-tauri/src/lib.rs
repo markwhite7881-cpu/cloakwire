@@ -170,7 +170,9 @@ pub fn run() {
     #[cfg(target_os = "android")]
     let builder = builder.plugin(vpn_mobile_plugin());
     #[cfg(not(target_os = "android"))]
-    let builder = builder.manage(manager);
+    let builder = builder
+        .manage(manager)
+        .manage(diagnostics::selected::SelectedProbes::default());
     let builder = builder.setup(|app| {
         // We're now inside Tauri's tokio runtime, safe to spawn.
         #[cfg(not(target_os = "android"))]
@@ -280,6 +282,7 @@ pub fn run() {
             diagnostics::get_connection_health,
             diagnostics::get_connection_diagnostics,
             diagnostics::retry_active_probe,
+            diagnostics::selected::probe_desktop_profile,
             diagnostics::cancel_profile_probe,
             commands::ping,
             commands::get_binary_info,

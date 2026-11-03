@@ -1,7 +1,7 @@
 import {expect,type Page,type TestInfo} from "playwright/test";
 export const v1="singbox-client.manual-profiles.v1",v2="singbox-client.manual-profiles.v2";
 export const settingsKey="singbox-client.settings.v2";
-export async function openFixture(page:Page,testInfo:TestInfo,options:{serverNames?:string[];preparationFailure?:"generate"|"permission";recoveryEnabled?:boolean;recoveryPhase?:string;recoveryIssue?:string;recoveryError?:boolean;mobileLifecycle?:boolean;profileProbe?:boolean;staleProbe?:boolean;revisionDelay?:number;subscription?:boolean;boundSource?:boolean;startError?:boolean;health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
+export async function openFixture(page:Page,testInfo:TestInfo,options:{fixturePingMs?:number;serverNames?:string[];preparationFailure?:"generate"|"permission";recoveryEnabled?:boolean;recoveryPhase?:string;recoveryIssue?:string;recoveryError?:boolean;mobileLifecycle?:boolean;profileProbe?:boolean;staleProbe?:boolean;revisionDelay?:number;subscription?:boolean;boundSource?:boolean;startError?:boolean;health?:"healthy"|"checking"|"unavailable"|"reality";parseFailure?:boolean;running?:boolean;selectedFirst?:boolean;tab?:string;customRouting?:boolean;single?:boolean;locale?:string;theme?:string;accent?:string}={}){
   const mobile=testInfo.project.name==="mobile";
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text());});
@@ -73,6 +73,7 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{serverNam
       if(cmd==="update_tray_status"){w.lastTray=args;return null;}
       if(cmd==="parse_input"&&options.parseFailure)return {outbounds:[],subscriptions:[],failures:[{line:1,input:"vless://SYNTHETIC",error:{kind:"parse",message:"Invalid port number"}}]};
       if(cmd==="parse_input")return {outbounds:[fixture("Provider label","NEW_SECRET")],subscriptions:[],failures:[]};
+      if(cmd==="ping_endpoint")return options.fixturePingMs ?? null;
       if(cmd==="list_processes")return [{pid:123,name:"fixture.exe"}];
       if(cmd==="plugin:vpn|listApps")return [{packageName:"fixture.app",label:"Fixture app"}];
       const sub=()=>({id:"sub-a",name:"Provider A",kind:"singbox_bundle",engine:"singbox",interval_minutes:60,active_child_key:"child-0",children:[{key:"child-0",name:w.subChanged?"Updated server A":"Ready server A",engine:"singbox",source_revision:(w.subChanged?"b":"a").repeat(64)}],metadata:{},last_success_at:new Date().toISOString(),server_count:1});
@@ -92,6 +93,11 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{serverNam
         if(options.boundSource){const records=JSON.parse(localStorage.getItem("singbox-client.manual-profiles.v2")??"null")?.records;if(records?.[0]){w.fixtureHealth.session.profile_ref={kind:"manual",id:records[0].id};w.fixtureHealth.session.source_revision="a".repeat(64);w.fixtureHealth.health={...w.fixtureHealth.health,profile_ref:w.fixtureHealth.session.profile_ref};}}
         if(options.subscription){const ref={kind:"ready",subscription_id:"sub-a",child_key:"child-0"};w.fixtureHealth.session.profile_ref=ref;w.fixtureHealth.session.source_revision="a".repeat(64);w.fixtureHealth.health.profile_ref=ref;}
         return w.fixtureHealth;
+      }
+      if(cmd==="probe_desktop_profile"){
+        return {profile_ref:args.profileRef,profile_revision:args.sourceRevision,run_id:null,network_generation:"fixture",
+          effective_outbound_revision:null,operation_id:"isolated-card",scope:"selected_profile",stage:"complete",
+          outcome:"healthy",issue:null,checked_at:new Date().toISOString(),latency_ms:19};
       }
       if(cmd==="retry_active_probe"){
         const w=window as any;(w.probeCalls??=[]).push(args.expected);

@@ -1,3 +1,4 @@
+import { ServerCheck } from "./ServerCheck";
 import {ProfileHealthBadge} from "./ProfileHealthBadge";
 import { useState } from "react";
 import { Check, Copy, Eye, EyeOff, Globe2, Server, X } from "lucide-react";
@@ -249,6 +250,7 @@ export function ProfileCard({ outbound, geoipByIp, onRemove, identityHint, manua
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          {manualId && <ServerCheck profileRef={{kind:"manual",id:manualId}} />}
           <Button
             variant="ghost"
             size="icon"

@@ -58,6 +58,8 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 }
 
 export const api = {
+  probeDesktopProfile:(source:import("./profileEvidence").ProfileSource,outbound:Outbound|null,settings:GeneratorSettings)=>
+    call<import("./connectionHealth").ConnectionHealth>("probe_desktop_profile",{profileRef:source.profile_ref,sourceRevision:source.source_revision,outbound,settings}),
   runAndroidProfileProbe:(operationId:string,source:import("./profileEvidence").ProfileSource,outbound:Outbound|null,settings:GeneratorSettings)=>
     call<void>("run_android_profile_probe",{operationId,profileRef:source.profile_ref,sourceRevision:source.source_revision,outbound,settings}),
   profileCatalogEpoch:()=>call<string>("profile_catalog_epoch"),

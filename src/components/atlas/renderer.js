@@ -31,12 +31,15 @@ export function mountGlobe(scene, countryName) {
     const geometry = topology.geometries.find(g => g.properties.id === entry.iso);
     locations.set(code, {...entry, code, name:countryName(code), shape:geometry ? topojson.feature(world,geometry) : null});
    }
+   if(!locations.has(calloutCode))calloutCode=null;
   }
 
 
   let center = [11,28], focus = null, connected = false, flight = null;
   let width = 0, height = 0, radius = 0, raf = 0, previous = null, onScreen = true;
-  let idleSeconds = 0, lastCycle = -1, callout = null;
+  const calloutInterval = 12;
+  const lastShownAt = new Map();
+  let idleSeconds = 0, calloutStartedAt = -Infinity, calloutCode = null;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const visible = () => onScreen && !document.hidden;
   const paint={
@@ -91,15 +94,18 @@ export function mountGlobe(scene, countryName) {
   }
   function chooseCallout() {
     if (connected) return {location:focus,opacity:1};
-    const cycle=Math.floor(idleSeconds/5.6);
-    if (cycle!==lastCycle) {
-      lastCycle=cycle;
-      const front=[...locations.values()].filter(l=>d3.geoDistance(center,l.coords)<1.36)
-        .sort((a,b)=>d3.geoDistance(center,a.coords)-d3.geoDistance(center,b.coords));
-      callout=front.find(l=>l!==callout) || front[0];
+    if (idleSeconds-calloutStartedAt>=calloutInterval && locations.size) {
+      calloutStartedAt=idleSeconds;
+      const front=[...locations.values()].filter(location=>d3.geoDistance(center,location.coords)<1.36)
+        .sort((a,b)=>{
+          const ageOrder=(lastShownAt.get(a.code)??-1)-(lastShownAt.get(b.code)??-1);
+          return ageOrder || d3.geoDistance(center,a.coords)-d3.geoDistance(center,b.coords);
+        });
+      calloutCode=front[0]?.code;
+      if(calloutCode)lastShownAt.set(calloutCode,idleSeconds);
     }
-    const t=idleSeconds%5.6;
-    return {location:callout,opacity:Math.max(0,Math.min(1,(t+.1)/.45,(4.4-t)/.5))};
+    const t=idleSeconds-calloutStartedAt;
+    return {location:locations.get(calloutCode),opacity:Math.max(0,Math.min(1,(t+.1)/.45,(4.4-t)/.5))};
   }
   function draw() {
     if (!radius) return;
@@ -116,7 +122,6 @@ export function mountGlobe(scene, countryName) {
     context.restore();
     updateOverlay();
     const {location,opacity}=chooseCallout();
-    label.style.opacity='0';
     if (location && d3.geoDistance(center,location.coords)<1.45 && opacity>0) {
       const caption=countryName(location.code);
       if(label.textContent!==caption)label.textContent=caption;
@@ -124,7 +129,7 @@ export function mountGlobe(scene, countryName) {
       const left=Math.max(1,Math.min(width-label.offsetWidth-1,x-label.offsetWidth/2));
       label.style.transform='translate('+left.toFixed(1)+'px,'+Math.max(1,y+5).toFixed(1)+'px)';
       label.style.opacity=String(opacity);
-    }
+    } else label.style.opacity='0';
     canvas.dataset.center=center.map(n=>n.toFixed(4)).join(',');
   }
   function schedule() {
@@ -146,7 +151,7 @@ export function mountGlobe(scene, countryName) {
       // Keep the idle globe moving, even when the last connection chose a server.
       const period=reduced.matches?180:120;
       center=[(center[0]+360*step/period+540)%360-180,center[1]+(26-center[1])*Math.min(1,step*.23)];
-      idleSeconds+=step;
+      idleSeconds+=dt;
     }
     draw();schedule();
   }
@@ -156,8 +161,13 @@ export function mountGlobe(scene, countryName) {
     if(visible()){draw();schedule();}
   }
   function setProfile(country, running) {
+    if(!running && !connected){
+      if(visible())draw();
+      return;
+    }
     scene.dataset.effect='none';
-    connected=running;focus=running?(locations.get(country)||null):null;flight=null;lastCycle=-1;
+    if(connected && !running)calloutCode=null;
+    connected=running;focus=running?(locations.get(country)||null):null;flight=null;
     if(focus) {
       const angle=d3.geoDistance(center,focus.coords);
       if (reduced.matches || !visible() || angle<.0001) center=[...focus.coords];
