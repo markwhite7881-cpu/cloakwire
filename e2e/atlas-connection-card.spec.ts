@@ -79,7 +79,7 @@ test("Android DNS menu saves both upstreams and restores them after reload", asy
 
 test("desktop import keeps only rejected lines after partial success", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop");
-  const { verify } = await openFixture(page, info, { tab: "servers", selectedFirst: true });
+  const { verify } = await openFixture(page, info, { tab: "home", selectedFirst: true });
   await page.evaluate(() => {
     const w = window as any;
     const invoke = w.__TAURI_INTERNALS__.invoke;
@@ -87,11 +87,15 @@ test("desktop import keeps only rejected lines after partial success", async ({ 
       { outbounds: [], subscriptions: ["https://test.invalid/feed"], failures: [{ line: "invalid", error: { kind: "parse", message: "Invalid link" } }] } :
       invoke(cmd, args);
   });
-  await page.locator(".atlas-heading-actions button").click();
   const dialog = page.getByRole("dialog");
+  await page.locator("main").getByRole("button", { name: "Add", exact: true }).click();
+  await dialog.getByRole("textbox").fill("https://test.invalid/feed\ninvalid");
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab").nth(1).click();
+  await page.locator(".atlas-heading-actions button").click();
   await expect(dialog).toHaveJSProperty("open", true);
   const input = dialog.getByRole("textbox");
-  await input.fill("https://test.invalid/feed\ninvalid");
+  await expect(input).toHaveValue("https://test.invalid/feed\ninvalid");
   const dir = process.env.ATLAS_UI5_SHOTS;
   if (dir) await page.screenshot({ path: dir + "/desktop-import.png" });
   await dialog.getByRole("button", { name: "Add Server", exact: true }).click();
