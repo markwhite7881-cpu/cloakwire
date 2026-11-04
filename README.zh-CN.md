@@ -63,10 +63,10 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ## 🚀 1.5.0 更新内容
 
-- Windows、macOS 和 Android 均采用全新的 Atlas 主页。未连接时地球仪会缓慢旋转，连接后转向服务器所在国家，并播放戴上兜帽的动画。
-- 主页可快速切换最近选择的三个服务器。完整列表将个人服务器和订阅分组显示，两者共用一个导入入口。桌面端还可为订阅设置自定义名称。
-- 可直接从流量图启动测速。图表在测试期间显示下载和上传速率，结束后恢复显示实时流量。Android 通过当前 sing-box 或 Xray 会话测速，断开 VPN 后可单独测试直连速度。
-- 可从服务器卡片发起检测。桌面端即使原配置已更新或删除，也可重新检测正在运行的 Auto 连接。更换网络或配置后，先前的检测结果会标记为历史记录。
+- Windows、macOS 和 Android 全新 Atlas 界面，配备动态地球仪。
+- 内置 VPN 和直连测速，结果实时显示在流量图表中。
+- 改进服务器、订阅管理和连接检测。
+- 修复服务器切换、测速历史记录和系统代理清理问题。
 
 [完整更新历史](CHANGELOG.md) · [v1.5.0](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.0)
 

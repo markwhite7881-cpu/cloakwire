@@ -8,31 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.0] - 2026-11-04
 
 ### English
-- Atlas brings a new home screen to Windows, macOS and Android. The globe rotates while disconnected and shows the server country under an animated hood when the VPN connects.
-- Switch between your three most recent servers from Home. The full list groups personal servers and subscriptions. One import action accepts both, and desktop subscriptions can be renamed.
-- Start a speed test from the traffic chart. The chart shows download and upload speeds during the test and returns to live traffic afterward. On Android, VPN tests use the active sing-box or Xray session. A direct test is available when disconnected.
-- Run a check from a server’s card. Desktop Auto connections can be rechecked even if the original profile changes or disappears. Checks from an earlier network or configuration are marked as historical.
-- Routing and settings now share the Atlas layout. Home shows the current routing policy, and appearance settings offer eleven accent colors.
-- Fixed stale country labels after switching to Xray, Android selection failures that changed recent servers, and malformed speed-test history that could prevent Home from opening.
-- Desktop shutdown now waits for diagnostic processes to exit and removes their temporary profiles. System proxy cleanup checks which settings CloakWire owns on Windows and macOS.
+
+- New Atlas interface with an animated globe on Windows, macOS and Android.
+- Built-in speed test for VPN and direct connections, shown on the traffic chart.
+- Improved server and subscription management and connection checks.
+- Fixed server switching, speed-test history and system proxy cleanup issues.
 
 ### Русский
-- На главной появился интерфейс Atlas для Windows, macOS и Android. До подключения глобус вращается, а при подключении поворачивается к стране сервера и надевает капюшон.
-- На главной доступны три последних сервера. В полном списке личные серверы и подписки собраны отдельно. Одна кнопка импорта принимает и ссылки на серверы, и подписки. Подпискам на компьютере можно давать свои имена.
-- Тест скорости запускается рядом с графиком трафика. Во время замера график показывает скорость загрузки и отдачи, затем возвращается к текущему трафику. На Android замер идёт через активную сессию sing-box или Xray. После отключения можно проверить прямое соединение.
-- Проверка запускается из карточки сервера. На компьютере активное соединение в режиме Auto можно проверить повторно, даже если исходный профиль изменён или удалён. Результаты для прежней сети или конфигурации помечаются как прошлые.
-- Маршрутизация и настройки получили оформление Atlas. На главной видны текущие настройки маршрутизации, а в разделе оформления доступны одиннадцать акцентных цветов.
-- Исправили отображение страны после переключения на Xray и запись сервера в «Недавние» при ошибке выбора на Android. Повреждённая запись истории скорости больше не мешает открыть главную.
-- При выходе на компьютере приложение дожидается завершения диагностических процессов и удаляет их временные профили. При очистке системного прокси на Windows и macOS CloakWire проверяет, какие настройки установил сам.
+
+- Новый интерфейс Atlas с анимированным глобусом на Windows, macOS и Android.
+- Встроенный тест скорости через VPN и напрямую с отображением на графике трафика.
+- Улучшено управление серверами и подписками, доработана проверка соединения.
+- Исправлены ошибки переключения серверов, истории тестов скорости и очистки системного прокси.
 
 ### 简体中文
-- Windows、macOS 和 Android 均采用全新的 Atlas 主页。未连接时地球仪会缓慢旋转，连接后转向服务器所在国家，并播放戴上兜帽的动画。
-- 主页可快速切换最近选择的三个服务器。完整列表将个人服务器和订阅分组显示，两者共用一个导入入口。桌面端还可为订阅设置自定义名称。
-- 可直接从流量图启动测速。图表在测试期间显示下载和上传速率，结束后恢复显示实时流量。Android 通过当前 sing-box 或 Xray 会话测速，断开 VPN 后可单独测试直连速度。
-- 可从服务器卡片发起检测。桌面端即使原配置已更新或删除，也可重新检测正在运行的 Auto 连接。更换网络或配置后，先前的检测结果会标记为历史记录。
-- 路由和设置页面采用统一的 Atlas 布局。主页可查看当前路由策略，外观设置提供十一种强调色。
-- 修复了切换至 Xray 后仍显示上一次连接国家的问题，以及 Android 选择服务器失败时仍改写最近记录的问题。个别测速记录损坏也不会再导致主页无法打开。
-- 退出桌面客户端时会等待诊断进程结束并清理临时配置。Windows 和 macOS 客户端在清理系统代理时会检查设置是否属于当前安装。
+
+- Windows、macOS 和 Android 全新 Atlas 界面，配备动态地球仪。
+- 内置 VPN 和直连测速，结果实时显示在流量图表中。
+- 改进服务器、订阅管理和连接检测。
+- 修复服务器切换、测速历史记录和系统代理清理问题。
 
 ## [1.4.11] - 2026-11-01
 

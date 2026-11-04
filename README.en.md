@@ -63,10 +63,10 @@ Select a screenshot to open it at full size.
 
 ## 🚀 What's new in 1.5.0
 
-- Atlas brings a new home screen to Windows, macOS and Android. The globe rotates while disconnected and shows the server country under an animated hood when the VPN connects.
-- Switch between your three most recent servers from Home. The full list groups personal servers and subscriptions. One import action accepts both, and desktop subscriptions can be renamed.
-- Start a speed test from the traffic chart. The chart shows download and upload speeds during the test and returns to live traffic afterward. On Android, VPN tests use the active sing-box or Xray session. A direct test is available when disconnected.
-- Run a check from a server’s card. Desktop Auto connections can be rechecked even if the original profile changes or disappears. Checks from an earlier network or configuration are marked as historical.
+- New Atlas interface with an animated globe on Windows, macOS and Android.
+- Built-in speed test for VPN and direct connections, shown on the traffic chart.
+- Improved server and subscription management and connection checks.
+- Fixed server switching, speed-test history and system proxy cleanup issues.
 
 [Full history](CHANGELOG.md) · [v1.5.0](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.0)
 
