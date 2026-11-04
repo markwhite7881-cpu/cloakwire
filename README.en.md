@@ -50,25 +50,23 @@ Select a screenshot to open it at full size.
 
 ---
 
-## ⚡ Downloads (v1.5.0)
+## ⚡ Downloads (v1.5.1)
 
 | Platform | Installer | Alternative | Architecture |
 |---|---|---|---|
-| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64_en-US.msi) | x64 (Intel / AMD) |
-| **macOS Apple Silicon** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_aarch64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_aarch64.app.zip) | arm64 (Apple Silicon) |
-| **macOS Intel** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64.app.zip) | x86_64 |
-| **Android** | [Download .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
+| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64_en-US.msi) | x64 (Intel / AMD) |
+| **macOS Apple Silicon** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_aarch64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_aarch64.app.zip) | arm64 (Apple Silicon) |
+| **macOS Intel** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64.app.zip) | x86_64 |
+| **Android** | [Download .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 All seven release packages, including Android, have **Minisign** `.sig` files. SHA-256 checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/SHA256SUMS.txt).
+> 🔒 All seven release packages, including Android, have **Minisign** `.sig` files. SHA-256 checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/SHA256SUMS.txt).
 
-## 🚀 What's new in 1.5.0
+## 🚀 What's new in 1.5.1
 
-- New Atlas interface with an animated globe on Windows, macOS and Android.
-- Built-in speed test for VPN and direct connections, shown on the traffic chart.
-- Improved server and subscription management and connection checks.
-- Fixed server switching, speed-test history and system proxy cleanup issues.
+- The traffic graph keeps recording while you switch tabs.
+- On desktop, Disconnect uses your accent color. Subscriptions remember whether they’re expanded, and the duplicate profile list is gone.
 
-[Full history](CHANGELOG.md) · [v1.5.0](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.0)
+[Full history](CHANGELOG.md) · [v1.5.1](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.1)
 
 ## Quick start
 
@@ -116,7 +114,7 @@ Minisign protects updater downloads. Windows packages are distributed without Au
 Example: check the Windows installer and compare the result with `SHA256SUMS.txt`:
 
 ```powershell
-(Get-FileHash Cloakwire_1.5.0_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+(Get-FileHash Cloakwire_1.5.1_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
 ## 🔧 Share-link formats

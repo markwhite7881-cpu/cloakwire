@@ -50,25 +50,23 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ Загрузка релизов (v1.5.0)
+## ⚡ Загрузка релизов (v1.5.1)
 
 | Платформа | Установщик | Альтернатива | Архитектура |
 |---|---|---|---|
-| **Windows** | [Скачать .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64-setup.exe) | [Скачать .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64_en-US.msi) | x64 (Intel / AMD) |
-| **macOS Apple Silicon** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_aarch64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_aarch64.app.zip) | arm64 (Apple Silicon) |
-| **macOS Intel** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64.app.zip) | x86_64 |
-| **Android** | [Скачать .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
+| **Windows** | [Скачать .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64-setup.exe) | [Скачать .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64_en-US.msi) | x64 (Intel / AMD) |
+| **macOS Apple Silicon** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_aarch64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_aarch64.app.zip) | arm64 (Apple Silicon) |
+| **macOS Intel** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64.app.zip) | x86_64 |
+| **Android** | [Скачать .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 Все семь пакетов релиза, включая Android, имеют подписи **Minisign** `.sig`. Контрольные суммы SHA-256 опубликованы в [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/SHA256SUMS.txt).
+> 🔒 Все семь пакетов релиза, включая Android, имеют подписи **Minisign** `.sig`. Контрольные суммы SHA-256 опубликованы в [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/SHA256SUMS.txt).
 
-## 🚀 Что нового в 1.5.0
+## 🚀 Что нового в 1.5.1
 
-- Новый интерфейс Atlas с анимированным глобусом на Windows, macOS и Android.
-- Встроенный тест скорости через VPN и напрямую с отображением на графике трафика.
-- Улучшено управление серверами и подписками, доработана проверка соединения.
-- Исправлены ошибки переключения серверов, истории тестов скорости и очистки системного прокси.
+- График трафика продолжает записывать данные при переключении вкладок.
+- На компьютере кнопка «Отключить» использует выбранный акцент. Раздел «Подписки» запоминает своё состояние, дублирующий список профилей убран.
 
-[Полная история изменений](CHANGELOG.md) · [v1.5.0](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.0)
+[Полная история изменений](CHANGELOG.md) · [v1.5.1](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.1)
 
 ## Быстрый старт
 
@@ -116,7 +114,7 @@ Minisign защищает загрузки механизма обновлени
 Пример: проверьте установщик Windows и сравните результат с `SHA256SUMS.txt`:
 
 ```powershell
-(Get-FileHash Cloakwire_1.5.0_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+(Get-FileHash Cloakwire_1.5.1_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
 ## 🔧 Форматы ссылок на подключения

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-11-04
+
+### English
+
+- The traffic graph keeps recording while you switch tabs.
+- On desktop, Disconnect uses your accent color. Subscriptions remember whether they’re expanded, and the duplicate profile list is gone.
+
+### Русский
+
+- График трафика продолжает записывать данные при переключении вкладок.
+- На компьютере кнопка «Отключить» использует выбранный акцент. Раздел «Подписки» запоминает своё состояние, дублирующий список профилей убран.
+
+### 简体中文
+
+- 切换标签页时，流量图会继续记录数据。
+- 桌面端的断开按钮使用所选强调色。订阅列表会记住展开状态，重复的配置列表已移除。
+
 ## [1.5.0] - 2026-11-04
 
 ### English
