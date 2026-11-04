@@ -29,6 +29,7 @@ import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { StatusPill } from "@/components/StatusPill";
 import { TabBar, Tabs, type TabDef } from "@/components/Tabs";
+import { SessionTraffic } from "@/components/SessionTraffic";
 import { HomeTab } from "@/components/HomeTab";
 import { ServersTab } from "@/components/ServersTab";
 import "@/components/atlas/atlas.css";
@@ -1201,7 +1202,6 @@ export default function App() {
             onClearAll={onClearProfiles}
             subs={subs.snapshot.subscriptions}
             geoipByIp={geoip.byIp}
-            readyProfileMetadata={readyProfileMetadata}
             subFetching={subs.fetching}
             onRemoveSub={subs.remove}
             onRefreshSub={subs.refreshOne}
@@ -1381,7 +1381,9 @@ export default function App() {
         <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} onApply={profileImport.apply} onCancel={profileImport.cancel} />
       <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
         {(selectionNeedsChoice || selectionMissing) && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
-        {tabs.find((t) => t.id === activeTab)?.content}
+        <SessionTraffic running={isRunning} runId={status.run_id}>
+          {tabs.find((t) => t.id === activeTab)?.content}
+        </SessionTraffic>
       </main>
       </ProfileHealthContext.Provider>
       </ServerCheckContext.Provider>

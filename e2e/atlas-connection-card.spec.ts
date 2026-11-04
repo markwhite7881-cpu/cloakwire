@@ -11,6 +11,16 @@ test("the connection card names the selected server once and keeps checks visibl
   await expect(panel.getByText("First", { exact: true })).toHaveCount(1);
   await expect(panel.locator(".atlas-session-time")).toBeVisible();
   await expect(panel.getByRole("button", { name: "Disconnect", exact: true })).toBeVisible();
+  const disconnect = panel.getByRole("button", {name:"Disconnect", exact:true});
+  const accent = await disconnect.evaluate(button => {
+    const swatch = document.createElement("span");
+    swatch.style.backgroundColor = "var(--atlas-command)";
+    button.append(swatch);
+    const color = getComputedStyle(swatch).backgroundColor;
+    swatch.remove();
+    return color;
+  });
+  await expect(disconnect).toHaveCSS("background-color", accent);
   await expect(panel.locator(".atlas-connection-controls :is(h1,h2,[role=status])")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Recent servers" }).getByRole("button", { pressed: true })).toContainText("First");
   await expect(panel.getByTestId("profile-probe-button")).toHaveCount(0);

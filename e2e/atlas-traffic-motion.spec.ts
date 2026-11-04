@@ -48,5 +48,15 @@ test("measured traffic scrolls between samples and snaps immediately with reduce
   expect(await chart.evaluate(measure, 4)).toBeNull();
   await expect(card).toContainText("4 Mbps");
   await expect(chart.locator('[data-series="down"]')).toHaveAttribute("d", /C.*1000 37$/);
+  const nav = info.project.name === "mobile" ? page.locator(".atlas-bottom-nav button") : page.getByRole("tab");
+  await nav.nth(1).click();
+  await expect(chart).toHaveCount(0);
+  await page.evaluate(() => {
+    const channel = (window as any).nativeRequests.filter((r: any) => r.cmd === "plugin:vpn|register_listener" && r.args.event === "traffic").at(-1);
+    channel.args.handler.onmessage({ down_bps: 2_500_000, up_bps: 0, down_total: 0, up_total: 0, ts_ms: Date.now() });
+  });
+  await nav.nth(0).click();
+  await expect(card).toContainText("20 Mbps");
+  await expect(chart.locator('[data-series="down"]')).toHaveAttribute("d", /^M[^C]*(?: C[^C]+){3}$/);
   await verify();
 });

@@ -281,8 +281,6 @@
   background: var(--power-fill); color: var(--power-ink); border-color: transparent;
   font-size: 16px; font-weight: 700; line-height: 1.2; opacity: 1;
 }
-.atlas-desktop .atlas-power[data-running=true] { --power-fill: #047857; --power-ink: white; }
-.dark .atlas-desktop .atlas-power[data-running=true] { --power-fill: #34d399; --power-ink: #081016; }
 .atlas-shell .atlas-power:not(:disabled):hover { background: var(--power-fill); border-color: currentColor; }
 .atlas-shell .atlas-power:disabled {
   background: var(--atlas-field); border-color: var(--atlas-stroke); color: var(--atlas-muted); opacity: 1;

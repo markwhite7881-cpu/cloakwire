@@ -41,6 +41,7 @@ import {
 import { loadLastServer, saveLastServer } from "./lib/lastServer";
 import { useVpnConnection } from "./useVpnConnection";
 import { useI18n } from "@/lib/i18n";
+import { SessionTraffic } from "@/components/SessionTraffic";
 import { HomeScreen } from "./screens/HomeScreen";
 import { ServersScreen } from "./screens/ServersScreen";
 import { RoutingScreen } from "./screens/RoutingScreen";
@@ -621,6 +622,7 @@ export default function MobileApp() {
       </header>
 
       {/* Content */}
+      <SessionTraffic running={vpn.state === "running"} runId={vpn.runId}>
       <ServerCheckContext.Provider value={profileProbe.control}>
       <ProfileHealthContext.Provider value={{sources:allSources,evidence:vpn.profileCheck??null,attempt:profileProbe.evidence,history:profileProbe.history}}>
       <main
@@ -774,6 +776,7 @@ export default function MobileApp() {
       </main>
       </ProfileHealthContext.Provider>
       </ServerCheckContext.Provider>
+      </SessionTraffic>
 
       {/* Bottom navigation. */}
       <nav className="atlas-bottom-nav"><div>

@@ -13,6 +13,13 @@ test("renaming an existing subscription keeps the draft after a write failure",a
       return attempts===1 ? Promise.reject("write failed") : Promise.resolve({id:args.id,name:args.name});
     };
   });
+  const toggle = page.locator(".atlas-directory button[aria-expanded]");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("heading", {name:"Subscription profiles"})).toHaveCount(0);
+  await toggle.click();
+  await page.getByRole("tab").nth(0).click();
+  await page.getByRole("tab").nth(1).click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
   const row=page.locator(".atlas-subscription-row");
   await row.getByTitle("Rename subscription").click();
   const input=row.getByRole("textbox");
@@ -25,5 +32,10 @@ test("renaming an existing subscription keeps the draft after a write failure",a
   await expect(input).toHaveCount(0);
   await expect(row).toContainText("Work VPN");
   await expect(row).toContainText("Ready server A");
+  await page.reload();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await toggle.click();
+  await page.reload();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await verify();
 });

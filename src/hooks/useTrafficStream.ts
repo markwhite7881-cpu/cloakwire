@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { api } from "@/lib/api";
 import type { TrafficSample } from "@/lib/types";
 
 const inTauri =
@@ -20,24 +19,19 @@ export interface UseTrafficStream {
  */
 export function useTrafficStream(
   enabled: boolean,
-  profileCount: number,
+  runId?: string | null,
 ): UseTrafficStream {
   const [samples, setSamples] = useState<TrafficSample[]>([]);
   const [current, setCurrent] = useState<TrafficSample | null>(null);
   const tickRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!enabled) {
-      setSamples([]);
-      setCurrent(null);
-      return;
-    }
+    setSamples([]);
+    setCurrent(null);
+    if (!enabled) return;
 
     if (!inTauri) {
-      // Browser preview: synthesise a slow-moving traffic curve so
-      // the chart isn't a flat line. We modulate the down/up speeds
-      // with a sine wave plus the profile count (more profiles → more
-      // variation) so the demo looks alive.
+      // Browser preview: synthesise a slow-moving traffic curve.
       let frame = 0;
       const fake = () => {
         frame += 1;
@@ -136,7 +130,7 @@ export function useTrafficStream(
       if (unlisten) unlisten();
       if (unlistenPlugin) unlistenPlugin();
     };
-  }, [enabled, profileCount]);
+  }, [enabled, runId]);
 
   return { samples, current };
 }

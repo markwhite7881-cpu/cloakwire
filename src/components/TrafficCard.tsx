@@ -67,10 +67,10 @@ function buildAreaPath(
 const WIDTH = 560;
 const HEIGHT = 80;
 
-export function TrafficCard({ status, profileCount, forceDemo }: Props) {
+export function TrafficCard({ status, forceDemo }: Props) {
   const { t } = useI18n();
   const live = status === "running" || !!forceDemo;
-  const { samples, current } = useTrafficStream(live, profileCount);
+  const { samples, current } = useTrafficStream(live);
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(WIDTH);
 

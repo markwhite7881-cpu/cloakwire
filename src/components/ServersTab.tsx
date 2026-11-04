@@ -1,7 +1,4 @@
-import { ServerCheck } from "./ServerCheck";
 import { AtlasHeading } from "@/components/atlas/AtlasHeading";
-import {ProfileHealthBadge} from "./ProfileHealthBadge";
-import {profileRef} from "@/lib/profileEvidence";
 import { manualProfileHint } from "@/lib/manualProfileHint";
 import { useState } from "react";
 import { Plus, Server, Trash2 } from "lucide-react";
@@ -15,11 +12,12 @@ import {
 } from "@/components/Card";
 import { ProfileCard } from "@/components/ProfileCard";
 import { SubscriptionsCard } from "@/components/SubscriptionsCard";
-import { cn } from "@/lib/utils";
 import { profileLabel } from "@/lib/outbound";
 import { useI18n } from "@/lib/i18n";
-import type { HomeProfileMetadata, SubscriptionSummary } from "@/lib/types";
+import type { SubscriptionSummary } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
+
+const SUBSCRIPTIONS_OPEN_KEY = "cloakwire:desktop_subscriptions_open";
 
 export interface ServersTabProps {
   profiles: ConnectionProfile[];
@@ -35,7 +33,6 @@ export interface ServersTabProps {
   onSetSubInterval: (id: string, minutes: number) => void;
   onSelectSubChild: (subscriptionId: string, childKey: string) => void;
   geoipByIp: Record<string, string>;
-  readyProfileMetadata: ReadonlyMap<string, HomeProfileMetadata>;
 }
 
 export function ServersTab({
@@ -54,7 +51,17 @@ export function ServersTab({
   geoipByIp,
 }: ServersTabProps) {
   const { t } = useI18n();
-  const [subOpen, setSubOpen] = useState(true);
+  const [subOpen, setSubOpen] = useState(() => {
+    try { return localStorage.getItem(SUBSCRIPTIONS_OPEN_KEY) === "true"; }
+    catch { return false; }
+  });
+
+  function toggleSubscriptions() {
+    const next = !subOpen;
+    setSubOpen(next);
+    try { localStorage.setItem(SUBSCRIPTIONS_OPEN_KEY, String(next)); }
+    catch { /* The panel still works when storage is unavailable. */ }
+  }
 
   const manualProfiles = profiles
     .map((profile, index) => ({ profile, index }))
@@ -70,7 +77,7 @@ export function ServersTab({
           <Plus size={15}/>{t("common.add")}</Button>}/>
 
       <div className="atlas-directory">
-            <SubscriptionsCard expanded={subOpen} onToggle={()=>setSubOpen(v=>!v)}
+            <SubscriptionsCard expanded={subOpen} onToggle={toggleSubscriptions}
               subs={subs}
               fetching={subFetching}
               onRemove={onRemoveSub}
@@ -82,13 +89,6 @@ export function ServersTab({
             />
       </div>
 
-      {profiles.some(p=>p.kind!=="manual")&&<Card className="atlas-section"><CardHeader><CardTitle>{t("atlas.subscriptionProfiles")}</CardTitle></CardHeader><CardContent>
-        <ul className="space-y-2">{profiles.filter(p=>p.kind!=="manual").map(profile=><li key={JSON.stringify(profileRef(profile))} className="atlas-record">
-          <span className="break-words text-sm">{profile.kind==="subscription"?profile.label:profile.kind==="ready_config"?profile.name:""}</span>
-          <ProfileHealthBadge profileRef={profileRef(profile)}/>
-          <ServerCheck profileRef={profileRef(profile)} />
-        </li>)}</ul>
-      </CardContent></Card>}
       {/* ─── Profile list: Custom / Manual Servers ───────────────────── */}
       <Card className="atlas-section">
         <CardHeader>

@@ -26,7 +26,7 @@ import { Button } from "@/components/Button";
 import { ConnectionErrorCard } from "@/components/ConnectionErrorCard";
 import { Card } from "@/components/Card";
 import { FlagIcon } from "@/components/FlagIcon";
-import { useTrafficStream } from "@/hooks/useTrafficStream";
+import { useSessionTraffic } from "@/components/SessionTraffic";
 import { useSessionTimer } from "@/hooks/useSessionTimer";
 import { useServerLatency } from "@/hooks/useServerLatency";
 import { cn } from "@/lib/utils";
@@ -37,9 +37,6 @@ import { loadExpandedSubscriptions, saveExpandedSubscriptions } from "@/lib/expa
 import { useI18n } from "@/lib/i18n";
 import type { GeneratorSettings, HomeProfileMetadata, Outbound, RoutingOptions, Status, StatusReport, TunnelMode } from "@/lib/types";
 import type { ConnectionProfile } from "@/lib/connectionProfiles";
-
-const inTauri =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export interface HomeTabProps {
   status: StatusReport;
@@ -122,7 +119,7 @@ export function HomeTab({
   const isRunning = statusLabel === "running";
   const isTransition = statusLabel === "starting" || statusLabel === "stopping";
   const sessionTimer = useSessionTimer(isRunning);
-  const trafficLive = useTrafficStream(isRunning || !inTauri, profiles.length);
+  const trafficLive = useSessionTraffic();
   const current = trafficLive.current;
 
   // Probe latency for both manual profiles and hydrated subscription outbounds.

@@ -19,7 +19,7 @@ import {
 import { formatDuration } from "@/hooks/useSessionTimer";
 import { FlagIcon } from "@/components/FlagIcon";
 import { ConnectionErrorCard } from "@/components/ConnectionErrorCard";
-import { useTrafficStream } from "@/hooks/useTrafficStream";
+import { useSessionTraffic } from "@/components/SessionTraffic";
 import { useServerLatency } from "@/hooks/useServerLatency";
 import { api } from "@/lib/api";
 import { flagForProfile } from "@/lib/flags";
@@ -97,7 +97,7 @@ export function HomeScreen({
   const connectionError = vpn.error ?? (vpn.state === "error" ? vpn.message : null);
   const isRunning = vpn.state === "running";
   const isTransition = vpn.state === "starting";
-  const traffic = useTrafficStream(isRunning || !inTauri, profiles.length);
+  const traffic = useSessionTraffic();
   const current = traffic.current;
 
   const latencyState = useServerLatency(profiles);

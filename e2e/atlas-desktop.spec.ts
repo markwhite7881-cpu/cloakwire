@@ -83,7 +83,8 @@ test("profile and subscription text travel through the same importer",async({pag
     };
   });
   const subscriptions = page.locator(".atlas-section").filter({has:page.getByRole("heading",{name:"Subscriptions",exact:true})});
-  await expect(subscriptions.locator("button[aria-expanded]")).toHaveAttribute("aria-expanded","true");
+  await expect(subscriptions.locator("button[aria-expanded]")).toHaveAttribute("aria-expanded","false");
+  await subscriptions.locator("button[aria-expanded]").click();
   await expect(subscriptions.getByRole("textbox")).toHaveCount(0);
   await expect(subscriptions.getByRole("button",{name:"Add Subscription",exact:true})).toHaveCount(0);
   const mixed="vless://fixture-only@example.test:443#AtlasUK\nhttps://provider.example/test";
