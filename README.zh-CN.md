@@ -21,9 +21,32 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 <br/>
 
-<img src="screenshots/hero-showcase.png" alt="Cloakwire 界面展示" width="100%" />
+<a href="screenshots/01-home.png"><picture>
+  <source media="(max-width: 600px)" srcset="screenshots/01-home.png" />
+  <img src="screenshots/hero-showcase.png" alt="CloakWire Atlas 主页上的地球仪和连接按钮" width="100%" />
+</picture></a>
 
 </div>
+
+<details>
+<summary><strong>查看 CloakWire 1.5.0 的五张截图</strong></summary>
+
+点击截图可查看原图。
+
+**Windows 和 macOS**
+
+<p>
+  <a href="screenshots/01-home.png"><img src="screenshots/01-home.png" alt="已连接东京，主页显示地球仪、最近使用的服务器及流量图" width="380" /></a>
+  <a href="screenshots/02-servers.png"><img src="screenshots/02-servers.png" alt="服务器列表中的个人配置与订阅" width="380" /></a>
+  <a href="screenshots/03-config.png"><img src="screenshots/03-config.png" alt="隧道模式、代理端口及 DNS 连接设置" width="380" /></a>
+  <a href="screenshots/04-routing.png"><img src="screenshots/04-routing.png" alt="将 Firefox 和 Telegram 的流量导入 VPN 的路由规则" width="380" /></a>
+</p>
+
+**Android**
+
+<p><a href="screenshots/05-android.png"><img src="screenshots/05-android.png" alt="Android 已连接东京，主页显示流量图与应用路由摘要" width="290" /></a></p>
+
+</details>
 
 ---
 
@@ -113,7 +136,7 @@ Minisign 用于保护更新下载。Windows 安装包未使用 Authenticode 签�
 
 ### 工具链
 
-- Node.js 和 npm；1.4.9 发布版在 Windows 上使用 Node.js 24，在 macOS 上使用 Node.js 22 构建。
+- Node.js 和 npm。发布工具的自动检查使用 Node.js 24。
 - Rust stable，并安装所需平台的编译目标。
 - Windows：Visual Studio C++ 生成工具和 WebView2 运行时；Tauri 使用 NSIS/WiX 打包安装程序。
 - macOS：Xcode 命令行工具；构建两种架构时需安装 `aarch64-apple-darwin` 和 `x86_64-apple-darwin` Rust 目标。

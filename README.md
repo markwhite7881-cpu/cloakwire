@@ -21,9 +21,32 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 <br/>
 
-<img src="screenshots/hero-showcase.png" alt="Cloakwire Interface Showcase" width="100%" />
+<a href="screenshots/01-home.png"><picture>
+  <source media="(max-width: 600px)" srcset="screenshots/01-home.png" />
+  <img src="screenshots/hero-showcase.png" alt="CloakWire Atlas home screen with the globe and connection controls" width="100%" />
+</picture></a>
 
 </div>
+
+<details>
+<summary><strong>View five screenshots from CloakWire 1.5.0</strong></summary>
+
+Select a screenshot to open it at full size.
+
+**Windows and macOS**
+
+<p>
+  <a href="screenshots/01-home.png"><img src="screenshots/01-home.png" alt="Connected to Tokyo, with the globe, recent servers and traffic chart" width="380" /></a>
+  <a href="screenshots/02-servers.png"><img src="screenshots/02-servers.png" alt="Server list with personal profiles and subscriptions" width="380" /></a>
+  <a href="screenshots/03-config.png"><img src="screenshots/03-config.png" alt="Connection settings for the tunnel, proxy ports and DNS" width="380" /></a>
+  <a href="screenshots/04-routing.png"><img src="screenshots/04-routing.png" alt="Routing rules sending Firefox and Telegram through the VPN" width="380" /></a>
+</p>
+
+**Android**
+
+<p><a href="screenshots/05-android.png"><img src="screenshots/05-android.png" alt="Android connected to Tokyo, with the traffic chart and app routing summary" width="290" /></a></p>
+
+</details>
 
 ---
 
@@ -113,7 +136,7 @@ Transport and routing support depends on the engine and profile. Ready-made prof
 
 ### Toolchains
 
-- Node.js and npm; the 1.4.9 release was built with Node.js 24 on Windows and 22 on macOS.
+- Node.js and npm. The release tooling checks run with Node.js 24.
 - Rust stable with the target for the platform being built.
 - Windows: Visual Studio C++ Build Tools and the WebView2 runtime; Tauri packages releases with NSIS/WiX.
 - macOS: Xcode Command Line Tools; install both `aarch64-apple-darwin` and `x86_64-apple-darwin` Rust targets to build both architectures.

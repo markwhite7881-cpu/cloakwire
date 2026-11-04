@@ -21,9 +21,32 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 <br/>
 
-<img src="screenshots/hero-showcase.png" alt="Интерфейс Cloakwire" width="100%" />
+<a href="screenshots/01-home.png"><picture>
+  <source media="(max-width: 600px)" srcset="screenshots/01-home.png" />
+  <img src="screenshots/hero-showcase.png" alt="Главный экран CloakWire Atlas с глобусом и кнопкой подключения" width="100%" />
+</picture></a>
 
 </div>
+
+<details>
+<summary><strong>Показать пять снимков CloakWire 1.5.0</strong></summary>
+
+Нажмите на снимок, чтобы открыть его в полном размере.
+
+**Windows и macOS**
+
+<p>
+  <a href="screenshots/01-home.png"><img src="screenshots/01-home.png" alt="Подключение к Токио, глобус, недавние серверы и график трафика" width="380" /></a>
+  <a href="screenshots/02-servers.png"><img src="screenshots/02-servers.png" alt="Список личных серверов и подписок" width="380" /></a>
+  <a href="screenshots/03-config.png"><img src="screenshots/03-config.png" alt="Настройки подключения, включая режим туннеля, порты прокси и DNS" width="380" /></a>
+  <a href="screenshots/04-routing.png"><img src="screenshots/04-routing.png" alt="Правила маршрутизации Firefox и Telegram через VPN" width="380" /></a>
+</p>
+
+**Android**
+
+<p><a href="screenshots/05-android.png"><img src="screenshots/05-android.png" alt="Главная на Android с подключением к Токио, графиком трафика и маршрутизацией приложений" width="290" /></a></p>
+
+</details>
 
 ---
 
@@ -113,7 +136,7 @@ Minisign защищает загрузки механизма обновлени
 
 ### Инструменты
 
-- Node.js и npm; релиз 1.4.9 собран с Node.js 24 на Windows и 22 на macOS.
+- Node.js и npm. Для проверки инструментов выпуска проект использует Node.js 24.
 - Rust stable с установленным целевым target для нужной платформы.
 - Windows: Visual Studio C++ Build Tools и среда WebView2; Tauri упаковывает установщики с помощью NSIS/WiX.
 - macOS: Xcode Command Line Tools; для обеих архитектур установите Rust targets `aarch64-apple-darwin` и `x86_64-apple-darwin`.
