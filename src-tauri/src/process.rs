@@ -176,6 +176,7 @@ pub struct ProcessManager {
     /// Invalidates pending profile checks on Stop or a newer connection request.
     ready_check_epoch: AtomicU64,
     ready_catalog_epoch: AtomicU64,
+    source_catalog: Arc<crate::diagnostics::sources::SourceCatalog>,
     /// ID currently allowed to mutate runtime state; zero means no active run.
     active_run_id: Arc<AtomicU64>,
     /// Run generation currently owning Xray telemetry, or zero when idle.
@@ -201,6 +202,14 @@ pub struct ProcessManager {
 
 impl Default for ProcessManager {
     fn default() -> Self {
+        Self::with_catalog(crate::diagnostics::sources::app_catalog().clone())
+    }
+}
+
+impl ProcessManager {
+    pub(crate) fn with_catalog(
+        source_catalog: Arc<crate::diagnostics::sources::SourceCatalog>,
+    ) -> Self {
         Self {
             diagnostics: Arc::new(crate::diagnostics::active::SessionDiagnostics::default()),
             recovery: Arc::new(crate::recovery::coordinator::RecoveryCoordinator::default()),
@@ -215,7 +224,8 @@ impl Default for ProcessManager {
             controller_url: Mutex::new(None),
             next_run_id: AtomicU64::new(0),
             ready_check_epoch: AtomicU64::new(0),
-            ready_catalog_epoch: AtomicU64::new(crate::diagnostics::sources::catalog_epoch()),
+            ready_catalog_epoch: AtomicU64::new(source_catalog.epoch()),
+            source_catalog,
             active_run_id: Arc::new(AtomicU64::new(0)),
             xray_stats_run_id: AtomicU64::new(0),
             transition: Arc::new(Semaphore::new(1)),
@@ -236,10 +246,8 @@ impl ProcessManager {
     }
 
     fn issue_ready_ticket(&self) -> u64 {
-        self.ready_catalog_epoch.store(
-            crate::diagnostics::sources::catalog_epoch(),
-            Ordering::Release,
-        );
+        self.ready_catalog_epoch
+            .store(self.source_catalog.epoch(), Ordering::Release);
         self.ready_check_epoch.fetch_add(1, Ordering::AcqRel) + 1
     }
     pub fn begin_ready_profile_check(&self) -> u64 {
@@ -253,8 +261,7 @@ impl ProcessManager {
     }
     pub fn is_ready_profile_check_current(&self, ticket: u64) -> bool {
         self.ready_check_epoch.load(Ordering::Acquire) == ticket
-            && self.ready_catalog_epoch.load(Ordering::Acquire)
-                == crate::diagnostics::sources::catalog_epoch()
+            && self.ready_catalog_epoch.load(Ordering::Acquire) == self.source_catalog.epoch()
     }
 
     pub(crate) fn is_launch_check_current(&self, epoch: u64, recovering: bool) -> bool {
@@ -1333,13 +1340,8 @@ impl ProcessManager {
 
     /// Update the StatusReport after a process has exited.
     ///
-    /// Also unconditionally clears the Windows system proxy — the
-    /// sing-box process is gone so the proxy setting we wrote on
-    /// `start` must come off, otherwise Windows keeps sending traffic
-    /// to 127.0.0.1:<port> which is now dead and the user's internet
-    /// appears to be down. Idempotent: no-op when there's nothing to
-    /// clear (e.g. on platforms without a system proxy or when the
-    /// current session was a TUN-only run).
+    /// Release the system proxy after this run exits. On Windows the lease
+    /// verifies the currently applied settings before restoring the prior values.
     async fn finalize_exit(
         &self,
         run_id: u64,
@@ -1619,113 +1621,23 @@ pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
 
 #[cfg(windows)]
 pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16) -> AppResult<()> {
-    use winreg::enums::*;
-    use winreg::RegKey;
-
-    let proxy =
-        format!("http={host}:{http_port};https={host}:{http_port};socks={host}:{socks_port}");
-    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let settings = hkcu
-        .open_subkey_with_flags(
-            "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
-            KEY_SET_VALUE,
-        )
-        .map_err(|e| AppError::Spawn(format!("open Internet Settings: {e}")))?;
-    settings
-        .set_value("ProxyEnable", &1u32)
-        .map_err(|e| AppError::Spawn(format!("set ProxyEnable: {e}")))?;
-    settings
-        .set_value("ProxyServer", &proxy)
-        .map_err(|e| AppError::Spawn(format!("set ProxyServer: {e}")))?;
-    let _ = settings.set_value("ProxyOverride", &"<local>;localhost;127.*");
-    notify_wininet_proxy_change();
+    let server = format!("http={host}:{http_port};https={host}:{http_port};socks={host}:{socks_port}");
+    if crate::windows_proxy::apply(&server)? {
+        notify_wininet_proxy_change();
+    }
     Ok(())
 }
 
 #[cfg(windows)]
 pub fn clear_system_proxy() -> AppResult<()> {
-    use winreg::enums::*;
-    use winreg::RegKey;
-
-    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let settings = hkcu
-        .open_subkey_with_flags(
-            "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
-            KEY_SET_VALUE,
-        )
-        .map_err(|e| AppError::Spawn(format!("open Internet Settings: {e}")))?;
-    settings
-        .set_value("ProxyEnable", &0u32)
-        .map_err(|e| AppError::Spawn(format!("clear ProxyEnable: {e}")))?;
-    let _ = settings.set_value("ProxyServer", &"");
-    notify_wininet_proxy_change();
+    if crate::windows_proxy::release()? {
+        notify_wininet_proxy_change();
+    }
     Ok(())
 }
 
 // --- System proxy management (macOS) --------------------------------
 //
-// macOS exposes system proxies through `networksetup`. Apply the HTTP and
-// HTTPS proxy to every enabled network service because the active interface
-// can change between Wi-Fi, Ethernet, and other services while the app runs.
-// Per-service failures are expected (for example, inactive bridge services),
-// so they are logged and do not prevent other services from being updated.
-
-#[cfg(target_os = "macos")]
-fn enabled_network_services() -> Vec<String> {
-    let output = match std::process::Command::new("networksetup")
-        .arg("-listallnetworkservices")
-        .output()
-    {
-        Ok(output) => output,
-        Err(error) => {
-            log::warn!(
-                "macos-proxy: networksetup -listallnetworkservices failed to spawn: {error}"
-            );
-            return Vec::new();
-        }
-    };
-    if !output.status.success() {
-        log::warn!(
-            "macos-proxy: networksetup -listallnetworkservices exited with {:?}",
-            output.status.code()
-        );
-        return Vec::new();
-    }
-
-    // The first line is the disabled-service legend; disabled services begin
-    // with `*`. Preserve full service names because they may contain spaces.
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .skip(1)
-        .filter(|line| !line.starts_with('*') && !line.trim().is_empty())
-        .map(str::to_owned)
-        .collect()
-}
-
-#[cfg(target_os = "macos")]
-fn run_networksetup(args: &[&str]) {
-    match std::process::Command::new("networksetup")
-        .args(args)
-        .output()
-    {
-        Ok(output) if !output.status.success() => {
-            log::warn!(
-                "macos-proxy: networksetup {} exited {:?}: {}",
-                args.join(" "),
-                output.status.code(),
-                String::from_utf8_lossy(&output.stderr).trim()
-            );
-        }
-        Err(error) => {
-            log::warn!(
-                "macos-proxy: networksetup {} failed to spawn: {error}",
-                args.join(" ")
-            );
-        }
-        Ok(_) => {}
-    }
-}
-
 #[cfg(target_os = "macos")]
 pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
     apply_system_proxy_with_socks(host, port, port)
@@ -1733,51 +1645,12 @@ pub fn apply_system_proxy(host: &str, port: u16) -> AppResult<()> {
 
 #[cfg(target_os = "macos")]
 pub fn apply_system_proxy_with_socks(host: &str, http_port: u16, socks_port: u16) -> AppResult<()> {
-    let services = enabled_network_services();
-    if services.is_empty() {
-        return Err(AppError::Spawn(
-            "no enabled network services (networksetup returned empty)".into(),
-        ));
-    }
-
-    let http_port_str = http_port.to_string();
-    let socks_port_str = socks_port.to_string();
-    for service in &services {
-        log::info!("macos-proxy: applying to {service} (http:{http_port}, socks:{socks_port})");
-        run_networksetup(&[
-            "-setwebproxy",
-            service.as_str(),
-            host,
-            http_port_str.as_str(),
-        ]);
-        run_networksetup(&[
-            "-setsecurewebproxy",
-            service.as_str(),
-            host,
-            http_port_str.as_str(),
-        ]);
-        run_networksetup(&[
-            "-setsocksfirewallproxy",
-            service.as_str(),
-            host,
-            socks_port_str.as_str(),
-        ]);
-        run_networksetup(&["-setwebproxystate", service.as_str(), "on"]);
-        run_networksetup(&["-setsecurewebproxystate", service.as_str(), "on"]);
-        run_networksetup(&["-setsocksfirewallproxystate", service.as_str(), "on"]);
-    }
-    Ok(())
+    crate::macos_proxy::apply(host, http_port, socks_port)
 }
 
 #[cfg(target_os = "macos")]
 pub fn clear_system_proxy() -> AppResult<()> {
-    for service in enabled_network_services() {
-        log::info!("macos-proxy: clearing on {service}");
-        run_networksetup(&["-setwebproxystate", service.as_str(), "off"]);
-        run_networksetup(&["-setsecurewebproxystate", service.as_str(), "off"]);
-        run_networksetup(&["-setsocksfirewallproxystate", service.as_str(), "off"]);
-    }
-    Ok(())
+    crate::macos_proxy::clear()
 }
 
 // --- TUN adapter DNS (Windows only) --------------------------------
@@ -1800,6 +1673,13 @@ pub fn clear_system_proxy() -> AppResult<()> {
 // On macOS this is a no-op: the TUN device on macOS
 // doesn't auto-derive a DNS server, so the bug doesn't
 // occur.
+
+#[cfg(windows)]
+fn configured_tun_interface(json: &serde_json::Value) -> Option<&str> {
+    json["inbounds"].as_array()?.iter()
+        .find(|inbound| inbound["type"] == "tun")?["interface_name"]
+        .as_str().filter(|name| !name.trim().is_empty())
+}
 
 /// Read the sing-box config we just wrote, find the TUN interface
 /// name and the local-DNS server, and apply that DNS server to the
@@ -1835,19 +1715,10 @@ async fn set_tun_dns_from_config(
             .unwrap_or("1.1.1.1")
             .to_string();
 
-        // Pull the TUN interface name. Default matches the generator
-        // (`build_inbounds` in `config::mod`).
-        let interface = json
-            .get("inbounds")
-            .and_then(|i| i.as_array())
-            .and_then(|arr| {
-                arr.iter()
-                    .find(|i| i.get("type").and_then(|t| t.as_str()) == Some("tun"))
-            })
-            .and_then(|i| i.get("interface_name"))
-            .and_then(|n| n.as_str())
-            .unwrap_or("singbox-tun")
-            .to_string();
+        // Only a named TUN from this run is eligible for DNS setup.
+        let Some(interface) = configured_tun_interface(&json) else {
+            return Ok(());
+        };
 
         // The config read above may have awaited long enough for this run to
         // be replaced. Validate ownership immediately before mutating DNS.
@@ -1864,7 +1735,7 @@ async fn set_tun_dns_from_config(
             "ip",
             "set",
             "dns",
-            &interface,
+            interface,
             "static",
             &dns,
             "primary",
@@ -2238,6 +2109,14 @@ mod engine_runtime_tests {
         assert_eq!(status.profile_key.as_deref(), Some("newer"));
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn proxy_only_or_unnamed_tun_cannot_select_another_apps_dns_adapter() {
+        use serde_json::json;
+        assert_eq!(configured_tun_interface(&json!({"inbounds":[{"type":"mixed"}]})), None);
+        assert_eq!(configured_tun_interface(&json!({"inbounds":[{"type":"tun"}]})), None);
+        assert_eq!(configured_tun_interface(&json!({"inbounds":[{"type":"tun","interface_name":"our-tun"}]})), Some("our-tun"));
+    }
     #[tokio::test]
     async fn dns_ownership_gate_rejects_stale_or_non_singbox_runs() {
         let pm = ProcessManager::new();

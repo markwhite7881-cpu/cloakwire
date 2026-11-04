@@ -46,7 +46,7 @@ fn catalog(dir: &std::path::Path, config: Value) -> SubscriptionService {
         config: json!({"outbounds":[{"protocol":"vless","tag":"proxy"}]}),
         digest: String::new(),
     });
-    let store = SubscriptionStore::new(dir.join("subscriptions.json"));
+    let store = SubscriptionStore::for_test(dir.join("subscriptions.json"));
     store.replace_all(&[links, ready]).unwrap();
     SubscriptionService::new(
         store,

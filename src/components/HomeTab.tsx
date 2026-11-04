@@ -1,4 +1,4 @@
-import { ServerCheck } from "./ServerCheck";
+import { ServerCheck, ServerCheckButton, type RowCheck } from "./ServerCheck";
 import { ServerLatency } from "./ServerLatency";
 import { ConnectionControl } from "./atlas/ConnectionControl";
 import { AtlasGlobe } from "./atlas/AtlasGlobe";
@@ -9,7 +9,7 @@ import {RecoveryNotice} from "@/components/RecoverySettings";
 import {ProfileHealthBadge} from "@/components/ProfileHealthBadge";
 import {profileRef} from "@/lib/profileEvidence";
 import type {ReactNode} from "react";
-import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { ConnectionStatus, connectionNeedsAttention } from "@/components/ConnectionStatus";
 import { presentConnection } from "@/lib/connectionPresentation";
 import type { DesktopHealthSnapshot } from "@/lib/connectionHealth";
 import { connectionProfileStorageKey } from "@/lib/lastServer";
@@ -45,6 +45,7 @@ export interface HomeTabProps {
   status: StatusReport;
   errorActions?:ReactNode;
   runtimeActions?:ReactNode;
+  unlistedSessionCheck?: RowCheck | null;
   diagnostics?: DesktopHealthSnapshot|null;
   statusLabel: Status;
   busy: boolean;
@@ -81,7 +82,7 @@ export interface HomeTabProps {
 }
 
 export function HomeTab({
-  status,errorActions,runtimeActions,
+  status,errorActions,runtimeActions,unlistedSessionCheck,
   diagnostics=null,
   statusLabel,
   busy,
@@ -92,7 +93,7 @@ export function HomeTab({
   recent = [],
   profiles,
   selectedIndex,
-  activeOutbound,
+  activeOutbound: selectorOutbound,
   readyProfileMetadata,
   subscriptionNames,
   geoipByIp,
@@ -149,7 +150,9 @@ export function HomeTab({
 
   const selected = profiles[selectedIndex];
   const isXrayRunning = isRunning && status.engine === "xray";
-  const activeXrayProfile = isXrayRunning
+  const activeOutbound = isRunning && !isXrayRunning ? selectorOutbound : null;
+  const sessionRef = healthView.session?.profile_ref;
+  const activeXrayProfile = isXrayRunning && !sessionRef
     ? profiles.find(
         (profile): profile is Extract<ConnectionProfile, { kind: "ready_config" }> =>
           profile.kind === "ready_config" &&
@@ -196,10 +199,16 @@ export function HomeTab({
     return /^[A-Z]{2}$/.test(code) ? code : null;
   };
   const countries=[...new Set(profiles.map(countryOf).filter(Boolean))].sort().join(" ");
-  const sessionRef=healthView.session?.profile_ref;
-  const owner=sessionRef && profiles.find(p=>{const ref=profileRef(p);return ref && sameProfileRef(ref,sessionRef);});
+  const accepted = healthView.session;
+  const owner = sessionRef && profiles.find(profile => {
+    const ref = profileRef(profile);
+    return ref && sameProfileRef(ref, sessionRef) && (profile.kind === "manual" ||
+      !accepted?.source_revision || profile.source_revision === accepted.source_revision);
+  });
   const liveProfile=activeProfile || owner || activeXrayProfile;
-  const country=liveProfile ? countryOf(liveProfile) : activeFlag?.code !== "??" ? activeFlag?.code ?? null : null;
+  const acceptedName = accepted?.display_name || status.profile_name;
+  const fallbackCode = activeFlag?.code || (acceptedName ? flagForProfile({tag: acceptedName, geoipByIp}).code : null);
+  const country = liveProfile ? countryOf(liveProfile) : fallbackCode && /^[A-Z]{2}$/.test(fallbackCode) ? fallbackCode : null;
   const regionNames=useMemo(()=>new Intl.DisplayNames([locale],{type:"region"}),[locale]);
   const route=settings ? describeRoutingMode(settings,"desktop",selected?.kind==="ready_config"?selected.engine:"singbox") : null;
   const selectedKey=selected && connectionProfileStorageKey(selected);
@@ -208,6 +217,9 @@ export function HomeTab({
   const sessionName = activeName || healthView.session?.display_name || (isXrayRunning ? activeXrayDisplay.label : null);
   const differentOwner = !!(sessionRef && pickedRef && !sameProfileRef(sessionRef, pickedRef));
   const showActive = isRunning && sessionName && (sessionName !== pickedName || differentOwner);
+  const sessionIsAuto = sessionRef?.kind === "auto";
+  const retryOnError = !!unlistedSessionCheck && !sessionIsAuto && connectionNeedsAttention(healthView);
+  const sessionRowCheck = retryOnError ? null : unlistedSessionCheck;
   const recentRows=recent.map(key=>profiles.findIndex(p=>connectionProfileStorageKey(p)===key)).filter(i=>i>=0);
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-5">
@@ -258,7 +270,7 @@ export function HomeTab({
       </section>
       {(isRunning || healthView.issue || healthView.state === "crashed") && <ConnectionStatus view={healthView} showHeading={healthView.state === "crashed"} hideSessionName={isRunning && !!healthView.session && [pickedName, sessionName].includes(healthView.session.display_name)}
 
-        onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined} actions={runtimeActions}/>}
+        onChooseServer={onNavigateTab?()=>onNavigateTab("servers"):undefined} actions={<>{runtimeActions}{retryOnError && <ServerCheckButton check={unlistedSessionCheck} activeSession />}</>}/>}
       <RecoveryNotice />
       {error && <ConnectionErrorCard key={error} error={error} onDismiss={onDismissError} actions={errorActions} />}
 
@@ -279,7 +291,7 @@ export function HomeTab({
         <Button size="sm" variant="outline" onClick={()=>onNavigateTab?.("routing")}>{t("common.edit")}</Button>
       </section>
       {/* All-servers strip — quick visual switcher. */}
-      {profiles.length > 0 && (
+      {(profiles.length > 0 || sessionRowCheck) && (
         <Card className="atlas-home-section p-4">
           <div className="mb-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -296,6 +308,11 @@ export function HomeTab({
               <span>{t("common.add")}</span>
             </Button>
           </div>
+          {sessionRowCheck && <div className="atlas-server-entry mb-2">
+            <span className="min-w-0 break-words px-2 text-sm">{sessionIsAuto ? t("health.auto") :
+              t("health.session", {name:sessionName || t("home.activeServer")})}</span>
+            <ServerCheckButton check={sessionRowCheck} activeSession />
+          </div>}
           <GroupedHomeProfileRows
             profiles={profiles}
             selectedIndex={selectedIndex}

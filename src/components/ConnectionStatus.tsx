@@ -2,6 +2,9 @@ import type {ReactNode} from "react";
 import {AlertCircle,CheckCircle2,Server} from "lucide-react";
 import {useI18n} from "@/lib/i18n";
 import type {ConnectionPresentation} from "@/lib/connectionPresentation";
+export function connectionNeedsAttention(view: ConnectionPresentation) {
+  return !!(view.issue || view.health?.issue) || ["degraded", "unavailable", "crashed"].includes(view.state);
+}
 export function ConnectionStatus({view,onChooseServer,showHeading=true,hideSessionName=false,actions}:{
   view:ConnectionPresentation;onChooseServer?:()=>void;showHeading?:boolean;hideSessionName?:boolean;actions?:ReactNode;
 }){
@@ -9,7 +12,7 @@ export function ConnectionStatus({view,onChooseServer,showHeading=true,hideSessi
   const code=view.issue?.code??view.health?.issue;
   const time=view.health?.checked_at&&Number.isFinite(Date.parse(view.health.checked_at))
     ?new Intl.DateTimeFormat(locale,{hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(new Date(view.health.checked_at)):null;
-  const needsAttention=!!code||view.state==="degraded"||view.state==="crashed";
+  const needsAttention=connectionNeedsAttention(view);
   const compact=!showHeading&&!needsAttention;
   if(view.state==="stopped"&&!view.issue)return null;
   return <section aria-label={t("health.title")} data-testid="connection-health" title={compact?view.session?.display_name??undefined:undefined} className={compact?"mt-1 flex min-w-0 flex-wrap items-center justify-center gap-x-3 text-xs":"mt-3 min-w-0 space-y-2 rounded-xl border border-border/60 bg-background/40 p-3 text-left text-sm"}>

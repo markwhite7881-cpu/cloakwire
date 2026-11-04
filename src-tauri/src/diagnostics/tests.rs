@@ -186,3 +186,43 @@ async fn failed_cleanup_blocks_later_work_instead_of_overlapping_children() {
         Some(HealthIssue::EngineUnavailable)
     );
 }
+
+#[cfg(not(target_os = "android"))]
+#[tokio::test]
+async fn shutdown_waits_for_cleanup_and_refuses_late_preparation() {
+    use tokio::sync::oneshot;
+    let probes = Arc::new(ProbeCoordinator::default());
+    let lease = probes
+        .begin(identity(), HealthScope::SelectedProfile)
+        .lease
+        .unwrap();
+    let (started, running) = oneshot::channel();
+    let (done, mut cleaned) = oneshot::channel();
+    let owner = probes.clone();
+    let task = tokio::spawn(async move {
+        owner
+            .execute(
+                lease,
+                async {
+                    started.send(()).unwrap();
+                    std::future::pending().await
+                },
+                async {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    done.send(()).unwrap();
+                },
+            )
+            .await;
+    });
+    running.await.unwrap();
+    probes.shutdown().await;
+    assert!(
+        cleaned.try_recv().is_ok(),
+        "exit returned while cleanup was in progress"
+    );
+    assert!(probes
+        .begin(identity(), HealthScope::SelectedProfile)
+        .lease
+        .is_none());
+    task.await.unwrap();
+}

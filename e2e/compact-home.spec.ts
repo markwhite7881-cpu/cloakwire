@@ -13,7 +13,7 @@ test("Android check stays on the server row and does not interrupt the running c
  expect(await hero.evaluate(e=>e.scrollLeft)).toBe(0);
  const check=card.getByRole("button",{name:"Check server",exact:true});
  await check.click();
- await expect(card).toContainText("Access verified");
+ await expect(card).toContainText("Server reachable");
  expect(await hero.evaluate(e=>e.scrollLeft)).toBe(0);
  expect(await card.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
  await check.click();
@@ -50,7 +50,7 @@ test("Android compact failure keeps its explanation and retry available",async({
  const {verify}=await openFixture(page,info,{profileProbe:true,running:true,selectedFirst:true,tab:"home"});
  const card=page.locator(".atlas-server-entry").filter({hasText:"First"}).first();
  await card.getByRole("button",{name:"Check server",exact:true}).click();
- await expect(card).toContainText("Access verified");
+ await expect(card).toContainText("Server reachable");
  await page.evaluate(()=>{
   const w=window as any;
   w.selectedProbe={...w.selectedProbe,outcome:"failed",issue:"timeout"};

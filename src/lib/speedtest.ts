@@ -1,3 +1,5 @@
+import { Channel, invoke } from "@tauri-apps/api/core";
+
 export interface SpeedTestResult {
   id: string;
   timestamp: number;
@@ -32,12 +34,26 @@ export interface SpeedTestProgress {
 const SPEEDTEST_HISTORY_KEY = "cloakwire.speedtest.history";
 const MAX_HISTORY_ITEMS = 10;
 
+function isMeasurement(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n >= 0;
+}
+
+function isSpeedTestResult(value: unknown): value is SpeedTestResult {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.id === "string" && row.id.length > 0 &&
+    typeof row.serverName === "string" && typeof row.vpnActive === "boolean" &&
+    typeof row.timestamp === "number" && isMeasurement(row.timestamp) && row.timestamp <= 8.64e15 &&
+    [row.ping, row.jitter, row.downloadSpeed, row.uploadSpeed].every(isMeasurement) &&
+    [row.clientIp, row.location, row.colo].every(v => v === undefined || typeof v === "string");
+}
+
 export function loadSpeedTestHistory(): SpeedTestResult[] {
   try {
     const raw = localStorage.getItem(SPEEDTEST_HISTORY_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.filter(isSpeedTestResult).slice(0, MAX_HISTORY_ITEMS) : [];
   } catch {
     return [];
   }
@@ -96,7 +112,7 @@ export class SpeedTestRunner {
   }
 
   public async run(
-    meta: { serverName: string; vpnActive: boolean },
+    meta: { serverName: string; vpnActive: boolean; androidRunId?: string | null },
     onProgress: (p: SpeedTestProgress) => void,
   ): Promise<SpeedTestResult> {
     this.stop();
@@ -117,143 +133,31 @@ export class SpeedTestRunner {
     onProgress({ ...progress });
 
     try {
-      // 1. PING & METADATA PHASE
-      const pings: number[] = [];
-      let detectedIp = "";
-      let detectedLocation = "";
-      let detectedColo = "";
-
-      // 4 probe requests
-      for (let i = 0; i < 4; i++) {
-        if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-        const t0 = performance.now();
-        const res = await fetch(`https://speed.cloudflare.com/__down?bytes=0&_t=${Date.now()}_${i}`, {
-          method: "GET",
-          cache: "no-store",
-          signal,
-        });
-        const rtt = Math.max(1, Math.round(performance.now() - t0));
-        pings.push(rtt);
-
-        if (!detectedIp) {
-          detectedIp = res.headers.get("cf-meta-ip") || "";
-          const country = res.headers.get("cf-meta-country") || "";
-          const city = res.headers.get("cf-meta-city") || "";
-          detectedLocation = [city, country].filter(Boolean).join(", ");
-          detectedColo = res.headers.get("cf-meta-colo") || "";
-        }
-
-        progress.pingMs = Math.round(pings.reduce((a, b) => a + b, 0) / pings.length);
-        progress.jitterMs = calculateJitter(pings);
-        progress.progressPercent = 5 + (i + 1) * 5;
-        progress.clientIp = detectedIp;
-        progress.location = detectedLocation;
-        progress.colo = detectedColo;
-        onProgress({ ...progress });
-      }
-
-      // 2. DOWNLOAD PHASE
-      progress.phase = "download";
-      progress.progressPercent = 25;
-      onProgress({ ...progress });
-
-      const downloadBytes = 15_000_000; // 15 MB payload chunk
-      const downStart = performance.now();
-      const downRes = await fetch(
-        `https://speed.cloudflare.com/__down?bytes=${downloadBytes}&_t=${Date.now()}`,
-        {
-          method: "GET",
-          cache: "no-store",
-          signal,
-        },
-      );
-
-      if (!downRes.ok) throw new Error(`Download probe failed: ${downRes.status}`);
-
-      const reader = downRes.body?.getReader();
-      let receivedBytes = 0;
-      let lastSampleTime = downStart;
-      let lastSampleBytes = 0;
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          receivedBytes += value ? value.byteLength : 0;
-          const now = performance.now();
-
-          // Update metrics at ~80ms cadence
-          if (now - lastSampleTime >= 80) {
-            const dt = (now - lastSampleTime) / 1000;
-            const chunkBytes = receivedBytes - lastSampleBytes;
-            const instantMbps = (chunkBytes * 8) / (dt * 1_000_000);
-
-            progress.currentSpeed = Math.round(instantMbps * 10) / 10;
-            progress.samples.push(progress.currentSpeed);
-            if (progress.samples.length > 40) progress.samples.shift();
-
-            const overallElapsed = (now - downStart) / 1000;
-            progress.downloadMbps =
-              Math.round(((receivedBytes * 8) / (overallElapsed * 1_000_000)) * 10) / 10;
-            progress.progressPercent = Math.min(65, 25 + Math.round((receivedBytes / downloadBytes) * 40));
-            onProgress({ ...progress });
-
-            lastSampleTime = now;
-            lastSampleBytes = receivedBytes;
+      if (meta.androidRunId !== undefined && meta.vpnActive) {
+        if (!meta.androidRunId) throw new Error("speedtest_route_unavailable");
+        const operationId = crypto.randomUUID();
+        const channel = new Channel<SpeedTestProgress>();
+        const cancel = () => { void invoke("cancel_android_speed_test", { operationId }).catch(() => {}); };
+        channel.onmessage = p => { if (signal.aborted) cancel(); else onProgress(p); };
+        signal.addEventListener("abort", cancel, { once: true });
+        try {
+          const measured = await invoke<SpeedTestProgress>("android_vpn_speed_test", {
+            runId: meta.androidRunId, operationId, onProgress: channel,
+          });
+          if (!measured || ![measured.pingMs, measured.jitterMs, measured.downloadMbps, measured.uploadMbps].every(isMeasurement)) {
+            throw new Error("speedtest_request_failed");
           }
+          Object.assign(progress, measured);
+        } catch (cause) {
+          if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+          throw new Error(String(cause).includes("speedtest_route_unavailable") ? "speedtest_route_unavailable" : "speedtest_request_failed");
+        } finally {
+          signal.removeEventListener("abort", cancel);
         }
+      } else {
+        await this.measureWeb(progress, signal, onProgress);
       }
-
-      const totalDownTime = Math.max(0.01, (performance.now() - downStart) / 1000);
-      progress.downloadMbps = Math.round(((receivedBytes * 8) / (totalDownTime * 1_000_000)) * 10) / 10;
-      progress.currentSpeed = progress.downloadMbps;
-      progress.progressPercent = 65;
-      onProgress({ ...progress });
-
-      // 3. UPLOAD PHASE
-      progress.phase = "upload";
-      progress.samples = [];
-      progress.progressPercent = 70;
-      onProgress({ ...progress });
-
-      // Create random buffer for upload (3 MB)
-      const uploadChunkSize = 1024 * 1024; // 1 MB
-      const uploadBuffers = 3;
-      const uploadPayload = new Uint8Array(uploadChunkSize);
-      for (let i = 0; i < uploadPayload.length; i += 1024) {
-        uploadPayload[i] = (i * 31) & 0xff;
-      }
-
-      let uploadedTotalBytes = 0;
-      const upStart = performance.now();
-
-      for (let chunk = 0; chunk < uploadBuffers; chunk++) {
-        if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-        const chunkT0 = performance.now();
-        const upRes = await fetch("https://speed.cloudflare.com/__up", {
-          method: "POST",
-          body: uploadPayload,
-          cache: "no-store",
-          signal,
-        });
-        if (!upRes.ok) throw new Error(`Upload probe failed: ${upRes.status}`);
-
-        const chunkDuration = Math.max(0.01, (performance.now() - chunkT0) / 1000);
-        uploadedTotalBytes += uploadPayload.byteLength;
-        const instantMbps = (uploadPayload.byteLength * 8) / (chunkDuration * 1_000_000);
-
-        progress.currentSpeed = Math.round(instantMbps * 10) / 10;
-        progress.samples.push(progress.currentSpeed);
-
-        const totalUpElapsed = Math.max(0.01, (performance.now() - upStart) / 1000);
-        progress.uploadMbps =
-          Math.round(((uploadedTotalBytes * 8) / (totalUpElapsed * 1_000_000)) * 10) / 10;
-        progress.progressPercent = Math.min(95, 70 + Math.round(((chunk + 1) / uploadBuffers) * 25));
-        onProgress({ ...progress });
-      }
-
-      const totalUpTime = Math.max(0.01, (performance.now() - upStart) / 1000);
-      progress.uploadMbps = Math.round(((uploadedTotalBytes * 8) / (totalUpTime * 1_000_000)) * 10) / 10;
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
 
       // 4. DONE PHASE
       progress.phase = "done";
@@ -292,5 +196,148 @@ export class SpeedTestRunner {
       onProgress({ ...progress });
       throw err;
     }
+  }
+
+  private async measureWeb(
+    progress: SpeedTestProgress,
+    signal: AbortSignal,
+    onProgress: (p: SpeedTestProgress) => void,
+  ): Promise<void> {
+    const pings: number[] = [];
+    let detectedIp = "";
+    let detectedLocation = "";
+    let detectedColo = "";
+
+    // 4 probe requests
+    for (let i = 0; i < 4; i++) {
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+      const t0 = performance.now();
+      const res = await fetch(`https://speed.cloudflare.com/__down?bytes=0&_t=${Date.now()}_${i}`, {
+        method: "GET",
+        cache: "no-store",
+        signal,
+      });
+      const rtt = Math.max(1, Math.round(performance.now() - t0));
+      pings.push(rtt);
+
+      if (!detectedIp) {
+        detectedIp = res.headers.get("cf-meta-ip") || "";
+        const country = res.headers.get("cf-meta-country") || "";
+        const city = res.headers.get("cf-meta-city") || "";
+        detectedLocation = [city, country].filter(Boolean).join(", ");
+        detectedColo = res.headers.get("cf-meta-colo") || "";
+      }
+
+      progress.pingMs = Math.round(pings.reduce((a, b) => a + b, 0) / pings.length);
+      progress.jitterMs = calculateJitter(pings);
+      progress.progressPercent = 5 + (i + 1) * 5;
+      progress.clientIp = detectedIp;
+      progress.location = detectedLocation;
+      progress.colo = detectedColo;
+      onProgress({ ...progress });
+    }
+
+    // 2. DOWNLOAD PHASE
+    progress.phase = "download";
+    progress.progressPercent = 25;
+    onProgress({ ...progress });
+
+    const downloadBytes = 15_000_000; // 15 MB payload chunk
+    const downStart = performance.now();
+    const downRes = await fetch(
+      `https://speed.cloudflare.com/__down?bytes=${downloadBytes}&_t=${Date.now()}`,
+      {
+        method: "GET",
+        cache: "no-store",
+        signal,
+      },
+    );
+
+    if (!downRes.ok) throw new Error(`Download probe failed: ${downRes.status}`);
+
+    const reader = downRes.body?.getReader();
+    let receivedBytes = 0;
+    let lastSampleTime = downStart;
+    let lastSampleBytes = 0;
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        receivedBytes += value ? value.byteLength : 0;
+        const now = performance.now();
+
+        // Update metrics at ~80ms cadence
+        if (now - lastSampleTime >= 80) {
+          const dt = (now - lastSampleTime) / 1000;
+          const chunkBytes = receivedBytes - lastSampleBytes;
+          const instantMbps = (chunkBytes * 8) / (dt * 1_000_000);
+
+          progress.currentSpeed = Math.round(instantMbps * 10) / 10;
+          progress.samples.push(progress.currentSpeed);
+          if (progress.samples.length > 40) progress.samples.shift();
+
+          const overallElapsed = (now - downStart) / 1000;
+          progress.downloadMbps =
+            Math.round(((receivedBytes * 8) / (overallElapsed * 1_000_000)) * 10) / 10;
+          progress.progressPercent = Math.min(65, 25 + Math.round((receivedBytes / downloadBytes) * 40));
+          onProgress({ ...progress });
+
+          lastSampleTime = now;
+          lastSampleBytes = receivedBytes;
+        }
+      }
+    }
+
+    const totalDownTime = Math.max(0.01, (performance.now() - downStart) / 1000);
+    progress.downloadMbps = Math.round(((receivedBytes * 8) / (totalDownTime * 1_000_000)) * 10) / 10;
+    progress.currentSpeed = progress.downloadMbps;
+    progress.progressPercent = 65;
+    onProgress({ ...progress });
+
+    // 3. UPLOAD PHASE
+    progress.phase = "upload";
+    progress.samples = [];
+    progress.progressPercent = 70;
+    onProgress({ ...progress });
+
+    // Create random buffer for upload (3 MB)
+    const uploadChunkSize = 1024 * 1024; // 1 MB
+    const uploadBuffers = 3;
+    const uploadPayload = new Uint8Array(uploadChunkSize);
+    for (let i = 0; i < uploadPayload.length; i += 1024) {
+      uploadPayload[i] = (i * 31) & 0xff;
+    }
+
+    let uploadedTotalBytes = 0;
+    const upStart = performance.now();
+
+    for (let chunk = 0; chunk < uploadBuffers; chunk++) {
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+      const chunkT0 = performance.now();
+      const upRes = await fetch("https://speed.cloudflare.com/__up", {
+        method: "POST",
+        body: uploadPayload,
+        cache: "no-store",
+        signal,
+      });
+      if (!upRes.ok) throw new Error(`Upload probe failed: ${upRes.status}`);
+
+      const chunkDuration = Math.max(0.01, (performance.now() - chunkT0) / 1000);
+      uploadedTotalBytes += uploadPayload.byteLength;
+      const instantMbps = (uploadPayload.byteLength * 8) / (chunkDuration * 1_000_000);
+
+      progress.currentSpeed = Math.round(instantMbps * 10) / 10;
+      progress.samples.push(progress.currentSpeed);
+
+      const totalUpElapsed = Math.max(0.01, (performance.now() - upStart) / 1000);
+      progress.uploadMbps =
+        Math.round(((uploadedTotalBytes * 8) / (totalUpElapsed * 1_000_000)) * 10) / 10;
+      progress.progressPercent = Math.min(95, 70 + Math.round(((chunk + 1) / uploadBuffers) * 25));
+      onProgress({ ...progress });
+    }
+
+    const totalUpTime = Math.max(0.01, (performance.now() - upStart) / 1000);
+    progress.uploadMbps = Math.round(((uploadedTotalBytes * 8) / (totalUpTime * 1_000_000)) * 10) / 10;
   }
 }

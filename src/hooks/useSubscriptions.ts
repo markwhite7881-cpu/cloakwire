@@ -391,6 +391,13 @@ export function useSubscriptions() {
     [subs, load, loadOutbounds],
   );
 
+  const rename = useCallback(async (id: string, name: string) => {
+    const summary = await api.renameSubscription(id, name);
+    setSubs(previous => previous.map(sub => sub.id === id ? {...sub, name: summary.name} : sub));
+    setSnapshot(previous => ({...previous, subscriptions: previous.subscriptions.map(sub =>
+      sub.id === id ? {...sub, name: summary.name} : sub)}));
+  }, []);
+
   const setIntervalFor = useCallback(
     async (id: string, mins: number) => {
       const summary = await api.setSubscriptionInterval(id, mins);
@@ -432,6 +439,7 @@ export function useSubscriptions() {
     remove,
     refreshOne,
     refreshAll,
+    rename,
     setIntervalFor,
     setActiveChild,
     selectChild: setActiveChild,

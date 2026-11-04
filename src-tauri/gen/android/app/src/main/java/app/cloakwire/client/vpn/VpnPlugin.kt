@@ -37,6 +37,9 @@ class SetAccentArgs {
 class CancelProfilePreparationArgs { var preparationId:String="" }
 
 @InvokeArg
+class SpeedRouteArgs { var runId: String = "" }
+
+@InvokeArg
 class SetRecoveryArgs { var enabled:Boolean=false }
 
 @InvokeArg
@@ -157,6 +160,15 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
       }catch(_:Exception){invoke.reject("recovery_setting_failed")}
     }
   }
+  // Private bridge used by Rust's fixed-target speed test; deliberately absent from vpn:default.
+  @Command fun speedTestRoute(invoke: Invoke) {
+    val args = invoke.parseArgs(SpeedRouteArgs::class.java)
+    thread(name = "vpn-speedtest-route", isDaemon = true) {
+      val route = runCatching { CloakwireVpnService.active?.speedTestRoute(args.runId) }.getOrNull()
+      if (route == null) invoke.reject("speedtest_route_unavailable") else invoke.resolve(route)
+    }
+  }
+
   @Command fun recoveryStatus(invoke:Invoke) {
     val live=CloakwireVpnService.active
     val status=live?.recoveryStatus()?:JSObject().put("enabled",activity.getSharedPreferences("cloakwire_state",Context.MODE_PRIVATE).getBoolean(CloakwireVpnService.KEY_RECOVERY_ENABLED,false))

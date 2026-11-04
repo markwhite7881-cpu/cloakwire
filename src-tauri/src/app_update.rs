@@ -33,6 +33,7 @@ pub struct AppUpdateInfo {
     pub version: String,
     pub current_version: String,
     pub available: bool,
+    pub manual_only: bool,
     pub notes: String,
 }
 
@@ -338,9 +339,23 @@ async fn fetch_manifest() -> AppResult<UpdaterManifest> {
         .map_err(|error| AppError::Network(format!("updater manifest JSON: {error}")))
 }
 
-pub async fn check_app_update(_app: AppHandle) -> AppResult<AppUpdateInfo> {
-    let manifest = fetch_manifest().await?;
+// Only the published application may use the signed production feed.
+fn stable_update_channel(identifier: &str) -> bool {
+    identifier == "app.cloakwire.client"
+}
+
+pub async fn check_app_update(app: AppHandle) -> AppResult<AppUpdateInfo> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
+    if !stable_update_channel(&app.config().identifier) {
+        return Ok(AppUpdateInfo {
+            version: current_version.clone(),
+            current_version,
+            available: false,
+            manual_only: true,
+            notes: String::new(),
+        });
+    }
+    let manifest = fetch_manifest().await?;
     let available = current_platform()
         .and_then(|platform| platform_entry_for(&manifest, platform))
         .and_then(|entry| validate_release_asset_url(&entry.url).ok())
@@ -351,6 +366,7 @@ pub async fn check_app_update(_app: AppHandle) -> AppResult<AppUpdateInfo> {
         version: manifest.version,
         current_version,
         available,
+        manual_only: false,
         notes: manifest.notes,
     })
 }
@@ -600,6 +616,9 @@ trap - EXIT
 }
 
 pub async fn install_app_update(app: AppHandle, expected_version: Option<String>) -> AppResult<()> {
+    if !stable_update_channel(&app.config().identifier) {
+        return Err(app_error("automatic updates are disabled for this build"));
+    }
     let manifest = fetch_manifest().await?;
     ensure_expected_version(expected_version.as_deref(), &manifest.version)?;
     let current_version = env!("CARGO_PKG_VERSION");
@@ -635,6 +654,14 @@ pub async fn install_app_update(app: AppHandle, expected_version: Option<String>
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn only_the_stable_application_can_install_stable_updates() {
+        assert!(super::stable_update_channel("app.cloakwire.client"));
+        for identifier in ["app.cloakwire.atlaspreview", "app.cloakwire.client.atlaspreview", ""] {
+            assert!(!super::stable_update_channel(identifier));
+        }
+    }
+
     use super::*;
 
     #[test]

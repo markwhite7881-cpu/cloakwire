@@ -13,7 +13,7 @@ test("a card checks its own inactive profile without selecting or connecting it"
   await expect(hero.getByTestId("profile-probe-button")).toHaveCount(0);
   await expect(page.locator(".atlas-recent").getByTestId("profile-probe-button")).toHaveCount(0);
   await second.getByRole("button",{name:"Check server",exact:true}).click();
-  await expect(second).toContainText("Access verified");
+  await expect(second).toContainText("Server reachable");
   await expect(hero.locator(".atlas-server-trigger")).toContainText("First");
   const calls = await page.evaluate(() => (window as any).nativeRequests);
   const checks = calls.filter((r:any) => r.cmd === (mobile ? "run_android_profile_probe" : "probe_desktop_profile"));
@@ -24,7 +24,7 @@ test("a card checks its own inactive profile without selecting or connecting it"
   await nav.nth(1).click();
   const directory = page.locator(mobile ? ".atlas-server-entry" : ".atlas-profile-row").filter({hasText:"Second"}).first();
   await expect(directory.getByTestId("profile-probe-button")).toBeEnabled();
-  await expect(directory).toContainText("Access verified");
+  await expect(directory).toContainText("Server reachable");
   await verify();
 });
 

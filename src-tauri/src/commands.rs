@@ -1323,6 +1323,15 @@ pub async fn remove_subscription(
 }
 
 #[tauri::command]
+pub async fn rename_subscription(
+    subscriptions: State<'_, Arc<SubscriptionService>>,
+    id: String,
+    name: String,
+) -> AppResult<SubscriptionSummary> {
+    subscriptions.rename(&id, &name).await
+}
+
+#[tauri::command]
 pub async fn set_subscription_interval(
     subscriptions: State<'_, Arc<SubscriptionService>>,
     id: String,

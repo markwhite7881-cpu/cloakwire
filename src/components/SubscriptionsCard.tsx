@@ -1,4 +1,5 @@
-import { ExternalLink, Loader2, RefreshCw, Rss, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Pencil, ExternalLink, Loader2, RefreshCw, Rss, Trash2 } from "lucide-react";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,7 @@ import type { ProviderMetadata, SubscriptionSummary } from "@/lib/types";
 export interface SubscriptionsCardProps {
   subs: SubscriptionSummary[];
   fetching: Record<string, boolean>;
+  onRename: (id: string, name: string) => Promise<void>;
   onRemove: (id: string) => void;
   onRefresh: (id: string) => void;
   onRefreshAll: () => void;
@@ -24,6 +26,7 @@ export function SubscriptionsCard({
   fetching,
   onRemove,
   onRefresh,
+  onRename,
   onRefreshAll,
   onIntervalChange,
   onSelectChild,
@@ -72,6 +75,7 @@ export function SubscriptionsCard({
               onRemove={() => {
                 if (window.confirm(t("servers.removeSubscriptionConfirm", { name: subscription.name }))) onRemove(subscription.id);
               }}
+              onRename={name => onRename(subscription.id, name)}
               onIntervalChange={(minutes) => onIntervalChange(subscription.id, minutes)}
               onSelectChild={(childKey) => onSelectChild(subscription.id, childKey)}
             />
@@ -82,15 +86,33 @@ export function SubscriptionsCard({
   );
 }
 
-function SubscriptionRow({ sub, loading, onRefresh, onRemove, onIntervalChange, onSelectChild }: {
+function SubscriptionRow({ sub, loading, onRename, onRefresh, onRemove, onIntervalChange, onSelectChild }: {
   sub: SubscriptionSummary;
   loading: boolean;
+  onRename: (name: string) => Promise<void>;
   onRefresh: () => void;
   onRemove: () => void;
   onIntervalChange: (minutes: number) => void;
   onSelectChild: (childKey: string) => void;
 }) {
   const { t } = useI18n();
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  async function saveName(event: React.FormEvent) {
+    event.preventDefault();
+    if (!draft?.trim() || saving) return;
+    setSaving(true);
+    setFailed(false);
+    try {
+      await onRename(draft.trim());
+      setDraft(null);
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  }
   const fetched = sub.last_success_at ? new Date(sub.last_success_at).toLocaleString() : "—";
   const title = sub.metadata.profile_title?.trim();
   const engine = sub.kind === "link_list" ? "sing-box" : sub.engine === "xray" ? "Xray" : sub.engine === "singbox" ? "sing-box" : null;
@@ -109,6 +131,8 @@ function SubscriptionRow({ sub, loading, onRefresh, onRemove, onIntervalChange, 
           </span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          <Button type="button" variant="ghost" size="icon" disabled={saving} title={t("servers.rename")}
+            onClick={() => { setDraft(sub.name); setFailed(false); }}><Pencil size={14}/></Button>
           <Button variant="ghost" size="icon"  onClick={onRefresh} disabled={loading} title={t("servers.refreshNow")}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           </Button>
@@ -118,6 +142,14 @@ function SubscriptionRow({ sub, loading, onRefresh, onRemove, onIntervalChange, 
         </div>
       </div>
 
+      {draft !== null && <form onSubmit={saveName} className="mt-2 flex flex-wrap items-center gap-2">
+        <input className="atlas-input min-w-0 flex-1" aria-label={t("servers.name")} autoFocus
+          disabled={saving} value={draft} maxLength={160} onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === "Escape") setDraft(null); }}/>
+        <Button type="submit" size="sm" disabled={saving || !draft.trim()}>{t("common.save")}</Button>
+        <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => setDraft(null)}>{t("common.cancel")}</Button>
+        {failed && <p role="alert" className="text-destructive">{t("servers.renameFailed")}</p>}
+      </form>}
       {title && title !== sub.name && <p className="mt-1 truncate text-[11px] text-muted-foreground">{t("servers.provider", { name: title })}</p>}
 
       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">

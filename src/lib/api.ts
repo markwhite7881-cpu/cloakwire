@@ -212,9 +212,10 @@ export const api = {
       download_url: string | null;
       signature: string | null;
       asset_name: string | null;
+      manual_only?: boolean;
     }>("check_app_update"),
-  installAppUpdate: (downloadUrl: string) =>
-    call<void>("install_app_update", { downloadUrl }),
+  installAppUpdate: (expectedVersion: string) =>
+    call<void>("install_app_update", { expectedVersion }),
 
   // --- Subscription service -------------------------------------------
   // Rust owns the full subscription lifecycle: validate input, fetch
@@ -235,6 +236,9 @@ export const api = {
     call<void>("remove_subscription", { id }),
   refreshSubscription: (id: string) =>
     call<RefreshSubscriptionResult>("refresh_subscription", { id }),
+  renameSubscription: (id: string, name: string) =>
+    call<SubscriptionSummary>("rename_subscription", { id, name }),
+
   setSubscriptionInterval: (id: string, intervalMinutes: number) =>
     call<SubscriptionSummary>("set_subscription_interval", {
       id,

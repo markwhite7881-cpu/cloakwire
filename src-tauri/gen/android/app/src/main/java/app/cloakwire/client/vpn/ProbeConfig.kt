@@ -17,7 +17,26 @@ internal object ProbeConfig {
   if(requested.isNotEmpty()){
    requireSafe(candidates.any{it.optString("tag")==requested});return requested
   }
-  requireSafe(candidates.size==1);return candidates.single().getString("tag")
+  requireSafe(candidates.size == 1)
+  val candidate = candidates.single().getString("tag")
+  val first = tags.first()
+  if (engine == "xray") {
+   requireSafe(first == candidate && config.optJSONObject("routing")?.has("balancers") != true)
+   return candidate
+  }
+  val byTag = out.associateBy { it.getString("tag") }
+  var selected = config.optJSONObject("route")?.optString("final").orEmpty().ifEmpty { first }
+  val visited = mutableSetOf<String>()
+  while (selected != candidate) {
+   requireSafe(visited.add(selected))
+   val group = byTag[selected] ?: throw IllegalArgumentException("unsupported_probe")
+   requireSafe(group.optString("type") == "selector")
+   val members = group.optJSONArray("outbounds") ?: throw IllegalArgumentException("unsupported_probe")
+   requireSafe(members.length() > 0)
+   selected = group.optString("default").ifEmpty { members.optString(0) }
+   requireSafe(selected.isNotEmpty() && (0 until members.length()).any { members.optString(it) == selected })
+  }
+  return candidate
  }
  private fun rejectKeys(value:Any?,keys:Set<String>) {
   when(value){

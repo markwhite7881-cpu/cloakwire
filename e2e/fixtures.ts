@@ -83,8 +83,7 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{fixturePi
       if(cmd==="get_active_child_config")return {engine:"singbox",child_key:"child-0",child_name:sub().children[0].name,source_revision:sub().children[0].source_revision,config:"{}"};
 
       if(cmd==="get_connection_diagnostics"){
-        if(!options.health)return null;
-        const w=window as any;
+        if(!options.health)return {session:null, health:null, issue:null, ended_unexpectedly:false, network_generation:w.physicalNetwork??"fixture"};
         if(!w.fixtureHealth){
           const session={profile_ref:{kind:"manual",id:"accepted-a"},profile_revision:"native-a",run_id:"7",network_generation:"network-a",effective_outbound_revision:"member-a",engine:"singbox",display_name:"Accepted server A"};
           w.fixtureHealth={session,health:{...session,operation_id:"initial",scope:"active_session",stage:options.health==="checking"?"verifying":"complete",outcome:options.health==="reality"?"unavailable":options.health,issue:options.health==="reality"?"probe_target_unavailable":options.health==="unavailable"?"unsupported_probe":null,checked_at:new Date().toISOString(),latency_ms:options.health==="healthy"?14:null},
@@ -92,7 +91,7 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{fixturePi
         }
         if(options.boundSource){const records=JSON.parse(localStorage.getItem("singbox-client.manual-profiles.v2")??"null")?.records;if(records?.[0]){w.fixtureHealth.session.profile_ref={kind:"manual",id:records[0].id};w.fixtureHealth.session.source_revision="a".repeat(64);w.fixtureHealth.health={...w.fixtureHealth.health,profile_ref:w.fixtureHealth.session.profile_ref};}}
         if(options.subscription){const ref={kind:"ready",subscription_id:"sub-a",child_key:"child-0"};w.fixtureHealth.session.profile_ref=ref;w.fixtureHealth.session.source_revision="a".repeat(64);w.fixtureHealth.health.profile_ref=ref;}
-        return w.fixtureHealth;
+        return {...w.fixtureHealth,network_generation:w.physicalNetwork??"fixture"};
       }
       if(cmd==="probe_desktop_profile"){
         return {profile_ref:args.profileRef,profile_revision:args.sourceRevision,run_id:null,network_generation:"fixture",
@@ -106,7 +105,7 @@ export async function openFixture(page:Page,testInfo:TestInfo,options:{fixturePi
       }
       if(cmd==="get_status"&&w.statusOverride)return w.statusOverride;
       if(cmd==="get_status"&&options.health)return {status:"running",run_id:(window as any).fixtureRun??"7",engine:"singbox",pid:123,uptime_secs:1,last_exit_code:null,last_error:null};
-      if(cmd==="get_status")return {status:options.running?"running":"stopped",pid:options.running?123:null,uptime_secs:null,last_exit_code:null,last_error:null};
+      if(cmd==="get_status")return {status:options.running?"running":"stopped",run_id:options.running?"7":null,engine:options.running?"singbox":null,pid:options.running?123:null,uptime_secs:null,last_exit_code:null,last_error:null};
       if(cmd==="plugin:vpn|status")return {state:options.running?"running":"stopped",message:null,since:null,engine:""};
       if(cmd==="get_binary_info")return {path:"fixture",exists:true};
       if(cmd==="get_singbox_version")return {version:"fixture",revision:"fixture-revision",raw:"fixture"};

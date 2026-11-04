@@ -19,7 +19,7 @@ export const ru: TranslationSchema = {
     pastPassed: "Был доступен",
     pastFailed: "Не ответил при проверке",
     pastUnavailable: "Не удалось проверить",
-    profileHealthy: "Доступ подтверждён · выбранный сервер",
+    profileHealthy: "Сервер доступен",
   "unknown": "Не проверен",
   "stale": "Проверка устарела",
   "healthy": "Доступ подтверждён · активный VPN",
@@ -58,6 +58,7 @@ export const ru: TranslationSchema = {
   "stoppedReason": "Соединение остановлено",
   "checked": "Проверено в {time}",
   "retry": "Проверить ещё раз",
+  "checkConnection": "Проверить соединение",
   "choose": "Выбрать сервер",
   "retryStale": "Сессия изменилась. Её текущий статус обновлён.",
   "reasons": {
@@ -265,6 +266,9 @@ export const ru: TranslationSchema = {
     singboxRunning: "sing-box запущен.",
   },
   servers: {
+    rename: "Переименовать подписку",
+    renameFailed: "Не удалось сохранить название. Повторите попытку.",
+    selectionFailed: "Не удалось выбрать сервер. Повторите попытку.",
     title: "Серверы и подписки",
     searchPlaceholder: "Поиск серверов по названию или стране...",
     all: "Все",
@@ -516,6 +520,7 @@ export const ru: TranslationSchema = {
     copiedJson: "Скопировано",
   },
   updates: {
+    previewManual: "Обновления Atlas Preview устанавливаются вручную.",
     title: "Обновления и статус ядер",
     desc: "Обновления приложения. Ядра VPN поставляются вместе с релизами Cloakwire.",
     appShell: "Оболочка приложения",
@@ -600,6 +605,10 @@ export const ru: TranslationSchema = {
   speedtest: {
     title: "Тест скорости",
     subtitle: "Замер пропускной способности, задержки и джиттера через туннель или напрямую",
+    testDirect: "Проверить прямое подключение",
+    directNotice: "Cloudflare увидит внешний IP вашего прямого подключения.",
+    routeUnavailable: "Не удалось подтвердить маршрут активного VPN. Для замера прямого подключения отключите VPN и нажмите «Проверить прямое подключение».",
+    requestFailed: "Не удалось завершить замер через активный VPN.",
     startTest: "Начать тест скорости",
     stopTest: "Остановить тест",
     testing: "Тестирование...",

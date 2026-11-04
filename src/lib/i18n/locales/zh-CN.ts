@@ -19,7 +19,7 @@ export const zhCN: TranslationSchema = {
     pastPassed: "上次检查：可访问",
     pastFailed: "上次检查：无响应",
     pastUnavailable: "上次检查不可用",
-    profileHealthy: "访问已验证 · 所选服务器",
+    profileHealthy: "服务器可达",
   "unknown": "未检查",
   "stale": "检查已过期",
   "healthy": "连接已验证 · 当前 VPN",
@@ -58,6 +58,7 @@ export const zhCN: TranslationSchema = {
   "stoppedReason": "连接已停止",
   "checked": "检查时间：{time}",
   "retry": "重新检查",
+  "checkConnection": "检查连接",
   "choose": "选择服务器",
   "retryStale": "会话已更改，当前状态已刷新。",
   "reasons": {
@@ -265,6 +266,9 @@ export const zhCN: TranslationSchema = {
     singboxRunning: "sing-box 正在运行。",
   },
   servers: {
+    rename: "重命名订阅",
+    renameFailed: "名称保存失败，请重试。",
+    selectionFailed: "无法选择此服务器，请重试。",
     title: "节点与订阅",
     searchPlaceholder: "按节点名称或国家搜索...",
     all: "全部",
@@ -516,6 +520,7 @@ export const zhCN: TranslationSchema = {
     copiedJson: "已复制",
   },
   updates: {
+    previewManual: "请手动安装 Atlas Preview 更新。",
     title: "软件更新与核心状态",
     desc: "客户端界面更新。VPN 核心组件随 Cloakwire 版本统一管理与打包。",
     appShell: "客户端程序",
@@ -600,6 +605,10 @@ export const zhCN: TranslationSchema = {
   speedtest: {
     title: "测速",
     subtitle: "测量通过 VPN 隧道或直连的网络吞吐量、延迟和抖动",
+    testDirect: "测试直连网络",
+    directNotice: "Cloudflare 将看到直连网络的公网 IP。",
+    routeUnavailable: "无法验证当前 VPN 路线。如需测试直连网络，请断开 VPN 并选择“测试直连网络”。",
+    requestFailed: "无法通过当前 VPN 完成测速。",
     startTest: "开始测速",
     stopTest: "停止测试",
     testing: "测速中...",

@@ -94,7 +94,7 @@ export function HomeScreen({
   const [serverPickerOpen, setServerPickerOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
 
-  const connectionError = vpn.error ?? (vpn.state === "error" ? (vpn.message || t("common.error")) : null);
+  const connectionError = vpn.error ?? (vpn.state === "error" ? vpn.message : null);
   const isRunning = vpn.state === "running";
   const isTransition = vpn.state === "starting";
   const traffic = useTrafficStream(isRunning || !inTauri, profiles.length);
@@ -320,8 +320,9 @@ export function HomeScreen({
         })}</div>
       </section>}
 
-      <HomeTraffic key={JSON.stringify([vpn.since,vpn.state,pickedKey])} samples={traffic.samples} current={current}
-        vpnActive={isRunning} activeProfileName={isRunning?connectedName:null}/>
+      <HomeTraffic key={JSON.stringify([vpn.since,vpn.state,vpn.runId,pickedKey])} samples={traffic.samples} current={current}
+        vpnActive={isRunning} activeProfileName={isRunning?connectedName:null} androidRunId={vpn.runId ?? null}
+        testDisabled={!vpn.ready || vpn.busy || (vpn.state !== "running" && vpn.state !== "stopped")}/>
 
       {/* ─── Bento 3: Per-App Routing Summary ─────────────────────── */}
       <div className="atlas-panel atlas-home-section flex flex-col justify-between p-4">

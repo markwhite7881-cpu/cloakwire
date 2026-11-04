@@ -326,3 +326,66 @@ async fn xray_external_config_environment_cannot_modify_the_private_candidate() 
         );
     }
 }
+
+#[tokio::test]
+#[ignore = "bundled sing-box, slow loopback target and independent local server"]
+async fn quit_during_selected_probe_reaps_listener_and_candidate_before_exit() {
+    let parent = tempfile::tempdir().unwrap();
+    let private = tempfile::tempdir().unwrap();
+    let (mut upstream, port, user) = server(parent.path()).await;
+    let (url, hit, target) = endpoint(true).await;
+    let engine = EngineKind::Singbox;
+    let req = request(private.path(), engine, candidate(engine, port, &user), &url);
+    let probes = Arc::new(ProbeCoordinator::default());
+    let lease = probes
+        .begin(identity(), HealthScope::SelectedProfile)
+        .lease
+        .unwrap();
+    let runner = probes.clone();
+    let task = tokio::spawn(async move { DesktopProbe::execute(&runner, lease, req).await });
+    tokio::time::timeout(Duration::from_secs(5), hit.notified())
+        .await
+        .unwrap();
+    let directory = std::fs::read_dir(private.path())
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let config: Value =
+        serde_json::from_slice(&std::fs::read(directory.join("candidate.json")).unwrap()).unwrap();
+    let listener = config["inbounds"][0]["listen_port"].as_u64().unwrap() as u16;
+    let pid = probes
+        .private_core
+        .lock()
+        .await
+        .as_ref()
+        .unwrap()
+        .process_id()
+        .unwrap();
+    let child = sysinfo::Pid::from_u32(pid);
+    let child_alive = || {
+        let mut system = sysinfo::System::new();
+        system.refresh_processes_specifics(
+            sysinfo::ProcessesToUpdate::Some(&[child]),
+            true,
+            sysinfo::ProcessRefreshKind::new(),
+        );
+        system.process(child).is_some()
+    };
+    assert!(child_alive());
+    probes.shutdown().await;
+    let reaped = !child_alive();
+    let removed = !directory.exists();
+    let closed = tokio::net::TcpStream::connect(("127.0.0.1", listener))
+        .await
+        .is_err();
+    task.await.unwrap();
+    target.abort();
+    assert!(upstream.is_alive().unwrap());
+    assert!(upstream.stop(Duration::from_secs(2)).await);
+    assert!(
+        removed && closed && reaped,
+        "quit must reap the private core and remove credentials before returning"
+    );
+}

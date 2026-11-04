@@ -74,6 +74,7 @@ export interface RuntimeIssue {
   count: number; observed_at: string;
 }
 export interface DesktopHealthSnapshot {
+  network_generation?: string | null;
   session: AcceptedSession | null;
   health: ConnectionHealth | null;
   issue: RuntimeIssue | null;

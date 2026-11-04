@@ -59,19 +59,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
                 MENU_TOGGLE => {
                     let _ = app.emit("tray:toggle-connect", ());
                 }
-                MENU_QUIT => {
-                    let app_handle = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Some(pm) = app_handle.try_state::<Arc<crate::process::ProcessManager>>() {
-                            let _ = pm.stop().await;
-                        }
-                        #[cfg(not(target_os = "android"))]
-                        {
-                            let _ = crate::killswitch::cleanup_stale_rules();
-                        }
-                        app_handle.exit(0);
-                    });
-                }
+                MENU_QUIT => app.exit(0),
                 _ => {}
             }
         })

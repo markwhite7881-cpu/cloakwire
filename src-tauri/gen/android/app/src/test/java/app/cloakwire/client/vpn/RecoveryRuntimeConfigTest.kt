@@ -58,6 +58,23 @@ class RecoveryRuntimeConfigTest {
   assertEquals("node-99",RecoveryRuntimeConfig.effective(root.toString(),mapOf("proxy" to "node-99")))
   assertFalse(wired.endpoints.containsKey("node-99"))
  }
+ @Test fun speedtest_inbound_keeps_the_vpn_exit_with_all_included_or_excluded_apps() {
+  val own = "app.cloakwire.client"
+  val xray = """{"inbounds":[],"outbounds":[{"tag":"vpn","protocol":"vless"},{"tag":"direct","protocol":"freedom"}]}"""
+  for ((mode, apps) in listOf("exclude" to "[]", "exclude" to """["example.browser"]""", "include" to """["example.browser"]""")) {
+   val policy = AndroidEngineConfig.appPolicy(apps, mode, own)
+   if (mode == "include") assertFalse(own in policy.allowedPackages) else assertTrue(own in policy.disallowedPackages)
+   val singConfig = AndroidEngineConfig.singBox(sing, apps, mode, own, "test.log")
+   val wiredSing = RecoveryRuntimeConfig.wire(singConfig, "sing-box", 18081, "session-secret")!!
+   val singRule = JSONObject(wiredSing.config).getJSONObject("route").getJSONArray("rules").getJSONObject(0)
+   assertEquals(wiredSing.endpoints.getValue("proxy").tag, singRule.getJSONArray("inbound").getString(0))
+   assertEquals("proxy", singRule.getString("outbound"))
+   val wiredXray = RecoveryRuntimeConfig.wire(AndroidEngineConfig.xray(xray, "test.log"), "xray", 18081, "session-secret")!!
+   val xrayRule = JSONObject(wiredXray.config).getJSONObject("routing").getJSONArray("rules").getJSONObject(0)
+   assertEquals(wiredXray.endpoints.getValue("vpn").tag, xrayRule.getJSONArray("inboundTag").getString(0))
+   assertEquals("vpn", xrayRule.getString("outboundTag"))
+  }
+ }
  @Test fun xray_routes_only_its_private_inbound_to_selected_proxy() {
   val raw="""{"inbounds":[{"tag":"socks","protocol":"socks"}],"outbounds":[{"tag":"proxy","protocol":"vless"},{"tag":"direct","protocol":"freedom"}],"routing":{"rules":[{"type":"field","domain":["local"],"outboundTag":"direct"}]}}"""
   val wired=RecoveryRuntimeConfig.wire(raw,"xray",18081,"private-token")!!;val json=JSONObject(wired.config)

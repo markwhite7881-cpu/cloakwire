@@ -77,11 +77,23 @@ mod active_native_tests;
 mod lifecycle_tests;
 
 #[cfg(not(target_os = "android"))]
+#[derive(serde::Serialize)]
+pub struct DesktopDiagnostics {
+    #[serde(flatten)]
+    active: active::DesktopHealthSnapshot,
+    // Selected probes use the OS epoch even when no VPN is running.
+    network_generation: Option<String>,
+}
+
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn get_connection_diagnostics(
     pm: tauri::State<'_, std::sync::Arc<crate::process::ProcessManager>>,
-) -> active::DesktopHealthSnapshot {
-    pm.diagnostics.snapshot()
+) -> DesktopDiagnostics {
+    DesktopDiagnostics {
+        active: pm.diagnostics.snapshot(),
+        network_generation: network_events::generation().map(|epoch| epoch.to_string()),
+    }
 }
 #[cfg(not(target_os = "android"))]
 #[tauri::command]

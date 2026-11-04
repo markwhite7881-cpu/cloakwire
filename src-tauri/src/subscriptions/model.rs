@@ -58,6 +58,8 @@ impl SubscriptionErrorKind {
 pub struct SubscriptionRecord {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub user_named: bool,
     pub url: String,
     #[serde(default)]
     pub kind: SubscriptionKind,
@@ -290,6 +292,7 @@ mod tests {
         SubscriptionRecord {
             id: "sub-1".into(),
             name: "Private provider".into(),
+            user_named: false,
             url: "https://token@example.test/sub/secret".into(),
             kind: SubscriptionKind::SingboxBundle,
             engine: Some(EngineKind::Singbox),

@@ -127,6 +127,10 @@ impl RecoveryCoordinator {
         self.candidate.invalidate();
         Self::invalidate_state(&mut self.state.lock().unwrap_or_else(|p| p.into_inner()));
     }
+    pub(crate) async fn shutdown_probes(&self) {
+        self.stop();
+        self.candidate.shutdown().await;
+    }
     pub fn stop(&self) {
         self.stop_with(|| ());
     }

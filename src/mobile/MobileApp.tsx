@@ -46,7 +46,6 @@ import { ServersScreen } from "./screens/ServersScreen";
 import { RoutingScreen } from "./screens/RoutingScreen";
 import { LogsScreen } from "./screens/LogsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
-import { UpdateModal } from "@/components/UpdateModal";
 import { adjacentTabIndex, swipeDirection } from "./lib/mobileUi";
 import {
   nextReconnectRequired,
@@ -141,66 +140,6 @@ export default function MobileApp() {
     }
   }, [activeTab]);
 
-  // App-shell update check state & modal
-  const [appUpdateInfo, setAppUpdateInfo] = useState<{
-    version: string;
-    current_version: string;
-    notes: string;
-  } | null>(null);
-  const [updateModalOpen, setUpdateModalOpen] = useState(false);
-  const [updateBusy, setUpdateBusy] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function checkUpdateOnStartup() {
-      try {
-        const info = await api.checkAppUpdate();
-        if (cancelled) return;
-        if (info.available) {
-          const dismissed = window.sessionStorage.getItem(`cloakwire:dismissed_update:${info.version}`);
-          if (!dismissed) {
-            setAppUpdateInfo(info);
-            setUpdateModalOpen(true);
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-    const timer = window.setTimeout(() => {
-      void checkUpdateOnStartup();
-    }, 1500);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, []);
-
-  const handleUpdateApp = async () => {
-    if (!appUpdateInfo) return;
-    setUpdateBusy(true);
-    setUpdateError(null);
-    try {
-      await api.installAppUpdate(appUpdateInfo.version);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setUpdateError(msg);
-    } finally {
-      setUpdateBusy(false);
-    }
-  };
-
-  const handleDismissUpdate = () => {
-    if (appUpdateInfo) {
-      try {
-        window.sessionStorage.setItem(`cloakwire:dismissed_update:${appUpdateInfo.version}`, "1");
-      } catch {
-        // ignore
-      }
-    }
-    setUpdateModalOpen(false);
-  };
 
   // Link-list outbounds persisted in Rust — fetched once per
   // subscription on mount so the server list is complete right after
@@ -550,6 +489,12 @@ export default function MobileApp() {
     vpn.connect,
   ]);
 
+  const selectionIntent = useRef(0);
+  const pendingSelection = useRef(Promise.resolve());
+  const [selectionFailed, setSelectionFailed] = useState(false);
+  const currentSettings = useRef(settings);
+  currentSettings.current = settings;
+
   const onSelectProfile = (index: number) => {
     const isAuto = index === -1;
     let pickedTag: string | null = null;
@@ -558,6 +503,8 @@ export default function MobileApp() {
       if (!p || !isSupported(p)) return;
       pickedTag = p.tag;
     }
+    selectionIntent.current++;
+    setSelectionFailed(false);
     setSelectionNeedsChoice(false);
     setSelectedIndex(index);
     remember(recentKeys[index]);
@@ -575,14 +522,20 @@ export default function MobileApp() {
     engine: "singbox" | "xray";
     childName: string;
   }) => {
+    const intent = ++selectionIntent.current;
+    setSelectionFailed(false);
+    // Preserve native write order even if the user picks a different child mid-request.
+    const persist = pendingSelection.current.then(async () => {
+      if (intent === selectionIntent.current) await subs.setActiveChild(input.subscriptionId, input.childKey);
+    });
+    pendingSelection.current = persist.catch(() => {});
     try {
-      await subs.setActiveChild(input.subscriptionId, input.childKey);
-    } catch (e) {
-      // Surface the error via the global error path — the picker
-      // can show a toast in a future iteration; for now the
-      // settings banner is the only place we render errors.
-      console.error("setActiveChild failed", e);
+      await persist;
+    } catch {
+      if (intent === selectionIntent.current) setSelectionFailed(true);
+      return;
     }
+    if (intent !== selectionIntent.current) return;
     setSelectionNeedsChoice(false);
     setActiveBundle(input);
     remember(recentBundleKey(input.subscriptionId, input.childKey));
@@ -590,7 +543,7 @@ export default function MobileApp() {
     // setMobileSettings already calls markConnectionDirty — the
     // next connect uses the new bundle pick, so the user needs
     // the reconnect banner.
-    setMobileSettings({ ...settings, default_outbound: null });
+    setMobileSettings({ ...currentSettings.current, default_outbound: null });
   };
 
   const connectWithSelection = async (target?:ProfileSource,expectedRunId?:string) => {
@@ -678,6 +631,7 @@ export default function MobileApp() {
       >
         <ProfileImportDialog plan={profileImport.plan} records={manualRecords} error={profileImport.error} mobile onApply={profileImport.apply} onCancel={profileImport.cancel} />
       <ManualProfileStorageNotice state={manualStore.state} retry={manualStore.retry} reconcile={manualStore.reconcile} />
+        {selectionFailed && <p role="alert" className="m-3 text-sm text-destructive">{t("servers.selectionFailed")}</p>}
         {(selectionNeedsChoice || selectionMissing) && <p role="alert" className="m-3 text-sm">{t("profileStorage.choose")}</p>}
         {shouldShowReconnectNotice({
             reconnectInProgress,
@@ -842,16 +796,7 @@ export default function MobileApp() {
         </div>
       </nav>
 
-      <UpdateModal
-        open={updateModalOpen}
-        version={appUpdateInfo?.version ?? ""}
-        currentVersion={appUpdateInfo?.current_version ?? ""}
-        notes={appUpdateInfo?.notes}
-        onUpdate={handleUpdateApp}
-        onDismiss={handleDismissUpdate}
-        busy={updateBusy}
-        error={updateError}
-      />
+
     </div>
   );
 }

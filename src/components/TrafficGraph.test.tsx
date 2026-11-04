@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { HomeTraffic } from "./SpeedTestTab";
 import type { TrafficSample } from "@/lib/types";
 
@@ -21,6 +21,20 @@ function trace(html: string, series: string) {
 }
 
 describe("home traffic graph", () => {
+  it("renders stored jitter, exit address and Cloudflare edge in history", () => {
+    vi.stubGlobal("localStorage", { getItem: () => JSON.stringify([{
+      id: "history", timestamp: 1, serverName: "Office", vpnActive: true,
+      ping: 20, jitter: 7, downloadSpeed: 10, uploadSpeed: 3,
+      clientIp: "203.0.113.63", colo: "FRA",
+    }]) });
+    try {
+      const html = graph([]);
+      expect(html).toContain("7 ms");
+      expect(html).toContain("203.0.113.63");
+      expect(html).toContain("FRA");
+    } finally { vi.unstubAllGlobals(); }
+  });
+
   it("draws separate smooth traces through measured rates and keeps their numeric labels", () => {
     const html = graph([sample(0, 1, 0), sample(8, 2, 1000), sample(4, 0, 2000)]);
     expect(html).toContain('role="img"');

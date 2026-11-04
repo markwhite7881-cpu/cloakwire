@@ -8,12 +8,12 @@ test("switching servers retains their measurements without starting checks",asyn
  const second=page.locator(".atlas-server-entry").filter({hasText:"Second"}).first();
  await expect(button).toBeEnabled();
  expect(await page.evaluate(()=>(window as any).probeStarts??0)).toBe(0);
- await button.click();await expect(card).toContainText("Access verified");
+ await button.click();await expect(card).toContainText("Server reachable");
  await page.getByRole("button",{name:/First/}).first().click();
  await page.getByRole("dialog").getByRole("button",{name:/Second/}).click();
  await expect(second.getByTestId("profile-health")).toHaveCount(0);
  expect(await page.evaluate(()=>(window as any).probeStarts)).toBe(1);
- await second.getByTestId("profile-probe-button").click();await expect(second).toContainText("Access verified");
+ await second.getByTestId("profile-probe-button").click();await expect(second).toContainText("Server reachable");
  await page.getByRole("button",{name:/Second/}).first().click();
  await page.getByRole("dialog").getByRole("button",{name:/First/}).click();
  await expect(card).toContainText("Last check: reachable");

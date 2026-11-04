@@ -28,6 +28,7 @@ export function UpdateCard({ currentSingboxVersion }: Props) {
     available: boolean;
     notes: string;
   } | null>(null);
+  const [manualOnly, setManualOnly] = useState(false);
   const [appBusy, setAppBusy] = useState(false);
   const [appError, setAppError] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export function UpdateCard({ currentSingboxVersion }: Props) {
     setAppError(null);
     try {
       const update = await api.checkAppUpdate();
+      setManualOnly(update.manual_only === true);
       setAppUpdate(update.available ? update : null);
     } catch (e) {
       const msg =
@@ -83,13 +85,13 @@ export function UpdateCard({ currentSingboxVersion }: Props) {
         </div>
       </div>
 
-      <AppUpdateRow
+      {manualOnly ? <p className="text-sm text-muted-foreground">{t("updates.previewManual")}</p> : <AppUpdateRow
         update={appUpdate}
         busy={appBusy}
         error={appError}
         onCheck={checkAppUpdate}
         onInstall={installAppUpdate}
-      />
+      />}
 
       <div className="rounded-xl border border-border/80 bg-[var(--atlas-field)] p-3.5">
         <div className="flex items-center justify-between gap-2 flex-wrap">

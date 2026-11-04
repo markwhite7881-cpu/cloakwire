@@ -10,7 +10,9 @@ use super::{
 };
 use crate::subscriptions::model::EngineKind;
 use serde_json::Value;
-use std::{path::PathBuf, sync::Arc, time::Duration};
+#[cfg(test)]
+use std::sync::Arc;
+use std::{path::PathBuf, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -161,7 +163,7 @@ pub(crate) fn ensure_isolation_available(engine: EngineKind) -> Result<(), Healt
     }
 }
 pub struct DesktopProbe;
-type Owner = Arc<Mutex<Option<OwnedCore>>>;
+type Owner = Mutex<Option<OwnedCore>>;
 impl DesktopProbe {
     /// The coordinator owns cancellation and total deadline; cleanup retains the
     /// exact child handle even when run() is dropped in the middle of an await.
@@ -174,16 +176,15 @@ impl DesktopProbe {
             coordinator.cancel(lease.operation_id());
             return;
         }
-        let owner: Owner = Arc::new(Mutex::new(None));
-        let cleanup_owner = owner.clone();
+        let owner = &coordinator.private_core;
         let work = async {
-            match Self::run(request, &owner).await {
+            match Self::run(request, owner).await {
                 Ok(latency) => ProbeResult::healthy(latency),
                 Err(issue) => ProbeResult::unavailable(issue),
             }
         };
         let cleanup = async move {
-            let mut slot = cleanup_owner.lock().await;
+            let mut slot = owner.lock().await;
             let clean = match slot.as_mut() {
                 Some(core) => core.stop(Duration::from_secs(1)).await,
                 None => true,
@@ -244,6 +245,10 @@ impl DesktopProbe {
                 ),
             }?;
             let mut slot = owner.lock().await;
+            if slot.is_some() {
+                // A previous command was dropped before its cleanup ran.
+                return Err(HealthIssue::EngineUnavailable);
+            }
             *slot = Some(OwnedCore::create(&request.parent, &config)?);
             let core = slot.as_mut().ok_or(HealthIssue::EngineUnavailable)?;
             core.spawn(request.command(core.config_path(), true))?;
@@ -285,9 +290,12 @@ impl DesktopProbe {
                 }
                 return Err(HealthIssue::EngineUnavailable);
             }
+            drop(slot);
             let result = ProbeClient::new(port, &password)?
                 .check(&request.targets)
                 .await;
+            let mut slot = owner.lock().await;
+            let core = slot.as_mut().ok_or(HealthIssue::EngineUnavailable)?;
             if !core.is_alive()? {
                 return Err(HealthIssue::EngineUnavailable);
             }

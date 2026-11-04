@@ -359,7 +359,9 @@ export default function App() {
   // currently routing through. Comes from `GET /proxies/proxy` on
   // the clash API — refreshed alongside status in the poll loop.
   // `null` while sing-box is stopped / unreachable.
-  const [activeOutbound, setActiveOutbound] = useState<string | null>(null);
+  const [selector, setSelector] = useState<{ runId: string; outbound: string | null } | null>(null);
+  const activeOutbound = status.status === "running" && status.engine === "singbox" && selector?.runId === status.run_id
+    ? selector?.outbound ?? null : null;
 
   // Parsed profiles — split into manual + subscription entries
   // so subscription auto-refresh only replaces the slots owned
@@ -640,11 +642,12 @@ export default function App() {
       // fail silently (the API may be unreachable for a tick
       // during a state transition), in which case we keep the
       // previous `activeOutbound` rather than blanking it out.
-      if (st.status === "running") {
+      if (st.status === "running" && st.engine === "singbox" && st.run_id) {
+        const runId = st.run_id;
         try {
           const p = await api.listProxies();
           const now = p.proxies?.["proxy"]?.now ?? null;
-          if(epoch===refreshEpoch.current)setActiveOutbound(now);
+          if (epoch === refreshEpoch.current) setSelector({ runId, outbound: now });
         } catch {
           // best effort
         }
@@ -652,7 +655,7 @@ export default function App() {
         // Stopped / starting / stopping: clear so the hero
         // doesn't keep showing a stale tag. React skips the
         // re-render if the value is already null.
-        setActiveOutbound(null);
+        setSelector(null);
       }
       // Polling must not dismiss a rejected candidate's error card.
     } catch (e) {
@@ -1161,6 +1164,7 @@ export default function App() {
             errorActions={<ProfileErrorActions {...cardActions}/>}
             runtimeActions={!error?<ProfileErrorActions {...cardActions}/>:undefined}
             diagnostics={diagnostics}
+            unlistedSessionCheck={serverChecks.unlistedSessionCheck}
 
             onDismissError={() => setError(null)}
             canStart={canStartManagedSelection(profiles, selectedIndex)}
@@ -1202,6 +1206,7 @@ export default function App() {
             onRemoveSub={subs.remove}
             onRefreshSub={subs.refreshOne}
             onRefreshAllSubs={subs.refreshAll}
+            onRename={subs.rename}
             onSetSubInterval={subs.setIntervalFor}
             onSelectSubChild={async (subscriptionId, childKey) => {
               await subs.selectChild(subscriptionId, childKey);
@@ -1262,7 +1267,7 @@ export default function App() {
     ],
     [
       status,
-      diagnostics,cardActions,
+      diagnostics,cardActions,serverChecks.unlistedSessionCheck,activeOutbound,
       retryHealth,
       healthActionBusy,
       healthActionMessage,
@@ -1286,6 +1291,7 @@ export default function App() {
       subs.remove,
       subs.refreshOne,
       subs.refreshAll,
+      subs.rename,
       subs.setIntervalFor,
       subs.selectChild,
       binary,

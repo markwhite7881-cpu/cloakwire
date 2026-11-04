@@ -18,12 +18,16 @@ export const ServerCheckContext = createContext<((source: ProfileSource) => RowC
 export function ServerCheck({ profileRef, profileIndex }: {profileRef?: ProfileRef | null; profileIndex?: number}) {
   const control = useContext(ServerCheckContext);
   const { sources } = useContext(ProfileHealthContext);
-  const { t } = useI18n();
   if (!control) return null;
   const source = profileRef ? sources.find(s => s && sameProfileRef(s.profile_ref, profileRef)) :
     profileIndex != null ? sources[profileIndex] : null;
-  const check = source ? control(source) : null;
-  const label = t(check?.cancellable ? "profileProbe.cancel" : check?.busy ? "health.checking" : "profileProbe.check");
+  return <ServerCheckButton check={source ? control(source) : null} />;
+}
+
+export function ServerCheckButton({check, activeSession = false}: {check: RowCheck | null; activeSession?: boolean}) {
+  const { t } = useI18n();
+  const label = t(check?.cancellable ? "profileProbe.cancel" : check?.busy ? "health.checking" :
+    activeSession ? "health.checkConnection" : "profileProbe.check");
   return <div className="atlas-server-check" data-testid="profile-probe-card">
     <button type="button" className="atlas-button" data-size="icon" data-variant="ghost" data-testid="profile-probe-button"
       aria-label={label} title={label} disabled={!check || check.disabled} onClick={check?.run}>

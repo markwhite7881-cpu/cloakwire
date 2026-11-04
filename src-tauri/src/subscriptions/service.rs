@@ -147,6 +147,7 @@ impl SubscriptionService {
             let record = SubscriptionRecord {
                 id: Uuid::new_v4().to_string(),
                 name: input.name.trim().to_owned(),
+                user_named: false,
                 url: input.url.trim().to_owned(),
                 kind: SubscriptionKind::Auto,
                 engine: None,
@@ -187,6 +188,21 @@ impl SubscriptionService {
             return Err(not_found());
         }
         self.store.replace_all(&records)
+    }
+
+    pub async fn rename(&self, id: &str, name: &str) -> AppResult<SubscriptionSummary> {
+        let name = name.trim();
+        if name.is_empty() || name.chars().count() > 160 || name.chars().any(char::is_control) {
+            return Err(AppError::Validation("invalid subscription name".into()));
+        }
+        let _guard = self.lock.lock().await;
+        let mut records = self.store.load_all()?;
+        let record = record_mut(&mut records, id)?;
+        record.name = name.to_owned();
+        record.user_named = true;
+        let summary = record.to_summary();
+        self.store.replace_all(&records)?;
+        Ok(summary)
     }
 
     pub async fn set_interval(
@@ -270,6 +286,7 @@ impl SubscriptionService {
             let record = SubscriptionRecord {
                 id: input.id,
                 name: input.name.trim().to_owned(),
+                user_named: false,
                 url: input.url.trim().to_owned(),
                 kind: SubscriptionKind::Auto,
                 engine: None,
@@ -396,6 +413,9 @@ fn apply_provider_title_fallback(
     record: &mut SubscriptionRecord,
     previous_profile_title: Option<&str>,
 ) {
+    if record.user_named {
+        return;
+    }
     let Some(title) = record
         .metadata
         .profile_title

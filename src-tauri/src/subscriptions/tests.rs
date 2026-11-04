@@ -66,6 +66,7 @@ async fn opaque_link_refs_resolve_and_reject_invalid_selection() {
     let record = SubscriptionRecord {
         id: "sub-opaque".into(),
         name: "Provider".into(),
+        user_named: false,
         url: "https://example.test".into(),
         kind: SubscriptionKind::LinkList,
         engine: Some(super::EngineKind::Singbox),
@@ -79,11 +80,10 @@ async fn opaque_link_refs_resolve_and_reject_invalid_selection() {
         last_http_status: Some(200),
         last_error: None,
     };
-    super::SubscriptionStore::new(directory.path().join("subscriptions.json"))
-        .replace_all(&[record])
-        .unwrap();
+    let store = SubscriptionStore::for_test(directory.path().join("subscriptions.json"));
+    store.replace_all(&[record]).unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        store,
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -218,7 +218,7 @@ async fn snapshot_never_serializes_or_debug_formats_link_credentials() {
     let (url, server) = spawn_sequence_server(vec![response]).await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -270,7 +270,7 @@ async fn legacy_fetch_returns_link_list_compatibility_result() {
     let (url, server) = spawn_sequence_server(vec![response]).await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -288,7 +288,7 @@ async fn legacy_fetch_rejects_full_configuration_bundle() {
     let (url, server) = spawn_sequence_server(vec![xray_bundle(&["Private child"])]).await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -387,7 +387,7 @@ async fn migrate_legacy_generic_name_adopts_provider_title() {
     .await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -417,7 +417,7 @@ async fn provider_title_replaces_generic_subscription_name() {
     let (url, server) = spawn_sequence_server(vec![response]).await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -453,7 +453,7 @@ async fn base64_provider_title_is_decoded_for_generic_subscription_name() {
     let (url, server) = spawn_sequence_server(vec![response]).await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -506,10 +506,10 @@ async fn custom_subscription_name_wins_over_provider_title() {
         &[("Profile-Title", "Anivka")],
         b"vless://11111111-1111-4111-8111-111111111111@server-address.example.test:443?security=tls#ProviderLabel",
     );
-    let (url, server) = spawn_sequence_server(vec![response]).await;
+    let (url, server) = spawn_sequence_server(vec![response.clone(), response]).await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -529,6 +529,18 @@ async fn custom_subscription_name_wins_over_provider_title() {
         service.list().await.unwrap().subscriptions[0].name,
         "My work subscription"
     );
+    // An explicitly chosen generic name must also survive a provider refresh.
+    let id = &added.subscription.id;
+    assert_eq!(service.rename(id, " Subscription ").await.unwrap().name, "Subscription");
+    assert!(service.rename(id, "  ").await.is_err());
+    assert_eq!(service.refresh(id).await.unwrap().subscription.name, "Subscription");
+    let reopened = SubscriptionService::new(
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
+        HwidStore::new(directory.path().join("device-id")),
+        SubscriptionHttpClient::new().unwrap(),
+        "1.3.0".into(),
+    );
+    assert_eq!(reopened.list().await.unwrap().subscriptions[0].name, "Subscription");
     let _ = server.await;
 }
 
@@ -542,7 +554,7 @@ async fn blank_provider_title_keeps_generic_subscription_name() {
     let (url, server) = spawn_sequence_server(vec![response]).await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -574,7 +586,7 @@ async fn failed_first_refresh_does_not_store_subscription() {
     .await;
     let directory = tempfile::tempdir().unwrap();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(directory.path().join("subscriptions.json")),
+        SubscriptionStore::for_test(directory.path().join("subscriptions.json")),
         HwidStore::new(directory.path().join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),
@@ -706,7 +718,7 @@ async fn service_with_name_and_responses(
     let directory = tempfile::tempdir().unwrap();
     let path = directory.keep();
     let service = SubscriptionService::new(
-        SubscriptionStore::new(path.join("subscriptions.json")),
+        SubscriptionStore::for_test(path.join("subscriptions.json")),
         HwidStore::new(path.join("device-id")),
         SubscriptionHttpClient::new().unwrap(),
         "1.3.0".into(),

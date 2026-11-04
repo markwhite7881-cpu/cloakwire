@@ -52,33 +52,73 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc, OnceLock,
 };
-static CATALOG_EPOCH: AtomicU64 = AtomicU64::new(1);
-static CATALOG_GATE: OnceLock<Arc<tokio::sync::RwLock<()>>> = OnceLock::new();
 type Invalidate = Arc<dyn Fn() -> crate::error::AppResult<()> + Send + Sync>;
-static INVALIDATOR: OnceLock<Invalidate> = OnceLock::new();
+
+pub(crate) struct SourceCatalog {
+    epoch: AtomicU64,
+    gate: Arc<tokio::sync::RwLock<()>>,
+    invalidator: OnceLock<Invalidate>,
+}
+
+impl Default for SourceCatalog {
+    fn default() -> Self {
+        Self {
+            epoch: AtomicU64::new(1),
+            gate: Arc::default(),
+            invalidator: OnceLock::new(),
+        }
+    }
+}
+
+impl std::fmt::Debug for SourceCatalog {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SourceCatalog")
+            .field("epoch", &self.epoch())
+            .finish_non_exhaustive()
+    }
+}
+
+impl SourceCatalog {
+    pub(crate) fn epoch(&self) -> u64 {
+        self.epoch.load(Ordering::Acquire)
+    }
+
+    pub(crate) async fn handoff(&self) -> tokio::sync::OwnedRwLockReadGuard<()> {
+        self.gate.clone().read_owned().await
+    }
+
+    pub(crate) fn mutation(
+        &self,
+    ) -> crate::error::AppResult<tokio::sync::OwnedRwLockWriteGuard<()>> {
+        let guard = self
+            .gate
+            .clone()
+            .try_write_owned()
+            .map_err(|_| crate::error::AppError::Validation("profile_source_busy".into()))?;
+        self.epoch.fetch_add(1, Ordering::AcqRel);
+        if let Some(callback) = self.invalidator.get() {
+            callback()?;
+        }
+        Ok(guard)
+    }
+}
+
+pub(crate) fn app_catalog() -> &'static Arc<SourceCatalog> {
+    static CATALOG: OnceLock<Arc<SourceCatalog>> = OnceLock::new();
+    CATALOG.get_or_init(Arc::default)
+}
+
 pub fn register_invalidator(callback: Invalidate) {
-    let _ = INVALIDATOR.set(callback);
+    let _ = app_catalog().invalidator.set(callback);
 }
 pub fn catalog_epoch() -> u64 {
-    CATALOG_EPOCH.load(Ordering::Acquire)
-}
-fn gate() -> Arc<tokio::sync::RwLock<()>> {
-    CATALOG_GATE
-        .get_or_init(|| Arc::new(tokio::sync::RwLock::new(())))
-        .clone()
+    app_catalog().epoch()
 }
 pub async fn catalog_handoff() -> tokio::sync::OwnedRwLockReadGuard<()> {
-    gate().read_owned().await
+    app_catalog().handoff().await
 }
 pub fn catalog_mutation() -> crate::error::AppResult<tokio::sync::OwnedRwLockWriteGuard<()>> {
-    let guard = gate()
-        .try_write_owned()
-        .map_err(|_| crate::error::AppError::Validation("profile_source_busy".into()))?;
-    CATALOG_EPOCH.fetch_add(1, Ordering::AcqRel);
-    if let Some(callback) = INVALIDATOR.get() {
-        callback()?;
-    }
-    Ok(guard)
+    app_catalog().mutation()
 }
 #[tauri::command]
 pub fn profile_catalog_epoch() -> String {
@@ -127,13 +167,14 @@ mod mutation_tests {
     use super::*;
     #[tokio::test]
     async fn catalog_change_cancels_pending_but_handoff_rejects_mutation() {
-        let pm = crate::process::ProcessManager::new();
+        let catalog = Arc::<SourceCatalog>::default();
+        let pm = crate::process::ProcessManager::with_catalog(catalog.clone());
         let ticket = pm.begin_ready_profile_check();
         {
-            let _mutation = catalog_mutation().unwrap();
+            let _mutation = catalog.mutation().unwrap();
         }
         assert!(!pm.is_ready_profile_check_current(ticket));
-        let _handoff = catalog_handoff().await;
-        assert!(catalog_mutation().is_err());
+        let _handoff = catalog.handoff().await;
+        assert!(catalog.mutation().is_err());
     }
 }

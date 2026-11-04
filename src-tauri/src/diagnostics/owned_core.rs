@@ -56,6 +56,10 @@ impl OwnedCore {
     pub fn config_path(&self) -> &Path {
         &self.config
     }
+    #[cfg(test)]
+    pub(super) fn process_id(&self) -> Option<u32> {
+        self.child.as_ref()?.id()
+    }
     pub fn has_process(&self) -> bool {
         self.child.is_some()
     }

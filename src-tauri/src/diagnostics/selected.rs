@@ -109,6 +109,12 @@ pub struct SelectedProbes {
     catalog_owner: Mutex<Option<(String, u64)>>,
 }
 impl SelectedProbes {
+    pub(crate) async fn shutdown(&self) {
+        self.coordinator.shutdown().await;
+        // Admission also spans profile resolution and bounded network discovery
+        // before a lease exists. Wait for that command to return as well.
+        let _preparation = self.admission.lock().await;
+    }
     pub fn snapshot(&self) -> Option<ConnectionHealth> {
         let health = self.coordinator.snapshot().selected_profile?;
         let owner = self.catalog_owner.lock().unwrap_or_else(|p| p.into_inner());
@@ -132,6 +138,9 @@ pub async fn probe_desktop_profile(
     settings: GeneratorSettings,
 ) -> Result<ConnectionHealth, SelectedProbeError> {
     let _admission = probes.admission.lock().await;
+    if probes.coordinator.is_closed() {
+        return Err(SelectedProbeError::ProfileCheckCancelled);
+    }
     // The active row is checked via retry_active_probe against its existing core.
     let selected_is_active = || {
         let active = pm.diagnostics.snapshot();
@@ -200,4 +209,24 @@ pub async fn probe_desktop_profile(
             health.operation_id == begin.operation_id && health.outcome != HealthOutcome::Cancelled
         })
         .ok_or(SelectedProbeError::ProfileCheckCancelled)
+}
+
+#[cfg(test)]
+mod shutdown_tests {
+    use super::*;
+    #[tokio::test]
+    async fn exit_waits_for_preparation_that_has_no_lease_yet() {
+        let probes = SelectedProbes::default();
+        let preparation = probes.admission.lock().await;
+        let shutdown = probes.shutdown();
+        tokio::pin!(shutdown);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(20), &mut shutdown)
+                .await
+                .is_err()
+        );
+        assert!(probes.coordinator.is_closed());
+        drop(preparation);
+        shutdown.await;
+    }
 }

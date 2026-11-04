@@ -17,7 +17,7 @@ export const en = {
     pastPassed: "Last check: reachable",
     pastFailed: "Last check: no response",
     pastUnavailable: "Last check unavailable",
-    profileHealthy: "Access verified · selected server",
+    profileHealthy: "Server reachable",
   "unknown": "Not checked",
   "stale": "Check expired",
   "healthy": "Access verified · active VPN",
@@ -56,6 +56,7 @@ export const en = {
   "stoppedReason": "Connection stopped",
   "checked": "Checked at {time}",
   "retry": "Check again",
+  "checkConnection": "Check connection",
   "choose": "Choose a server",
   "retryStale": "The session changed. Its current status has been refreshed.",
   "reasons": {
@@ -263,6 +264,9 @@ export const en = {
     singboxRunning: "sing-box is running.",
   },
   servers: {
+    rename: "Rename subscription",
+    renameFailed: "Could not save the name. Try again.",
+    selectionFailed: "Could not select this server. Try again.",
     title: "Servers & Subscriptions",
     searchPlaceholder: "Search servers by name or country...",
     all: "All",
@@ -514,6 +518,7 @@ export const en = {
     copiedJson: "Copied",
   },
   updates: {
+    previewManual: "Install Atlas Preview updates manually.",
     title: "Updates & Core Status",
     desc: "App shell updates. VPN cores are managed and bundled with Cloakwire releases.",
     appShell: "App Shell",
@@ -598,6 +603,10 @@ export const en = {
   speedtest: {
     title: "Speed Test",
     subtitle: "Benchmark throughput, latency, and jitter through active VPN or direct route",
+    testDirect: "Test direct connection",
+    directNotice: "Cloudflare will see the public IP of your direct connection.",
+    routeUnavailable: "The active VPN route could not be verified. To test your direct connection, disconnect the VPN and select “Test direct connection”.",
+    requestFailed: "Could not complete the test through the active VPN.",
     startTest: "Start Speed Test",
     stopTest: "Stop Test",
     testing: "Testing...",

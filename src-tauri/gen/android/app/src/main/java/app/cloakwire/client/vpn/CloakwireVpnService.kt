@@ -289,14 +289,38 @@ class CloakwireVpnService : VpnService() {
 
   private data class RecoveryPath(val outbound:String,val endpoint:RecoveryRuntimeConfig.Endpoint,val sing:SingBoxEngine?,val groups:SingBoxEngine.GroupWitness?)
   private fun ownsRecovery(work:RecoveryWork):Boolean=recovery.isCurrent(work) && acceptedSnapshot===work.snapshot && VpnEvents.currentRun()==work.snapshot.runId
-  private fun captureRecoveryPath(work:RecoveryWork):RecoveryPath? {
-    val wired=work.snapshot.runtime?:return null
-    val sing=if(work.snapshot.engine==ENGINE_SINGBOX)singBoxEngine else null
-    val groups=if(wired.dynamic)sing?.witness{ownsRecovery(work)}?:return null else null
-    val effective=if(groups!=null)RecoveryRuntimeConfig.effective(work.snapshot.config,groups.selections)?:return null else wired.outbound
+  private fun captureRecoveryPath(work:RecoveryWork) = captureActivePath(work.snapshot) { ownsRecovery(work) }
+
+  private fun captureActivePath(snapshot:RecoverySnapshot, owns:()->Boolean):RecoveryPath? {
+    val wired=snapshot.runtime?:return null
+    val sing=if(snapshot.engine==ENGINE_SINGBOX)singBoxEngine else null
+    val groups=if(wired.dynamic)sing?.witness(owns)?:return null else null
+    val effective=if(groups!=null)RecoveryRuntimeConfig.effective(snapshot.config,groups.selections)?:return null else wired.outbound
     val endpoint=wired.endpoints[effective]?:return null
     return RecoveryPath(effective,endpoint,sing,groups)
   }
+  /** Internal Rust transport only. Credentials never cross the WebView boundary. */
+  internal fun speedTestRoute(runId: String): app.tauri.plugin.JSObject? {
+    val snapshot = acceptedSnapshot ?: return null
+    fun owns() = active === this && sessionActive && !starting && !replacingRecoveryEngine &&
+      acceptedSnapshot === snapshot && runId == snapshot.runId && VpnEvents.currentRun() == runId &&
+      VpnEvents.state == VpnEvents.STATE_RUNNING && recovery.ownsAccepted(snapshot)
+    if (!owns()) return null
+    val path = captureActivePath(snapshot, ::owns) ?: return null
+    val engine = if (snapshot.engine == ENGINE_XRAY) {
+      xrayEngine?.takeIf { it.isActive }
+    } else {
+      path.sing?.takeIf { it === singBoxEngine && it.isActive &&
+        (path.groups == null || it.witnessUnchanged(path.groups)) }
+    } ?: return null
+    if (!ProbeHttp.challenge(path.endpoint.port) || !owns()) return null
+    return app.tauri.plugin.JSObject().apply {
+      put("port", path.endpoint.port)
+      put("password", path.endpoint.password)
+      put("revision", listOf(snapshot.id, path.endpoint.tag, System.identityHashCode(engine), path.groups?.revision).joinToString("/"))
+    }
+  }
+
   private fun recoveryPathUnchanged(work:RecoveryWork,path:RecoveryPath):Boolean {
     if(!ownsRecovery(work))return false
     if(work.snapshot.engine==ENGINE_XRAY)return xrayEngine?.isActive==true

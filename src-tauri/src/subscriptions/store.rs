@@ -1,6 +1,9 @@
 use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use crate::diagnostics::sources::{app_catalog, SourceCatalog};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -20,6 +23,8 @@ use super::model::{
 struct StoredSubscriptionRecord {
     id: String,
     name: String,
+    #[serde(default)]
+    user_named: bool,
     url: String,
     #[serde(default)]
     kind: SubscriptionKind,
@@ -59,6 +64,7 @@ impl From<StoredSubscriptionRecord> for SubscriptionRecord {
         Self {
             id: stored.id,
             name: stored.name,
+            user_named: stored.user_named,
             url: stored.url,
             kind: stored.kind,
             engine: stored.engine,
@@ -80,6 +86,7 @@ impl From<&SubscriptionRecord> for StoredSubscriptionRecord {
         Self {
             id: record.id.clone(),
             name: record.name.clone(),
+            user_named: record.user_named,
             url: record.url.clone(),
             kind: record.kind,
             engine: record.engine,
@@ -123,11 +130,24 @@ impl From<&ChildProfileRecord> for StoredChildProfileRecord {
 #[derive(Debug, Clone)]
 pub struct SubscriptionStore {
     path: PathBuf,
+    catalog: Arc<SourceCatalog>,
 }
 
 impl SubscriptionStore {
     pub fn new(path: PathBuf) -> Self {
-        Self { path }
+        Self {
+            path,
+            catalog: app_catalog().clone(),
+        }
+    }
+
+    /// Creates a separate fixture catalog. Clone the store to share its write gate.
+    #[cfg(test)]
+    pub(crate) fn for_test(path: PathBuf) -> Self {
+        Self {
+            path,
+            catalog: Arc::default(),
+        }
     }
 
     pub fn load_all(&self) -> AppResult<Vec<SubscriptionRecord>> {
@@ -144,7 +164,7 @@ impl SubscriptionStore {
     }
 
     pub fn replace_all(&self, records: &[SubscriptionRecord]) -> AppResult<()> {
-        let _mutation = crate::diagnostics::sources::catalog_mutation()?;
+        let _mutation = self.catalog.mutation()?;
         self.replace_all_with(records, |temporary_path, target_path| {
             fs::rename(temporary_path, target_path)
         })
@@ -223,6 +243,7 @@ mod tests {
         SubscriptionRecord {
             id: "sub-1".into(),
             name: name.into(),
+            user_named: false,
             url: "https://example.test/private-token".into(),
             kind: SubscriptionKind::Auto,
             engine: None,
@@ -238,10 +259,27 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn handoff_blocks_its_own_store_and_leaves_other_catalogs_writable() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = SubscriptionStore::for_test(dir.path().join("first.json"));
+        let second = SubscriptionStore::for_test(dir.path().join("second.json"));
+        let epoch = first.catalog.epoch();
+        let _handoff = first.catalog.handoff().await;
+
+        assert!(matches!(
+            first.clone().replace_all(&[]),
+            Err(crate::error::AppError::Validation(message)) if message == "profile_source_busy"
+        ));
+        second.replace_all(&[]).unwrap();
+        assert_eq!(first.catalog.epoch(), epoch);
+        assert_eq!(second.catalog.epoch(), 2);
+    }
+
     #[test]
     fn missing_store_loads_as_empty() {
         let dir = tempfile::tempdir().unwrap();
-        let store = SubscriptionStore::new(dir.path().join("subscriptions.json"));
+        let store = SubscriptionStore::for_test(dir.path().join("subscriptions.json"));
         assert!(store.load_all().unwrap().is_empty());
     }
 
@@ -249,7 +287,7 @@ mod tests {
     fn storage_round_trip_preserves_private_bundle_data() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("subscriptions.json");
-        let store = SubscriptionStore::new(path);
+        let store = SubscriptionStore::for_test(path);
         let mut record = sample_record("Bundle");
         record.children = vec![ChildProfileRecord {
             key: "index-0".into(),
@@ -271,7 +309,7 @@ mod tests {
     fn failed_replace_preserves_previous_store() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("subscriptions.json");
-        let store = SubscriptionStore::new(path.clone());
+        let store = SubscriptionStore::for_test(path.clone());
         store.replace_all(&[sample_record("First")]).unwrap();
         let previous_bytes = fs::read(&path).unwrap();
 
@@ -291,12 +329,12 @@ mod tests {
     fn replace_all_atomically_replaces_and_survives_reload() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("subscriptions.json");
-        let store = SubscriptionStore::new(path.clone());
+        let store = SubscriptionStore::for_test(path.clone());
 
         store.replace_all(&[sample_record("First")]).unwrap();
         store.replace_all(&[sample_record("Replacement")]).unwrap();
 
-        let records = SubscriptionStore::new(path.clone()).load_all().unwrap();
+        let records = SubscriptionStore::for_test(path.clone()).load_all().unwrap();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].name, "Replacement");
         assert!(!path.with_file_name("subscriptions.json.tmp").exists());

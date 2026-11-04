@@ -28,6 +28,8 @@ pub mod commands;
 #[cfg(target_os = "android")]
 #[path = "commands_android.rs"]
 pub mod commands;
+#[cfg(any(target_os = "android", test))]
+mod android_speedtest;
 pub mod config;
 pub mod diagnostics;
 #[cfg(not(target_os = "android"))]
@@ -56,6 +58,10 @@ pub mod tray;
 pub mod updates;
 #[cfg(not(target_os = "android"))]
 pub mod xray;
+#[cfg(any(target_os = "macos", test))]
+mod macos_proxy;
+#[cfg(windows)]
+mod windows_proxy;
 pub mod xray_config;
 #[cfg(target_os = "android")]
 #[path = "xray/routing.rs"]
@@ -168,7 +174,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_notification::init());
     #[cfg(target_os = "android")]
-    let builder = builder.plugin(vpn_mobile_plugin());
+    let builder = builder.plugin(vpn_mobile_plugin()).manage(android_speedtest::SpeedTestState::default());
     #[cfg(not(target_os = "android"))]
     let builder = builder
         .manage(manager)
@@ -188,27 +194,15 @@ pub fn run() {
             let _ = win.show();
             let _ = win.set_focus();
         }
-        // Stale-proxy guard: if a previous run of this app crashed while
-        // the system proxy was active, the OS would keep routing
-        // traffic to 127.0.0.1:<port> even though sing-box is dead.
-        // Clear it on startup so the user has working internet
-        // immediately, even before they hit "Connect".
-        #[cfg(any(windows, target_os = "macos"))]
+        #[cfg(windows)]
+        if let Err(error) = windows_proxy::initialize(app.handle())
+            .and_then(|()| process::clear_system_proxy())
         {
-            use crate::process::clear_system_proxy;
-            if let Err(e) = clear_system_proxy() {
-                log::warn!("startup: failed to clear stale system proxy: {e}");
-            } else {
-                log::info!("startup: cleared any stale system proxy from a previous run");
-            }
+            log::warn!("startup: failed to recover owned system proxy: {error}");
         }
-        #[cfg(not(target_os = "android"))]
-        {
-            if let Err(e) = crate::killswitch::cleanup_stale_rules() {
-                log::warn!("startup: failed to clear stale kill switch rules: {e}");
-            } else {
-                log::info!("startup: cleared any stale kill switch rules from a previous run");
-            }
+        #[cfg(target_os = "macos")]
+        if let Err(error) = macos_proxy::initialize(app.handle()) {
+            log::warn!("startup: failed to recover owned service proxies: {error}");
         }
         commands::cleanup_runtime_configs(app.handle(), None);
 
@@ -237,6 +231,8 @@ pub fn run() {
     #[cfg(target_os = "android")]
     builder
         .invoke_handler(tauri::generate_handler![
+            android_speedtest::android_vpn_speed_test,
+            android_speedtest::cancel_android_speed_test,
             diagnostics::android_probe::run_android_profile_probe,
             diagnostics::sources::profile_source_revisions,
             diagnostics::sources::profile_catalog_epoch,
@@ -334,6 +330,7 @@ pub fn run() {
             commands::add_subscription,
             commands::remove_subscription,
             commands::refresh_subscription,
+            commands::rename_subscription,
             commands::set_subscription_interval,
             commands::select_subscription_child,
             commands::migrate_legacy_subscriptions,
@@ -352,6 +349,26 @@ pub fn run() {
             commands::check_macos_elevation,
             commands::request_macos_elevation,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running singbox-client");
+        .build(tauri::generate_context!())
+        .expect("error while building singbox-client")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Tauri calls this for tray Quit, installer exit and native
+                // window/menu exit, before it tears down resources and Tokio.
+                let manager = app.state::<Arc<ProcessManager>>();
+                let selected = app.state::<diagnostics::selected::SelectedProbes>();
+                tauri::async_runtime::block_on(async {
+                    tokio::join!(
+                        selected.shutdown(),
+                        manager.diagnostics.coordinator.shutdown(),
+                        manager.recovery.shutdown_probes(),
+                    );
+                    let _ = manager.stop().await;
+                    #[cfg(any(windows, target_os = "macos"))]
+                    if let Err(error) = process::clear_system_proxy() {
+                        log::warn!("failed to release owned system proxy on exit: {error}");
+                    }
+                });
+            }
+        });
 }

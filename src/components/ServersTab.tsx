@@ -28,6 +28,7 @@ export interface ServersTabProps {
   onClearAll: () => void;
   subs: SubscriptionSummary[];
   subFetching: Record<string, boolean>;
+  onRename: (id: string, name: string) => Promise<void>;
   onRemoveSub: (id: string) => void;
   onRefreshSub: (id: string) => void;
   onRefreshAllSubs: () => void;
@@ -44,6 +45,7 @@ export function ServersTab({
   onClearAll,
   subs,
   subFetching,
+  onRename,
   onRemoveSub,
   onRefreshSub,
   onRefreshAllSubs,
@@ -74,6 +76,7 @@ export function ServersTab({
               onRemove={onRemoveSub}
               onRefresh={onRefreshSub}
               onRefreshAll={onRefreshAllSubs}
+              onRename={onRename}
               onIntervalChange={onSetSubInterval}
               onSelectChild={onSelectSubChild}
             />

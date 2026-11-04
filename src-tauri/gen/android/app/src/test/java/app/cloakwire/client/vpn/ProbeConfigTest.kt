@@ -37,6 +37,22 @@ class ProbeConfigTest {
   cfg.put("dns",JSONObject("""{"servers":["8.8.8.8"]}"""))
   assertThrows(IllegalArgumentException::class.java){ProbeConfig.xray(cfg,"p",12345,"password",12346,"dial-password")}
  }
+ @Test fun implicit_probe_follows_only_the_configured_proxy() {
+  val cfg=sing()
+  val selector=JSONObject("""{"tag":"pick","type":"selector","outbounds":["direct","server"],"default":"direct"}""")
+  cfg.getJSONArray("outbounds").put(selector)
+  cfg.getJSONObject("route").put("final","pick")
+  assertThrows(IllegalArgumentException::class.java){ProbeConfig.target(cfg,"singbox","")}
+  selector.put("default","server")
+  assertEquals("server",ProbeConfig.target(cfg,"singbox",""))
+  selector.remove("default")
+  assertThrows(IllegalArgumentException::class.java){ProbeConfig.target(cfg,"singbox","")}
+  selector.put("outbounds",org.json.JSONArray("""["pick"]"""))
+  assertThrows(IllegalArgumentException::class.java){ProbeConfig.target(cfg,"singbox","")}
+  val xray=JSONObject("""{"outbounds":[{"protocol":"blackhole","tag":"block"},{"protocol":"vless","tag":"server"}]}""")
+  assertThrows(IllegalArgumentException::class.java){ProbeConfig.target(xray,"xray","")}
+  assertEquals("server",ProbeConfig.target(xray,"xray","server"))
+ }
  @Test fun target_selection_rejects_ambiguous_ready_profiles() {
   assertEquals("server",ProbeConfig.target(sing(),"singbox",""))
   val cfg=sing();cfg.getJSONArray("outbounds").put(JSONObject("""{"type":"trojan","tag":"other"}"""))

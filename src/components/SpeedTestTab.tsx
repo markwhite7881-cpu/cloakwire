@@ -7,8 +7,8 @@ import { SpeedTestRunner, loadSpeedTestHistory, clearSpeedTestHistory, type Spee
 import type { TrafficSample } from "@/lib/types";
 import { TrafficGraph, type TrafficPoint } from "./TrafficGraph";
 
-export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: {
-  samples: TrafficSample[]; current: TrafficSample | null; vpnActive: boolean; activeProfileName: string | null;
+export function HomeTraffic({ samples, current, vpnActive, activeProfileName, androidRunId, testDisabled = false }: {
+  samples: TrafficSample[]; current: TrafficSample | null; vpnActive: boolean; activeProfileName: string | null; androidRunId?: string | null; testDisabled?: boolean;
 }) {
   const { t, locale } = useI18n();
   const runner = useRef<SpeedTestRunner | null>(null);
@@ -31,7 +31,7 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
     setProgress({phase:"ping",currentSpeed:0,progressPercent:0,pingMs:0,jitterMs:0,downloadMbps:0,uploadMbps:0,samples:[]});
     setError("");setTestPoints([]);setLastResult(null);
     try {
-      const result = await test.run({vpnActive, serverName:activeProfileName || (vpnActive ? t("speedtest.vpnActive") : t("speedtest.directRoute"))}, p => {
+      const result = await test.run({vpnActive, androidRunId, serverName: vpnActive ? activeProfileName || t("speedtest.vpnActive") : t("speedtest.directRoute")}, p => {
         if (runner.current !== test) return;
         setProgress(p);
         // Phase announcements have no measurements. Upload's first announcement still holds the download speed.
@@ -44,7 +44,11 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
       });
       if (runner.current === test) { setLastResult(result);setHistory(loadSpeedTestHistory()); }
     } catch(err) {
-      if(runner.current === test && !(err instanceof Error && err.name === "AbortError")) setError(err instanceof Error ? err.message : t("common.error"));
+      if (runner.current === test && !(err instanceof Error && err.name === "AbortError")) {
+        const message = err instanceof Error ? err.message : t("common.error");
+        setError(message === "speedtest_route_unavailable" ? t("speedtest.routeUnavailable") :
+          message === "speedtest_request_failed" ? t("speedtest.requestFailed") : message);
+      }
     } finally {
       if(runner.current === test) { runner.current=null;setProgress(null); }
     }
@@ -63,7 +67,7 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
   return <section className="atlas-panel atlas-traffic p-4 space-y-2">
     <div className="flex items-center justify-between gap-2">
       <h2 className="text-sm font-semibold">{t(progress?"speedtest.title":"home.traffic")}</h2>
-      <Button size="sm" variant="outline" onClick={progress?stop:start}><Gauge size={15}/>{t(progress?"speedtest.stopTest":"nav.speedtest")}</Button>
+      <Button size="sm" variant="outline" disabled={!progress && testDisabled} onClick={progress?stop:start}><Gauge size={15}/>{t(progress ? "speedtest.stopTest" : androidRunId !== undefined && !vpnActive ? "speedtest.testDirect" : "nav.speedtest")}</Button>
     </div>
     <div className="flex flex-wrap gap-x-4 text-xs tabular-nums text-muted-foreground">
       <span>↓ {t("home.download")} {fmt(rates?.down??0)} Mbps</span><span>↑ {t("home.upload")} {fmt(rates?.up??0)} Mbps</span>
@@ -71,6 +75,8 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
       {!progress && current && <span>{t("home.totalTraffic")} ↓ {fmt(current.down_total/1048576)} MiB · ↑ {fmt(current.up_total/1048576)} MiB</span>}
     </div>
     <TrafficGraph key={progress ? "test" : "live"} points={points} label={t(progress ? "speedtest.title" : "home.traffic")}/>
+    {androidRunId !== undefined && !vpnActive && !testDisabled &&
+      <p className="text-xs text-muted-foreground">{t("speedtest.directNotice")}</p>}
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     {lastResult && <p role="status" className="text-xs">{lastResult.serverName} · ↓ {fmt(lastResult.downloadSpeed)} / ↑ {fmt(lastResult.uploadSpeed)} Mbps · {lastResult.ping} ms</p>}
     <details><summary className="text-xs text-muted-foreground cursor-pointer">{t("speedtest.recentHistory")} · {history.length}</summary>
@@ -124,6 +130,11 @@ export function HomeTraffic({ samples, current, vpnActive, activeProfileName }: 
                         })}{" "}
                         · {new Date(item.timestamp).toLocaleDateString()}
                         {item.location ? ` · ${item.location}` : ""}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground break-words">
+                        {t("speedtest.jitter")} {fmt(item.jitter)} ms
+                        {item.clientIp && ` · ${t("speedtest.clientIp")} ${item.clientIp}`}
+                        {item.colo && ` · ${t("speedtest.colo")} ${item.colo}`}
                       </p>
                     </div>
                   </div>

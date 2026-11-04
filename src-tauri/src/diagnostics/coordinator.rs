@@ -20,6 +20,7 @@ struct Active {
 }
 #[derive(Default)]
 struct State {
+    closed: bool,
     active: Option<Active>,
     snapshot: HealthSnapshot,
 }
@@ -54,6 +55,8 @@ pub struct BeginProbe {
 pub struct ProbeCoordinator {
     state: Mutex<State>,
     probe_slot: Semaphore,
+    #[cfg(not(target_os = "android"))]
+    pub(super) private_core: tokio::sync::Mutex<Option<super::owned_core::OwnedCore>>,
     budget: Duration,
     cleanup_budget: Duration,
     cleanup_failed: AtomicBool,
@@ -68,6 +71,8 @@ impl ProbeCoordinator {
         Self {
             state: Mutex::new(State::default()),
             probe_slot: Semaphore::new(1),
+            #[cfg(not(target_os = "android"))]
+            private_core: Default::default(),
             budget,
             cleanup_budget,
             cleanup_failed: AtomicBool::new(false),
@@ -75,6 +80,12 @@ impl ProbeCoordinator {
     }
     pub fn begin(&self, identity: SessionIdentity, scope: HealthScope) -> BeginProbe {
         let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        if state.closed {
+            return BeginProbe {
+                operation_id: String::new(),
+                lease: None,
+            };
+        }
         if let Some(active) = &state.active {
             if active.identity == identity && active.scope == scope {
                 return BeginProbe {
@@ -141,6 +152,38 @@ impl ProbeCoordinator {
         let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         Self::cancel_active(&mut state);
         state.snapshot = HealthSnapshot::default();
+    }
+    #[cfg(not(target_os = "android"))]
+    pub(super) fn is_closed(&self) -> bool {
+        self.state.lock().unwrap_or_else(|p| p.into_inner()).closed
+    }
+
+    /// Seal admission before signalling cancellation. An in-flight preparation
+    /// cannot acquire a fresh lease after the exit barrier has drained.
+    #[cfg(not(target_os = "android"))]
+    pub(crate) async fn shutdown(&self) {
+        {
+            let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+            state.closed = true;
+            Self::cancel_active(&mut state);
+        }
+        let _permit = self
+            .probe_slot
+            .acquire()
+            .await
+            .expect("probe slot is never closed");
+        // A cancelled command or an expired cleanup budget can leave an owner
+        // here. Retry using its exact child handle and private paths.
+        let mut slot = self.private_core.lock().await;
+        if let Some(core) = slot.as_mut() {
+            if core.stop(Duration::from_secs(5)).await {
+                slot.take();
+            } else {
+                log::error!(
+                    "failed to reap owned diagnostic core or remove its private files on exit"
+                );
+            }
+        }
     }
     pub fn snapshot(&self) -> HealthSnapshot {
         self.state
