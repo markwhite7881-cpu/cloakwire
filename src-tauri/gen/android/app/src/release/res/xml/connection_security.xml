@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- The existing HTTP 204 latency probe and local subscription endpoints. -->
+        <domain>www.gstatic.com</domain>
+        <domain>localhost</domain>
+        <domain>127.0.0.1</domain>
+        <domain>::1</domain>
+        <domain>[::1]</domain>
+    </domain-config>
+</network-security-config>

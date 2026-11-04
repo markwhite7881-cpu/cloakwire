@@ -36,7 +36,7 @@ android {
             isJniDebuggable = true
             isMinifyEnabled = false
             packaging {
-                if (atlasPreview) jniLibs.useLegacyPackaging = true
+                jniLibs.useLegacyPackaging = true
                 jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
                 jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86/*.so")
@@ -44,7 +44,8 @@ android {
             }
         }
         getByName("release") {
-            isMinifyEnabled = true
+            // Preserve the JNI/plugin classes exercised on existing installations.
+            isMinifyEnabled = false
             // Extract .so files to disk at install. The default
             // (useLegacyPackaging=false) keeps them mmap'd inside the
             // APK - fine for System.loadLibrary, but the xray sidecar

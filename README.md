@@ -27,26 +27,25 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ Downloads (v1.4.11)
+## ⚡ Downloads (v1.5.0)
 
 | Platform | Installer | Alternative | Architecture |
 |---|---|---|---|
-| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64_en-US.msi) | x64 (Intel / AMD) |
-| **macOS Apple Silicon** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_aarch64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_aarch64.app.zip) | arm64 (Apple Silicon) |
-| **macOS Intel** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64.app.zip) | x86_64 |
-| **Android** | [Download .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
+| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64_en-US.msi) | x64 (Intel / AMD) |
+| **macOS Apple Silicon** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_aarch64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_aarch64.app.zip) | arm64 (Apple Silicon) |
+| **macOS Intel** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64.app.zip) | x86_64 |
+| **Android** | [Download .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 All seven release packages, including Android, have **Minisign** `.sig` files. SHA-256 checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/SHA256SUMS.txt).
+> 🔒 All seven release packages, including Android, have **Minisign** `.sig` files. SHA-256 checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/SHA256SUMS.txt).
 
-## 🚀 What's new in 1.4.11
+## 🚀 What's new in 1.5.0
 
-- Fixed a desktop crash when clicking “Check again” with an active sing-box or Xray connection.
-- Kept the main desktop status stable while VPN is running, independently of background check results.
-- Scheduled routine desktop connection checks and server latency measurements hourly; latency results are reused across tab changes, while manual checks remain available.
-- Replaced the normal desktop diagnostic card with a compact row containing the last check time, latency and check button; actionable error details remain visible.
-- Retained dated check results without presenting old measurements as fresh verification.
+- Atlas brings a new home screen to Windows, macOS and Android. The globe rotates while disconnected and shows the server country under an animated hood when the VPN connects.
+- Switch between your three most recent servers from Home. The full list groups personal servers and subscriptions. One import action accepts both, and desktop subscriptions can be renamed.
+- Start a speed test from the traffic chart. The chart shows download and upload speeds during the test and returns to live traffic afterward. On Android, VPN tests use the active sing-box or Xray session. A direct test is available when disconnected.
+- Run a check from a server’s card. Desktop Auto connections can be rechecked even if the original profile changes or disappears. Checks from an earlier network or configuration are marked as historical.
 
-[Full history](CHANGELOG.md) · [v1.4.11](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.4.11)
+[Full history](CHANGELOG.md) · [v1.5.0](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.0)
 
 ## Quick start
 
@@ -79,7 +78,7 @@ Cloakwire is a client. You need your own server or a subscription from a provide
 
 ### Appearance and languages
 
-- System, Light, Dark and OLED themes; Emerald, Cyan, Violet, Amber and Rose accents.
+- Choose System, Light, Dark or OLED and any of eleven accent colors in Settings.
 - English, Russian and Simplified Chinese; switch languages in Settings.
 
 ## 🛡️ Privacy and release verification
@@ -94,7 +93,7 @@ Minisign protects updater downloads. Windows packages are distributed without Au
 Example: check the Windows installer and compare the result with `SHA256SUMS.txt`:
 
 ```powershell
-(Get-FileHash Cloakwire_1.4.11_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+(Get-FileHash Cloakwire_1.5.0_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
 ## 🔧 Share-link formats

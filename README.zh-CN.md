@@ -27,26 +27,25 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ 安装包下载 (v1.4.11)
+## ⚡ 安装包下载 (v1.5.0)
 
 | 平台 | 安装程序 | 备用格式 | 架构 |
 |---|---|---|---|
-| **Windows** | [下载 .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64-setup.exe) | [下载 .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64_en-US.msi) | x64 (Intel / AMD) |
-| **macOS Apple Silicon** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_aarch64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_aarch64.app.zip) | arm64 (Apple Silicon) |
-| **macOS Intel** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_x64.app.zip) | x86_64 |
-| **Android** | [下载 .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/Cloakwire_1.4.11_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
+| **Windows** | [下载 .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64-setup.exe) | [下载 .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64_en-US.msi) | x64 (Intel / AMD) |
+| **macOS Apple Silicon** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_aarch64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_aarch64.app.zip) | arm64 (Apple Silicon) |
+| **macOS Intel** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_x64.app.zip) | x86_64 |
+| **Android** | [下载 .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/Cloakwire_1.5.0_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 全部七个发布包（包括 Android）均提供 **Minisign** `.sig` 签名。SHA-256 校验和见 [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.4.11/SHA256SUMS.txt).
+> 🔒 全部七个发布包（包括 Android）均提供 **Minisign** `.sig` 签名。SHA-256 校验和见 [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.0/SHA256SUMS.txt).
 
-## 🚀 1.4.11 更新内容
+## 🚀 1.5.0 更新内容
 
-- 修复桌面端在 sing-box 或 Xray 连接运行时点击“再次检测”导致应用崩溃的问题。
-- VPN 运行期间，桌面主状态保持稳定，不再随后台检测结果切换。
-- 桌面端例行连接检测和服务器延迟测量改为每小时一次；切换标签页时复用延迟结果，仍可随时手动检测。
-- 将桌面常规诊断卡片缩减为包含上次检测时间、延迟和检测按钮的紧凑行；错误原因及可执行操作仍然显示。
-- 保留带时间的检测结果，不将旧测量结果显示为当前连接验证。
+- Windows、macOS 和 Android 均采用全新的 Atlas 主页。未连接时地球仪会缓慢旋转，连接后转向服务器所在国家，并播放戴上兜帽的动画。
+- 主页可快速切换最近选择的三个服务器。完整列表将个人服务器和订阅分组显示，两者共用一个导入入口。桌面端还可为订阅设置自定义名称。
+- 可直接从流量图启动测速。图表在测试期间显示下载和上传速率，结束后恢复显示实时流量。Android 通过当前 sing-box 或 Xray 会话测速，断开 VPN 后可单独测试直连速度。
+- 可从服务器卡片发起检测。桌面端即使原配置已更新或删除，也可重新检测正在运行的 Auto 连接。更换网络或配置后，先前的检测结果会标记为历史记录。
 
-[完整更新历史](CHANGELOG.md) · [v1.4.11](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.4.11)
+[完整更新历史](CHANGELOG.md) · [v1.5.0](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.0)
 
 ## 快速上手
 
@@ -79,7 +78,7 @@ Cloakwire 是客户端。使用前需要自备服务器或提供商订阅。
 
 ### 外观与语言
 
-- 支持跟随系统、浅色、深色和 OLED 主题；提供 Emerald、Cyan、Violet、Amber 和 Rose 五种强调色。
+- 可在设置中选择跟随系统、浅色、深色或 OLED 主题，并从十一种强调色中挑选配色。
 - 内置简体中文、英语和俄语，可在设置中切换。
 
 ## 🛡️ 隐私与发布验证
@@ -94,7 +93,7 @@ Minisign 用于保护更新下载。Windows 安装包未使用 Authenticode 签�
 示例：计算 Windows 安装程序的哈希，并与 `SHA256SUMS.txt` 比较：
 
 ```powershell
-(Get-FileHash Cloakwire_1.4.11_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+(Get-FileHash Cloakwire_1.5.0_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
 ## 🔧 连接链接格式
