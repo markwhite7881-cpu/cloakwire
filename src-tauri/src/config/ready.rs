@@ -8,7 +8,20 @@ use crate::error::{AppError, AppResult};
 /// Apply local routing to a runtime copy of a provider-owned sing-box config.
 /// Local rules run first; provider rules and unrelated provider sections keep
 /// their original content and relative order.
-pub fn merge_ready_routing(mut provider: Value, routing: &RoutingOptions) -> AppResult<Value> {
+pub fn merge_ready_routing(provider: Value, routing: &RoutingOptions) -> AppResult<Value> {
+    merge_ready_config(
+        provider,
+        &GeneratorSettings {
+            routing: routing.clone(),
+            ..GeneratorSettings::default()
+        },
+    )
+}
+
+/// Managed launches pass their actual DNS settings; older routing-only callers
+/// keep the same resolver defaults as generated profiles.
+pub fn merge_ready_config(mut provider: Value, settings: &GeneratorSettings) -> AppResult<Value> {
+    let routing = &settings.routing;
     let root = provider
         .as_object_mut()
         .ok_or_else(|| AppError::UnsafeConfig("ready sing-box config must be an object".into()))?;
@@ -36,7 +49,14 @@ pub fn merge_ready_routing(mut provider: Value, routing: &RoutingOptions) -> App
                 .iter()
                 .any(|server| server.get("tag").and_then(Value::as_str) == Some("local"))
         });
-    if routing.default_domain_resolver == "local" && !has_local_resolver {
+    let preserve_provider_resolver = cfg!(windows)
+        && root
+            .get("route")
+            .and_then(|route| route.get("default_domain_resolver"))
+            .is_some_and(|value| !value.is_null());
+    if routing.default_domain_resolver == "local"
+        && (!has_local_resolver || preserve_provider_resolver)
+    {
         if let Some(route) = generated.get_mut("route").and_then(Value::as_object_mut) {
             route.remove("default_domain_resolver");
         }
@@ -45,7 +65,135 @@ pub fn merge_ready_routing(mut provider: Value, routing: &RoutingOptions) -> App
     validate_local_targets(&generated, &tags)?;
     ensure_standard_outbounds(root, &generated)?;
     merge_route_documents(root, generated)?;
+    #[cfg(windows)]
+    merge_windows_dns(root, settings, &proxy_target)?;
     Ok(provider)
+}
+
+#[cfg(windows)]
+fn merge_windows_dns(
+    root: &mut Map<String, Value>,
+    settings: &GeneratorSettings,
+    proxy: &str,
+) -> AppResult<()> {
+    let local_route = super::build_route(settings);
+    let route_rules = local_route["rules"].as_array().cloned().unwrap_or_default();
+    let has_apps = settings
+        .routing
+        .direct_processes
+        .iter()
+        .chain(&settings.routing.vpn_processes)
+        .any(|name| !name.trim().is_empty());
+    let custom_local_dns = settings
+        .local_dns
+        .as_deref()
+        .is_some_and(|v| v != "1.1.1.1");
+    let custom_remote_dns = settings
+        .remote_dns
+        .as_deref()
+        .is_some_and(|v| !matches!(v, "https://dns.google/dns-query" | "1.1.1.1"));
+    if !has_apps
+        && super::windows_dns_rules(&route_rules, "local", "remote", false).is_empty()
+        && settings.routing.final_outbound != "direct"
+        && !custom_local_dns
+        && !custom_remote_dns
+    {
+        // No local DNS policy to apply: keep provider DNS, including fake-IP
+        // defaults and evaluate/respond chains, byte-for-byte equivalent.
+        return Ok(());
+    }
+    let final_direct = root["route"]["final"] == "direct";
+    // The core treats null optional DNS sections as omitted; keep that accepted
+    // input shape usable while adding local policy. Invalid strings still fail.
+    if root.get("dns").is_some_and(Value::is_null) {
+        root.remove("dns");
+    }
+    let dns = root
+        .entry("dns")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or_else(|| AppError::UnsafeConfig("sing-box dns must be an object".into()))?;
+    for field in ["servers", "rules"] {
+        if dns.get(field).is_some_and(Value::is_null) {
+            dns.remove(field);
+        }
+    }
+    let servers = dns
+        .entry("servers")
+        .or_insert_with(|| Value::Array(Vec::new()))
+        .as_array_mut()
+        .ok_or_else(|| AppError::UnsafeConfig("sing-box DNS servers must be an array".into()))?;
+    let had_provider_servers = !servers.is_empty();
+    let mut tags: HashSet<String> = servers
+        .iter()
+        .filter_map(|s| s["tag"].as_str().map(str::to_owned))
+        .collect();
+    let mut unique = |base: &str| {
+        let mut tag = base.to_owned();
+        let mut suffix = 1;
+        while !tags.insert(tag.clone()) {
+            tag = format!("{base}-{suffix}");
+            suffix += 1;
+        }
+        tag
+    };
+    let local_tag = unique("cloakwire-local");
+    let remote_tag = unique("cloakwire-remote");
+    let generated = super::build_dns(settings);
+    let mut local = generated["servers"][0].clone();
+    local["tag"] = serde_json::json!(local_tag);
+    let mut remote = generated["servers"][1].clone();
+    remote["tag"] = serde_json::json!(remote_tag);
+    remote["detour"] = serde_json::json!(proxy);
+    if remote.get("domain_resolver").is_some() {
+        remote["domain_resolver"] = serde_json::json!(local_tag);
+    }
+    servers.extend([local, remote]);
+    let rules = dns
+        .entry("rules")
+        .or_insert_with(|| Value::Array(Vec::new()))
+        .as_array_mut()
+        .ok_or_else(|| AppError::UnsafeConfig("sing-box DNS rules must be an array".into()))?;
+    // Local app routing has the same precedence here as in route.rules.
+    // Keep the provider block intact: evaluate/respond chains depend on order.
+    let mut local_rules = super::windows_dns_rules(
+        &route_rules,
+        &local_tag,
+        &remote_tag,
+        settings
+            .routing
+            .direct_processes
+            .iter()
+            .any(|name| !name.trim().is_empty()),
+    );
+    if final_direct {
+        local_rules.push(serde_json::json!({"action": "route", "server": local_tag}));
+    }
+    local_rules.append(rules);
+    *rules = local_rules;
+    if final_direct || custom_remote_dns || !had_provider_servers {
+        dns.insert(
+            "final".into(),
+            serde_json::json!(if final_direct {
+                &local_tag
+            } else {
+                &remote_tag
+            }),
+        );
+    }
+    // Once DNS final uses the VPN path, proxy endpoint hostnames must bootstrap
+    // independently. Keep provider/user explicit string or object resolvers.
+    let route = root["route"].as_object_mut().expect("merged route object");
+    if route
+        .get("default_domain_resolver")
+        .map_or(true, Value::is_null)
+    {
+        route.insert(
+            "default_domain_resolver".into(),
+            serde_json::json!(local_tag),
+        );
+    }
+    Ok(())
 }
 
 fn outbound_tags(root: &Map<String, Value>) -> AppResult<HashSet<String>> {
@@ -264,6 +412,25 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn assert_provider_dns_preserved(merged: &Value, original: &Value) {
+        #[cfg(not(windows))]
+        assert_eq!(merged["dns"], original["dns"]);
+        #[cfg(windows)]
+        {
+            let original_servers = original["dns"]["servers"].as_array().unwrap();
+            assert_eq!(
+                &merged["dns"]["servers"].as_array().unwrap()[..original_servers.len()],
+                original_servers
+            );
+            if let Some(original_rules) = original["dns"]["rules"].as_array() {
+                assert_eq!(
+                    &merged["dns"]["rules"].as_array().unwrap()[merged["dns"]["rules"].as_array().unwrap().len()-original_rules.len()..],
+                    original_rules
+                );
+            }
+        }
+    }
+
     fn provider() -> Value {
         json!({
             "log": {"level": "warning"},
@@ -310,7 +477,7 @@ mod tests {
                 && rule["outbound"] == "providerProxy"));
         assert_eq!(rules[rules.len() - 2], provider_rules[0]);
         assert_eq!(rules[rules.len() - 1], provider_rules[1]);
-        assert_eq!(merged["dns"], original["dns"]);
+        assert_provider_dns_preserved(&merged, &original);
         assert_eq!(merged["log"], original["log"]);
         assert_eq!(merged["route"]["final"], json!("direct"));
         assert_eq!(merged["route"]["find_process"], json!(true));
@@ -342,7 +509,7 @@ mod tests {
         let original = provider();
         let merged = merge_ready_routing(original.clone(), &settings.routing).unwrap();
         assert_eq!(merged["route"]["final"], "providerProxy");
-        assert_eq!(merged["dns"], original["dns"]);
+        assert_provider_dns_preserved(&merged, &original);
         let sets = merged["route"]["rule_set"].as_array().unwrap();
         assert_eq!(sets.len(), 1);
         assert_eq!(sets[0]["tag"], "geoip-ru");
@@ -373,7 +540,7 @@ mod tests {
             merged["route"]["default_domain_resolver"],
             original["route"]["default_domain_resolver"]
         );
-        assert_eq!(merged["dns"], original["dns"]);
+        assert_provider_dns_preserved(&merged, &original);
     }
 
     #[test]
@@ -381,7 +548,7 @@ mod tests {
         let original = provider();
         let merged = merge_ready_routing(original.clone(), &RoutingOptions::default()).unwrap();
         assert!(merged["route"].get("default_domain_resolver").is_none());
-        assert_eq!(merged["dns"], original["dns"]);
+        assert_provider_dns_preserved(&merged, &original);
     }
 
     #[test]
@@ -452,5 +619,199 @@ mod tests {
 
         base["route"]["rule_set"] = json!([{"tag": "local-set", "type": "inline"}]);
         assert!(merge_ready_routing(base, &routing).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_ready_dns_prepends_app_policy_preserves_provider_block_and_uses_proxy_alias() {
+        let mut original = provider();
+        original["dns"] = json!({
+            "servers": [{"type": "tcp", "tag": "provider-dns", "server": "9.9.9.9", "detour": "providerProxy"}, {"type": "udp", "tag": "cloakwire-local", "server": "8.8.8.8"}],
+            "rules": [{"domain_suffix": ["provider-dns.test"], "action": "route", "server": "provider-dns"}],
+            "final": "provider-dns"
+        });
+        let routing = RoutingOptions {
+            direct_processes: vec!["bank.exe".into()],
+            vpn_processes: vec!["chat.exe".into()],
+            final_outbound: "direct".into(),
+            ..RoutingOptions::default()
+        };
+        let merged = merge_ready_routing(original.clone(), &routing).unwrap();
+        let dns = &merged["dns"];
+        assert_eq!(
+            dns["rules"].as_array().unwrap().last().unwrap(),
+            &original["dns"]["rules"][0]
+        );
+        let local_tag = dns["rules"][0]["server"]
+            .as_str()
+            .expect("direct process resolver");
+        let remote_tag = dns["rules"][1]["server"]
+            .as_str()
+            .expect("VPN process resolver");
+        assert_ne!(
+            local_tag, "cloakwire-local",
+            "provider resolver tags must not collide"
+        );
+        let servers = dns["servers"].as_array().unwrap();
+        assert_eq!(
+            &servers[..2],
+            original["dns"]["servers"].as_array().unwrap()
+        );
+        let local = servers.iter().find(|s| s["tag"] == local_tag).unwrap();
+        let remote = servers.iter().find(|s| s["tag"] == remote_tag).unwrap();
+        assert!(local.get("detour").is_none());
+        assert_eq!(remote["detour"], "providerProxy");
+        assert_eq!(remote["domain_resolver"], local_tag);
+        assert_eq!(dns["final"], local_tag);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_ready_bootstraps_proxy_hostname_without_replacing_explicit_resolver() {
+        for explicit in [
+            None,
+            Some(Value::Null),
+            Some(json!("provider-dns")),
+            Some(json!({"server": "provider-dns", "strategy": "ipv4_only"})),
+        ] {
+            let mut original = provider();
+            original["outbounds"][0]["server"] = json!("proxy-endpoint.test");
+            if let Some(value) = &explicit {
+                original["route"]["default_domain_resolver"] = value.clone();
+            }
+            let routing = RoutingOptions {
+                direct_processes: vec!["bank.exe".into()],
+                ..RoutingOptions::default()
+            };
+            let merged = merge_ready_routing(original, &routing).unwrap();
+            let expected = explicit
+                .filter(|value| !value.is_null())
+                .unwrap_or_else(|| json!("cloakwire-local"));
+            assert_eq!(merged["route"]["default_domain_resolver"], expected);
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_ready_explicit_app_dns_precedes_provider_catchall_and_fakeip() {
+        for server_type in ["tcp", "fakeip"] {
+            let mut original = provider();
+            original["dns"] = json!({
+                "servers": [{"type": server_type, "tag": "provider-default"}],
+                "rules": [{"action": "route", "server": "provider-default"}],
+                "final": "provider-default"
+            });
+            let routing = RoutingOptions {
+                direct_processes: vec!["bank.exe".into()],
+                ..RoutingOptions::default()
+            };
+            let merged = merge_ready_routing(original.clone(), &routing).unwrap();
+            let rules = merged["dns"]["rules"].as_array().unwrap();
+            assert_eq!(rules[0]["process_name"], json!(["bank.exe"]));
+            assert_eq!(rules[0]["server"], "cloakwire-local");
+            assert_eq!(rules.last().unwrap(), &original["dns"]["rules"][0]);
+            assert_eq!(merged["dns"]["final"], "provider-default");
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_ready_all_apps_preserves_provider_dns_and_rule_chain() {
+        let mut original = provider();
+        original["dns"]["final"] = json!("provider-dns");
+        original["dns"]["rules"] = json!([
+            {"action": "evaluate", "server": "provider-dns", "tag": "evaluation"},
+            {"match_response": "evaluation", "action": "respond"}
+        ]);
+        for remote in ["https://dns.google/dns-query", "1.1.1.1"] {
+            let settings = GeneratorSettings {
+                remote_dns: Some(remote.into()),
+                routing: RoutingOptions {
+                    rules: vec![json!({})],
+                    ..RoutingOptions::default()
+                },
+                ..GeneratorSettings::default()
+            };
+            let merged = merge_ready_config(original.clone(), &settings).unwrap();
+            assert_eq!(
+                merged["dns"], original["dns"],
+                "historical/current UI default {remote}"
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_ready_unknown_ip_policy_keeps_direct_and_shared_before_remote_barrier() {
+        let mut original = provider();
+        original["dns"]["rules"] = json!([{"action": "route", "server": "provider-dns"}]);
+        let routing = RoutingOptions {
+            direct_processes: vec!["bank.exe".into()],
+            rules: vec![
+                json!({"ip_cidr": ["203.0.113.0/24"], "action": "route", "outbound": "proxy"}),
+            ],
+            ..RoutingOptions::default()
+        };
+        let merged = merge_ready_routing(original.clone(), &routing).unwrap();
+        assert_eq!(
+            merged["dns"]["rules"],
+            json!([
+                {"process_name": ["bank.exe"], "action": "route", "server": "cloakwire-local"},
+                {"process_name": ["svchost.exe", "System"], "action": "route", "server": "cloakwire-local"},
+                {"action": "route", "server": "cloakwire-remote"},
+                {"action": "route", "server": "provider-dns"}
+            ])
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_ready_accepts_optional_null_dns_fields_but_rejects_invalid_shapes() {
+        let routing = RoutingOptions {
+            direct_processes: vec!["bank.exe".into()],
+            ..RoutingOptions::default()
+        };
+        for dns in [
+            json!(null),
+            json!({"servers": null}),
+            json!({"servers": [], "rules": null}),
+        ] {
+            let mut original = provider();
+            original["dns"] = dns;
+            let merged = merge_ready_routing(original, &routing)
+                .expect("core accepts null optional DNS fields");
+            assert_eq!(merged["dns"]["rules"][0]["server"], "cloakwire-local");
+        }
+        for dns in [
+            json!("invalid"),
+            json!({"servers": "invalid"}),
+            json!({"servers": [], "rules": "invalid"}),
+        ] {
+            let mut original = provider();
+            original["dns"] = dns;
+            assert!(merge_ready_routing(original, &routing).is_err());
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_ready_preserves_explicit_resolver_when_provider_also_has_local_tag() {
+        for resolver in [
+            json!("provider-dns"),
+            json!({"server": "provider-dns", "strategy": "ipv4_only"}),
+        ] {
+            let mut original = provider();
+            original["dns"]["servers"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"type": "udp", "tag": "local", "server": "8.8.8.8"}));
+            original["route"]["default_domain_resolver"] = resolver.clone();
+            let routing = RoutingOptions {
+                direct_processes: vec!["bank.exe".into()],
+                ..RoutingOptions::default()
+            };
+            let merged = merge_ready_routing(original, &routing).unwrap();
+            assert_eq!(merged["route"]["default_domain_resolver"], resolver);
+        }
     }
 }

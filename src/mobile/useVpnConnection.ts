@@ -65,7 +65,7 @@ export interface VpnConnection {
   disconnect: () => Promise<void>;
 }
 
-export interface ConnectRequest { preparationId?:string; source:ProfileSource|null;profiles?:Outbound[];settings?:GeneratorSettings;expectedRunId?:string }
+export interface ConnectRequest { preparationId?:string; source:ProfileSource|null;profiles?:Outbound[];settings?:GeneratorSettings;expectedRunId?:string;onAccepted?:()=>void }
 
 /** Engine configuration of a bundle subscription's active child. */
 export interface BundleChildOverride {
@@ -191,6 +191,7 @@ export function useVpnConnection(
       await new Promise((r) => setTimeout(r, 600));
       setStatus({ state: "running", message: null, since: Date.now(), engine: "sing-box" });
       setProfileName(name || override?.name || null);
+      request?.onAccepted?.();
       setBusy(false);
       return;
     }
@@ -266,6 +267,7 @@ export function useVpnConnection(
         blockIpv6: attemptSettings.block_ipv6,
       });
       handedOff=true;
+      request?.onAccepted?.();
       setProfileName(resolvedName || null);
       // No shared Clash API traffic stream on Android; byte counters
       // come from the VpnService notification instead.

@@ -26,6 +26,7 @@ import { humanError, isProfileCheckCancelled, profileCheckDetails } from "@/lib/
 import { useGeoIp } from "@/hooks/useGeoIp";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useManualProfiles } from "@/hooks/useManualProfiles";
+import { useConnectionChanges } from "@/hooks/useConnectionChanges";
 import { useProfileSelection } from "@/hooks/useProfileSelection";
 import { ManualProfileStorageNotice } from "@/components/ManualProfileStorageNotice";
 import { isSupported, profileLabel } from "@/lib/outbound";
@@ -49,7 +50,6 @@ import { LogsScreen } from "./screens/LogsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { adjacentTabIndex, swipeDirection } from "./lib/mobileUi";
 import {
-  nextReconnectRequired,
   shouldShowReconnectNotice,
 } from "./lib/reconnectState";
 import { buildGroupedServerProfiles } from "./lib/serverGrouping";
@@ -118,7 +118,7 @@ export default function MobileApp() {
     engine: "singbox" | "xray";
     childName: string;
   } | null>(null);
-  const [reconnectRequired, setReconnectRequired] = useState(false);
+  const {pending: reconnectRequired, markChanged: markConnectionDirty, capture: captureSettingsRevision, acknowledge: acknowledgeSettings} = useConnectionChanges();
   const [reconnectFailed, setReconnectFailed] = useState(false);
   const [reconnectInProgress, setReconnectInProgress] = useState(false);
   // Last `reconnect()` failure message — surfaced in the banner so
@@ -222,10 +222,6 @@ export default function MobileApp() {
   const vpn = { ...connection, busy: connection.busy || selectionBusy };
 
   const profileProbe = useServerCardChecks(probeSource, allSources, profiles, settings, vpn.busy || manualStore.blocked);
-
-  const markConnectionDirty = () => {
-    setReconnectRequired((previous) => nextReconnectRequired(previous, vpn.state));
-  };
 
   // ---- Last-connected-server persistence ------------------------------
   // Saved when a connect reaches "running", restored on the next
@@ -358,6 +354,7 @@ export default function MobileApp() {
     if (await manualStore.saveRecords(manualRecords.filter(r => r.id !== id))) markConnectionDirty();
   };
   const setMobileSettings = (next: GeneratorSettings) => {
+    currentSettings.current = next;
     setSettings(next);
     markConnectionDirty();
   };
@@ -403,7 +400,6 @@ export default function MobileApp() {
     } else if (vpn.state === "running" && !vpn.busy) {
       reconnectPhase.current = "idle";
       setReconnectInProgress(false);
-      setReconnectRequired(false);
       setReconnectFailed(false);
       setReconnectError(null);
     }
@@ -553,6 +549,13 @@ export default function MobileApp() {
       vpn.reportError(t("profileStorage.choose")); return;
     }
     const assertCurrent=profilePreparation();
+    const attemptRevision = captureSettingsRevision();
+    const attemptSettings = currentSettings.current;
+    const onAccepted = () => {
+      acknowledgeSettings(attemptRevision);
+      setReconnectFailed(false);
+      setReconnectError(null);
+    };
     const ownerContext=expectedRunId??vpn.runId??"stopped";
     const source=target??(activeBundle?readySources.find(source=>source.profile_ref.kind==="ready"&&source.profile_ref.subscription_id===activeBundle.subscriptionId&&source.profile_ref.child_key===activeBundle.childKey)??null:profileSources[selectedIndex]??null);
     vpn.clearError();setSelectionBusy(true);
@@ -565,19 +568,19 @@ export default function MobileApp() {
       assertCurrent();
       if(source?.profile_ref.kind==="ready"||(!target&&activeBundle)){
         const ref=source?.profile_ref.kind==="ready"?source.profile_ref:{subscription_id:activeBundle!.subscriptionId,child_key:activeBundle!.childKey};
-        const child=await api.getActiveChildConfig(ref.subscription_id,settings.routing,ref.child_key);
+        const child=await api.getActiveChildConfig(ref.subscription_id,attemptSettings.routing,ref.child_key);
         if(child.child_key!==ref.child_key||(source&&child.source_revision!==source.source_revision))throw Error(t("profileEvidence.changed"));
         assertCurrent();
         delegated=true;
-        await vpn.connect({engine:child.engine,config:child.config,name:child.child_name},child.child_name,{source,settings,expectedRunId:ownerContext,preparationId});
+        await vpn.connect({engine:child.engine,config:child.config,name:child.child_name},child.child_name,{source,settings:attemptSettings,expectedRunId:ownerContext,preparationId,onAccepted});
       }else{
         const index=target?findSourceIndex(profileSources,target):selectedIndex;
         if(target&&index<0)throw Error(t("profileEvidence.changed"));
         const picked=profiles[index];
         const attemptProfiles=picked?[picked,...profiles.filter((_,i)=>i!==index)]:profiles;
-        const attemptSettings={...settings,default_outbound:picked&&isSupported(picked)?picked.tag:null};
+        const effectiveSettings={...attemptSettings,default_outbound:picked&&isSupported(picked)?picked.tag:null};
         delegated=true;
-        await vpn.connect(undefined,picked?profileLabel(picked):undefined,{source,profiles:attemptProfiles,settings:attemptSettings,expectedRunId:ownerContext,preparationId});
+        await vpn.connect(undefined,picked?profileLabel(picked):undefined,{source,profiles:attemptProfiles,settings:effectiveSettings,expectedRunId:ownerContext,preparationId,onAccepted});
       }
     }catch(error){vpn.reportError(humanError(error)==="profile_source_changed"?t("profileEvidence.changed"):error,source,ownerContext)}
     finally{

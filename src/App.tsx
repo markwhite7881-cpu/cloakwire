@@ -46,6 +46,7 @@ import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { GEOIP_RU_URL, migrateRuleSetPresets } from "@/lib/presets";
 import { useProfileSelection } from "@/hooks/useProfileSelection";
 import { useManualProfiles } from "@/hooks/useManualProfiles";
+import { useConnectionChanges } from "@/hooks/useConnectionChanges";
 import { ManualProfileStorageNotice } from "@/components/ManualProfileStorageNotice";
 import { notify } from "@/lib/notifications";
 import {
@@ -68,7 +69,6 @@ import { isSupported, profileLabel } from "@/lib/outbound";
 import { basename } from "@/lib/utils";
 import { shouldFrontendApplySystemProxy } from "@/lib/systemProxy";
 import {
-  nextReconnectRequired,
   shouldReconnectAfterProfileSelection,
   shouldShowReconnectNotice,
 } from "@/lib/reconnectState";
@@ -381,17 +381,18 @@ export default function App() {
   // Config-builder settings — lifted here so they survive tab
   // switches and a process restart (persisted to localStorage below).
   const [settings, setSettings] = useState<GeneratorSettings>(loadSettings);
-  const [reconnectRequired, setReconnectRequired] = useState(false);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const {pending: reconnectRequired, markChanged: markConnectionDirty, capture: captureSettingsRevision, acknowledge: acknowledgeSettings} = useConnectionChanges();
   const [reconnectFailed, setReconnectFailed] = useState(false);
   const [reconnectInProgress, setReconnectInProgress] = useState(false);
   const handleSettingsChange = useCallback(
     (next: GeneratorSettings): void => {
+      settingsRef.current = next;
       setSettings(next);
-      setReconnectRequired((previous) =>
-        nextReconnectRequired(previous, status.status === "running"),
-      );
+      markConnectionDirty();
     },
-    [status.status],
+    [markConnectionDirty],
   );
   // Index into `profiles` (manual + subscription) for the server the
   // user has selected on the Home tab. -1 = "auto" (let urltest pick).
@@ -746,7 +747,7 @@ export default function App() {
   }, [status.status, refresh]);
 
   const startCancelledRef = useRef(false);
-  const onStart = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex, target?:ProfileSource, expectedSession?:SessionIdentity): Promise<boolean> => {
+  const onStart = useCallback(async (overrideSettings?: GeneratorSettings, requestedIndex = selectedIndex, target?:ProfileSource, expectedSession?:SessionIdentity, requestedSettingsRevision?:number): Promise<boolean> => {
     const assertCurrent=profilePreparation();
     const attemptContext=connectionContext.current;
     startCancelledRef.current = false;
@@ -773,7 +774,8 @@ export default function App() {
       typeof overrideSettings === "object" &&
       "tunnel_mode" in overrideSettings
         ? overrideSettings
-        : settings;
+        : settingsRef.current;
+    const attemptRevision = requestedSettingsRevision ?? captureSettingsRevision();
     setBusy(true);
     setError(null);
     setRoutingWarning(null);setAttemptEvidence(null);
@@ -793,6 +795,7 @@ export default function App() {
         manualProfileId:profiles[requestedIndex]?.kind==="manual"?profiles[requestedIndex].id:undefined,
         settings: effectiveSettings,
       });
+      acknowledgeSettings(attemptRevision);
       if (managed.routing.unavailable.length > 0) {
         setRoutingWarning(t("home.xrayRoutingWarning", {
           rules: managed.routing.unavailable.map((rule) => rule.label).join(", "),
@@ -826,7 +829,6 @@ export default function App() {
 
       await refresh();
       setActiveTab("home");
-      setReconnectRequired(false);
       setReconnectFailed(false);
       return true;
     } catch (e) {
@@ -836,7 +838,7 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }, [manualProfiles, profiles, selectedIndex, settings, refresh, t, manualStore.blocked, manualStore.state.status, selectionNeedsChoice, manualRevisions]);
+  }, [manualProfiles, profiles, selectedIndex, refresh, t, manualStore.blocked, manualStore.state.status, selectionNeedsChoice, manualRevisions, captureSettingsRevision, acknowledgeSettings]);
 
   // Latest onStart, for handlers that need to call it after they've
   // already scheduled a state update (so the new settings object
@@ -851,6 +853,10 @@ export default function App() {
       setError(t(selectionNeedsChoiceRef.current || isSelectionMissing() ? "profileStorage.choose" : `profileStorage.${manualStore.state.status}`)); return false;
     }
     if (!inTauri) return false;
+    // Capture before stopping. Edits during Stop belong to the next attempt,
+    // including when profile selection supplied an explicit settings snapshot.
+    const attemptSettings = overrideSettings ?? settingsRef.current;
+    const attemptRevision = captureSettingsRevision();
     setReconnectInProgress(true);
     setBusy(true);
     setError(null);
@@ -866,10 +872,9 @@ export default function App() {
           ++refreshEpoch.current;
           setStatus(stopped);
         },
-        start: (index) => onStartRef.current(overrideSettings, index),
+        start: (index) => onStartRef.current(attemptSettings, index, undefined, undefined, attemptRevision),
       });
       if (started) {
-        setReconnectRequired(false);
         setReconnectFailed(false);
       } else {
         setReconnectFailed(!startCancelledRef.current);
@@ -884,7 +889,7 @@ export default function App() {
       setBusy(false);
       setReconnectInProgress(false);
     }
-  }, [profiles, selectedIndex, manualStore.blocked, manualStore.state.status, t, isSelectionMissing]);
+  }, [profiles, selectedIndex, manualStore.blocked, manualStore.state.status, t, isSelectionMissing, captureSettingsRevision]);
 
   const onStop = useCallback(async () => {
     ++refreshEpoch.current;setHealthActionMessage(null);
@@ -1015,7 +1020,7 @@ export default function App() {
   }, []);
 
   // Link / subscription parser (auto-detect).
-  const profileImport = useProfileImport(manualStore, () => setReconnectRequired(previous => nextReconnectRequired(previous, status.status === "running")));
+  const profileImport = useProfileImport(manualStore, markConnectionDirty);
   const onImportText = useCallback(async (rawText: string): Promise<boolean> => {
       const text = rawText.trim();
       if (!text) return false;
@@ -1112,12 +1117,12 @@ export default function App() {
       requireSelectionChoice(false);
       setSelectedIndex(index);
       remember(selected && connectionProfileStorageKey(selected));
-      setSettings(nextSettings);
+      handleSettingsChange(nextSettings);
       if (shouldReconnectAfterProfileSelection(status.status)) {
         await reconnectCurrentProfile(nextSettings, index);
       }
     },
-    [profiles, settings, status.status, reconnectCurrentProfile, remember],
+    [profiles, settings, status.status, reconnectCurrentProfile, remember, handleSettingsChange],
   );
 
   const onRemoveProfile = useCallback((idx: number) => {
@@ -1146,7 +1151,7 @@ export default function App() {
     reconnect:async(index,target)=>{
       const profile=profiles[index];
       const default_outbound=profile?.kind==="manual"&&isSupported(profile.outbound)?profile.outbound.tag:profile?.kind==="subscription"?profile.label:null;
-      await onStart({...settings,default_outbound},index,target,diagnostics?.session??undefined);
+      await onStart({...settingsRef.current,default_outbound},index,target,diagnostics?.session??undefined);
     }
   });
   const tabs: TabDef[] = useMemo(

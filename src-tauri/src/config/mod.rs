@@ -377,17 +377,9 @@ fn build_inbounds(settings: &GeneratorSettings) -> Vec<Value> {
 }
 
 pub(crate) fn build_route(settings: &GeneratorSettings) -> Value {
-    // Routing 2.0: the user edits a list of rule objects (sing-box JSON
-    // shape) and a list of rule-set objects. We pass them through
-    // verbatim, with three small extras that we always prepend:
-    //
-    //   1. `{ network: "dns", action: "direct" }` — never route DNS
-    //      through the proxy. Without this, a flaky DoH upstream would
-    //      black-hole every connection in TUN mode.
-    //   2. `{ action: "sniff" }` (if the user has it on) — required so
-    //      later rules can match by domain.
-    //   3. Disabled rules and rule-sets are skipped here (not at
-    //      frontend edit time), so the Rust side is the authority.
+    // Built-in DNS capture and LAN bypass precede process-picker and custom
+    // rules. Windows mirrors the application/domain policy into dns.rules;
+    // DNS is decided there, independently of the route's hijack action.
     let r = &settings.routing;
 
     let mut rules: Vec<Value> = Vec::new();
@@ -677,12 +669,6 @@ fn has_meaningful_matchers(rule: &Value) -> bool {
 
 fn build_dns(settings: &GeneratorSettings) -> Value {
     // sing-box 1.12+ requires typed DNS server entries.
-    //
-    // Important: we set `final: "local"` and the local server to a
-    // plain UDP resolver. Going through DoH (`dns.google`) is
-    // unreliable in many regions (blocked / throttled) and would
-    // black-hole the entire internet the moment it fails — every
-    // connection relies on a working DNS lookup.
     let local_input = settings
         .local_dns
         .clone()
@@ -722,13 +708,129 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     }
     remote_obj.insert("detour".into(), Value::String("proxy".into()));
 
-    json!({
+    let dns = json!({
         "servers": [Value::Object(local_obj), Value::Object(remote_obj)],
         // Remote resolver queries over proxy tunnel (bypasses ISP DNS blocking/poisoning).
         // Outbound domain endpoints resolve via local domain_resolver.
         "final": "remote",
         "strategy": "ipv4_only"
-    })
+    });
+    #[cfg(windows)]
+    let dns = {
+        let mut dns = dns;
+        let route = build_route(settings);
+        dns["rules"] = Value::Array(windows_dns_rules(
+            route["rules"].as_array().expect("generated route rules"),
+            "local",
+            "remote",
+            settings
+                .routing
+                .direct_processes
+                .iter()
+                .any(|name| !name.trim().is_empty()),
+        ));
+        dns["final"] = json!(if settings.routing.final_outbound == "direct" {
+            "local"
+        } else {
+            "remote"
+        });
+        dns
+    };
+    dns
+}
+
+/// Project application/domain decisions into the separate Windows DNS router.
+/// Destination IP/port/protocol rules describe the eventual connection, not its
+/// DNS packet. They cannot be projected by dropping matchers: that could expose
+/// VPN queries to local DNS. An unprojectable non-direct decision conservatively
+/// keeps the remaining DNS on the remote path. Direct process-picker decisions
+/// already precede those custom rules, just as they do in route.rules.
+/// Windows' shared DNS Client service may own the socket as svchost.exe; in that
+/// case the actual requesting app is unavailable and the configured default wins.
+/// No resolver failure ever changes an explicitly selected remote DNS route.
+#[cfg(windows)]
+fn windows_dns_rules(
+    route_rules: &[Value],
+    local: &str,
+    remote: &str,
+    shared_client_direct: bool,
+) -> Vec<Value> {
+    let mut rules = Vec::new();
+    let mut remote_barrier = false;
+    for rule in route_rules {
+        let action = rule
+            .get("action")
+            .and_then(Value::as_str)
+            .unwrap_or("route");
+        if matches!(action, "hijack-dns" | "sniff" | "resolve" | "route-options") {
+            continue;
+        }
+        // Automatic LAN bypass is about the DNS server address, not the answer.
+        if rule == &json!({"action": "route", "ip_is_private": true, "outbound": "direct"}) {
+            continue;
+        }
+        let direct = rule.get("outbound").and_then(Value::as_str) == Some("direct");
+        let Some(mut matchers) = dns_application_matchers(rule) else {
+            if !direct {
+                remote_barrier = true;
+            }
+            continue;
+        };
+        if remote_barrier && direct {
+            continue;
+        }
+        if action == "reject" || rule.get("outbound").and_then(Value::as_str) == Some("block") {
+            matchers.insert("action".into(), json!("reject"));
+        } else if action == "route" {
+            matchers.insert("action".into(), json!("route"));
+            matchers.insert("server".into(), json!(if direct { local } else { remote }));
+        } else {
+            // Unknown terminal actions must not make later direct DNS broader.
+            remote_barrier = true;
+            continue;
+        }
+        rules.push(Value::Object(matchers));
+    }
+    if shared_client_direct {
+        // The Windows DNS Client multiplexes requests for all apps. An exclusion
+        // must remain usable if VPN DNS is down, so its shared stream uses local
+        // DNS. VPN apps using that same OS service also share this local stream;
+        // per-app privacy applies only when the core can identify the real app.
+        // Explicit process and domain decisions above always take precedence.
+        rules.push(
+            json!({"process_name": ["svchost.exe", "System"], "action": "route", "server": local}),
+        );
+    }
+    if remote_barrier {
+        rules.push(json!({"action": "route", "server": remote}));
+    }
+    rules
+}
+
+#[cfg(windows)]
+fn dns_application_matchers(rule: &Value) -> Option<Map<String, Value>> {
+    let mut result = Map::new();
+    for (key, value) in rule.as_object()? {
+        match key.as_str() {
+            "action" | "outbound" => continue,
+            "domain" | "domain_suffix" | "domain_keyword" | "domain_regex" | "process_name"
+            | "process_path" | "process_path_regex" | "user" | "user_id" | "invert" | "type"
+            | "mode" => {
+                result.insert(key.clone(), value.clone());
+            }
+            "rules" => {
+                let nested = value
+                    .as_array()?
+                    .iter()
+                    .map(dns_application_matchers)
+                    .map(|m| m.map(Value::Object))
+                    .collect::<Option<Vec<_>>>()?;
+                result.insert(key.clone(), Value::Array(nested));
+            }
+            _ => return None,
+        }
+    }
+    Some(result)
 }
 
 /// Classify a user-provided DNS string into a `(type, server, Option<path>)` tuple
@@ -1771,5 +1873,268 @@ mod tests {
                 && r.get("port") == Some(&json!([53]))
                 && r.get("outbound") == Some(&json!("direct"))
         }));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_dns_separates_direct_and_vpn_processes_in_route_order() {
+        let mut settings = GeneratorSettings::default();
+        settings.routing.direct_processes = vec!["bank.exe".into(), "both.exe".into(), " ".into()];
+        settings.routing.vpn_processes = vec!["chat.exe".into(), "both.exe".into()];
+        let dns = build_dns(&settings);
+        let rules = dns["rules"].as_array().expect("Windows DNS policy rules");
+        assert_eq!(
+            rules[0],
+            json!({"process_name": ["bank.exe", "both.exe"], "action": "route", "server": "local"})
+        );
+        assert_eq!(
+            rules[1],
+            json!({"process_name": ["chat.exe", "both.exe"], "action": "route", "server": "remote"})
+        );
+        assert_eq!(dns["final"], "remote");
+        assert_eq!(dns["servers"][1]["detour"], "proxy");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_dns_unmatched_process_follows_effective_default_route() {
+        for (outbound, server) in [
+            ("direct", "local"),
+            ("proxy", "remote"),
+            ("node-tag", "remote"),
+        ] {
+            let mut settings = GeneratorSettings::default();
+            settings.routing.final_outbound = outbound.into();
+            settings.routing.direct_processes = vec![" ".into()];
+            settings.routing.vpn_processes = vec!["".into()];
+            let dns = build_dns(&settings);
+            assert_eq!(
+                dns["final"], server,
+                "unknown/empty process must follow {outbound}"
+            );
+            assert!(dns["rules"].as_array().unwrap().is_empty());
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_dns_preserves_custom_process_and_domain_policy_precedence() {
+        let mut settings = GeneratorSettings::default();
+        settings.routing.final_outbound = "direct".into();
+        settings.routing.rules = vec![
+            json!({"enabled": false, "matchers": {"domain_suffix": ["disabled.test"]}, "action": {"kind": "route", "outbound": "direct"}}),
+            json!({"matchers": {"domain_suffix": ["vpn.test"]}, "action": {"kind": "route", "outbound": "proxy"}}),
+            json!({"matchers": {"process_name": ["bank.exe"], "domain_suffix": ["bank.test"]}, "action": {"kind": "route", "outbound": "direct"}}),
+            json!({"matchers": {"domain_suffix": ["blocked.test"]}, "action": {"kind": "reject"}}),
+        ];
+        let dns = build_dns(&settings);
+        assert_eq!(
+            dns["rules"],
+            json!([
+                {"domain_suffix": ["vpn.test"], "action": "route", "server": "remote"},
+                {"process_name": ["bank.exe"], "domain_suffix": ["bank.test"], "action": "route", "server": "local"},
+                {"domain_suffix": ["blocked.test"], "action": "reject"}
+            ])
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_dns_shared_client_is_local_only_for_direct_app_exclusions() {
+        let mut settings = GeneratorSettings::default();
+        settings.routing.direct_processes = vec!["bank.exe".into()];
+        settings.routing.vpn_processes = vec!["svchost.exe".into()];
+        settings.routing.rules =
+            vec![json!({"domain_suffix": ["vpn.test"], "action": "route", "outbound": "proxy"})];
+        let dns = build_dns(&settings);
+        assert_eq!(
+            dns["rules"],
+            json!([
+                {"process_name": ["bank.exe"], "action": "route", "server": "local"},
+                {"process_name": ["svchost.exe"], "action": "route", "server": "remote"},
+                {"domain_suffix": ["vpn.test"], "action": "route", "server": "remote"},
+                {"process_name": ["svchost.exe", "System"], "action": "route", "server": "local"}
+            ])
+        );
+        settings.routing.direct_processes = vec![" ".into(), "".into()];
+        let dns = build_dns(&settings);
+        assert_eq!(dns["final"], "remote");
+        assert_eq!(dns["rules"].as_array().unwrap().len(), 2);
+    }
+
+    /// Loopback-only regression: no TUN, OS DNS, proxy, routes or firewall writes.
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "requires bundled sing-box and Node; all networking is loopback"]
+    fn windows_dns_policy_passes_bundled_core() {
+        let repo = std::env::var_os("CLOAKWIRE_TEST_REPO")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .parent()
+                    .unwrap()
+                    .to_owned()
+            });
+        let binary = std::env::var_os("SINGBOX_BIN")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| repo.join("src-tauri/binaries/sing-box-x86_64-pc-windows-msvc.exe"));
+        let temp = tempfile::tempdir().unwrap();
+        let output_dir = std::env::var_os("CLOAKWIRE_DNS_TEST_OUTPUT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| temp.path().to_owned());
+        std::fs::create_dir_all(&output_dir).unwrap();
+        for (name, final_outbound, direct, vpn, expected, shared) in [
+            ("all-vpn", "proxy", vec![], vec![], "proxy", false),
+            (
+                "include-unmatched",
+                "direct",
+                vec![],
+                vec!["other.exe"],
+                "direct",
+                false,
+            ),
+            (
+                "include-vpn",
+                "direct",
+                vec![],
+                vec!["node.exe"],
+                "proxy",
+                false,
+            ),
+            (
+                "exclude-direct",
+                "proxy",
+                vec!["node.exe"],
+                vec![],
+                "direct",
+                false,
+            ),
+            (
+                "both-lists-direct-wins",
+                "proxy",
+                vec!["node.exe"],
+                vec!["node.exe"],
+                "direct",
+                false,
+            ),
+            (
+                "empty-lists-direct",
+                "direct",
+                vec![" "],
+                vec![""],
+                "direct",
+                false,
+            ),
+            (
+                "shared-service-direct",
+                "proxy",
+                vec!["bank.exe"],
+                vec![],
+                "direct",
+                true,
+            ),
+            (
+                "shared-explicit-vpn-wins",
+                "proxy",
+                vec!["bank.exe"],
+                vec!["svchost.exe"],
+                "proxy",
+                true,
+            ),
+            (
+                "shared-domain-vpn-wins",
+                "proxy",
+                vec!["bank.exe"],
+                vec![],
+                "proxy",
+                true,
+            ),
+        ] {
+            let mut settings = GeneratorSettings::default();
+            settings.routing.final_outbound = final_outbound.into();
+            settings.routing.direct_processes = direct.into_iter().map(str::to_owned).collect();
+            settings.routing.vpn_processes = vpn.into_iter().map(str::to_owned).collect();
+            if name == "shared-domain-vpn-wins" {
+                settings.routing.rules.push(
+                    json!({"domain_suffix": ["test"], "action": "route", "outbound": "proxy"}),
+                );
+            }
+            for ready in [false, true] {
+                let config = if ready {
+                    let mut provider = json!({
+                        "dns": {
+                            "servers": [{"type": "udp", "tag": "provider-local", "server": "1.1.1.1"}, {"type": "tcp", "tag": "provider-dns", "server": "9.9.9.9", "detour": "providerProxy"}],
+                            "strategy": "ipv4_only",
+                            "rules": [{"action": "route", "server": "provider-dns"}],
+                            "final": "provider-dns"
+                        },
+                        "outbounds": [{"type": "direct", "tag": "providerProxy"}],
+                        "route": {"final": "providerProxy", "rules": [], "default_domain_resolver": "provider-local"}
+                    });
+                    if name == "include-vpn" {
+                        provider["route"]
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("default_domain_resolver");
+                    }
+                    if name == "exclude-direct" {
+                        provider["dns"]["servers"].as_array_mut().unwrap().push(json!({"type": "fakeip", "tag": "provider-fakeip", "inet4_range": "198.18.0.0/15"}));
+                        provider["dns"]["rules"] =
+                            json!([{"action": "route", "server": "provider-fakeip"}]);
+                    }
+                    ready::merge_ready_config(provider, &settings).unwrap()
+                } else {
+                    Config::build(&[], &settings)
+                };
+                let case = format!("{name}-{}", if ready { "ready" } else { "generated" });
+                let path = output_dir.join(format!("{case}.json"));
+                std::fs::write(&path, serde_json::to_vec_pretty(&config).unwrap()).unwrap();
+                let mut command = std::process::Command::new("node");
+                command
+                    .arg(repo.join("scripts/test-windows-dns.cjs"))
+                    .arg(&binary)
+                    .arg(&path)
+                    .arg(expected)
+                    .arg(output_dir.join(&case));
+                if shared {
+                    command.arg("shared-owner");
+                }
+                if ready && name == "include-vpn" {
+                    command.arg("bootstrap-hostname");
+                }
+                if !ready && name == "all-vpn" {
+                    command.arg("cache-separation");
+                }
+                if ready && name == "exclude-direct" {
+                    command.arg("provider-fakeip");
+                }
+                let output = command.output().expect("Node DNS regression");
+                assert!(
+                    output.status.success(),
+                    "{case}: {} {}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                println!("PASS {case}");
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_shared_dns_availability_precedes_unprojectable_ip_policy() {
+        let mut settings = GeneratorSettings::default();
+        settings.routing.direct_processes = vec!["bank.exe".into()];
+        settings.routing.rules =
+            vec![json!({"ip_cidr": ["203.0.113.0/24"], "action": "route", "outbound": "proxy"})];
+        let dns = build_dns(&settings);
+        assert_eq!(
+            dns["rules"][1],
+            json!({"process_name": ["svchost.exe", "System"], "action": "route", "server": "local"})
+        );
+        assert_eq!(
+            dns["rules"][2],
+            json!({"action": "route", "server": "remote"})
+        );
     }
 }

@@ -33,8 +33,32 @@ for(const failure of ["generate","permission"] as const){
   await openFixture(page,info,{mobileLifecycle:true,running:true,selectedFirst:true,tab:"home",preparationFailure:failure});
   await pickSecond(page);await page.getByRole("button",{name:"Reconnect now",exact:true}).click();
   await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("button",{name:"Retry",exact:true})).toBeEnabled();
   await expect.poll(()=>page.evaluate(()=>(window as any).nativeRequests.filter((r:any)=>r.cmd==="plugin:vpn|cancelProfilePreparation").map((r:any)=>r.args.preparationId))).toEqual(["1"]);
   expect(await page.evaluate(()=>(window as any).mobileStatus)).toMatchObject({state:"running",run_id:"run-a",profile_name:"First"});
   expect(await page.evaluate(()=>(window as any).nativeCalls.filter((c:string)=>c==="plugin:vpn|stop"||c==="plugin:vpn|start"))).toEqual([]);
  });
 }
+
+test("cancelled replacement keeps the pending choice until a later accepted retry",async({page},info)=>{
+ await openFixture(page,info,{mobileLifecycle:true,running:true,selectedFirst:true,tab:"home"});
+ await pickSecond(page);
+ await page.evaluate(()=>{
+  const w=window as any,original=w.__TAURI_INTERNALS__.invoke;
+  let cancel=true;
+  w.__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{
+   if(cmd==="plugin:vpn|start"&&cancel){cancel=false;w.cancelledReplacement=true;throw "profile_check_cancelled";}
+   return original(cmd,args);
+  };
+ });
+ const reconnect=page.getByRole("button",{name:"Reconnect now",exact:true});
+ await reconnect.click();
+ await page.waitForFunction(()=>(window as any).cancelledReplacement===true);
+ await expect(reconnect).toBeEnabled();
+ await expect(page.getByRole("alert")).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as any).mobileStatus)).toMatchObject({state:"running",run_id:"run-a",profile_name:"First"});
+ await reconnect.click();
+ await expect.poll(()=>page.evaluate(()=>(window as any).mobileStatus?.profile_name)).toBe("Second");
+ await expect(reconnect).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as any).nativeCalls.filter((cmd:string)=>cmd==="plugin:vpn|stop"))).toEqual([]);
+});

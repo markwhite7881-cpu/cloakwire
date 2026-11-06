@@ -34,6 +34,10 @@ test("subscription refresh invalidates old evidence and reconnect action",async(
  await card.getByRole("button",{name:"Update subscription"}).click();
  await expect(card).toContainText("Subscription updated");
  await card.getByRole("button",{name:"Reconnect this server"}).click();
+ // Subscriptions are collapsed by default since 1.5.1. Open their management
+ // panel after the stale action redirects here; no connection may be started.
+ await expect(page.getByRole("tab",{name:/^Servers/})).toHaveAttribute("aria-selected","true");
+ await page.getByRole("button",{name:"Edit",exact:true}).click();
  await expect(page.getByText("Updated server A",{exact:true}).first()).toBeVisible();
  expect(await page.evaluate(()=>(window as any).nativeCalls.filter((c:string)=>c==="start_managed_singbox"||c==="stop_singbox").length)).toBe(0);
 });

@@ -333,7 +333,20 @@ fn prepare_ready_singbox_config(
     profile: &crate::subscriptions::ResolvedChildProfile,
     routing: &config::RoutingOptions,
 ) -> AppResult<serde_json::Value> {
-    let mut config_value = config::ready::merge_ready_routing(profile.config.clone(), routing)?;
+    prepare_ready_singbox_config_with_settings(
+        profile,
+        &config::GeneratorSettings {
+            routing: routing.clone(),
+            ..config::GeneratorSettings::default()
+        },
+    )
+}
+
+fn prepare_ready_singbox_config_with_settings(
+    profile: &crate::subscriptions::ResolvedChildProfile,
+    settings: &config::GeneratorSettings,
+) -> AppResult<serde_json::Value> {
+    let mut config_value = config::ready::merge_ready_config(profile.config.clone(), settings)?;
     crate::subscriptions::classify::sanitize_bundle_config(&mut config_value);
     #[cfg(target_os = "macos")]
     if let Some(inbounds) = config_value
@@ -577,7 +590,7 @@ pub async fn start_managed_singbox(
                     Err(error) => Err(error),
                 };
             }
-            let config_value = prepare_ready_singbox_config(&profile, &input.settings.routing)
+            let config_value = prepare_ready_singbox_config_with_settings(&profile, &input.settings)
                 .map_err(config::preflight::preparation_error)?;
             let source = SessionSource::new(
                 ProfileRef::Ready {
@@ -1579,7 +1592,9 @@ pub async fn apply_singbox_update(
 
 #[cfg(test)]
 mod managed_launch_tests {
-    use super::{deduplicate_outbounds, prepare_ready_singbox_config, ManagedLaunchInput};
+    use super::{
+        deduplicate_outbounds, prepare_ready_singbox_config_with_settings, ManagedLaunchInput,
+    };
     use crate::{
         config::{GeneratorSettings, RoutingOptions},
         engine::EngineKind,
@@ -1620,7 +1635,19 @@ mod managed_launch_tests {
             final_outbound: "direct".into(),
             ..RoutingOptions::default()
         };
-        let prepared = prepare_ready_singbox_config(&profile, &routing).unwrap();
+        let settings = GeneratorSettings {
+            routing,
+            local_dns: Some("9.9.9.9".into()),
+            remote_dns: Some("https://dns.example.test/custom-path".into()),
+            ..GeneratorSettings::default()
+        };
+        let prepared = prepare_ready_singbox_config_with_settings(&profile, &settings).unwrap();
+        #[cfg(windows)]
+        {
+            assert_eq!(prepared["dns"]["servers"][0]["server"], "9.9.9.9");
+            assert_eq!(prepared["dns"]["servers"][1]["server"], "dns.example.test");
+            assert_eq!(prepared["dns"]["servers"][1]["path"], "/custom-path");
+        }
         assert!(prepared["route"]["rules"]
             .as_array()
             .unwrap()
