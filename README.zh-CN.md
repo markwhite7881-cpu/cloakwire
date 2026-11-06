@@ -50,23 +50,23 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ 安装包下载 (v1.5.1)
+## ⚡ 安装包下载 (v1.5.2)
 
 | 平台 | 安装程序 | 备用格式 | 架构 |
 |---|---|---|---|
-| **Windows** | [下载 .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64-setup.exe) | [下载 .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64_en-US.msi) | x64 (Intel / AMD) |
-| **macOS Apple Silicon** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_aarch64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_aarch64.app.zip) | arm64 (Apple Silicon) |
-| **macOS Intel** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_x64.app.zip) | x86_64 |
-| **Android** | [下载 .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/Cloakwire_1.5.1_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
+| **Windows** | [下载 .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64-setup.exe) | [下载 .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64_en-US.msi) | x64 (Intel / AMD) |
+| **macOS Apple Silicon** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_aarch64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_aarch64.app.zip) | arm64 (Apple Silicon) |
+| **macOS Intel** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64.app.zip) | x86_64 |
+| **Android** | [下载 .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 全部七个发布包（包括 Android）均提供 **Minisign** `.sig` 签名。SHA-256 校验和见 [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.1/SHA256SUMS.txt).
+> 🔒 全部七个发布包（包括 Android）均提供 **Minisign** `.sig` 签名。SHA-256 校验和见 [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/SHA256SUMS.txt).
 
-## 🚀 1.5.1 更新内容
+## 🚀 1.5.2 更新内容
 
-- 切换标签页时，流量图会继续记录数据。
-- 桌面端的断开按钮使用所选强调色。订阅列表会记住展开状态，重复的配置列表已移除。
+- 桌面端和 Android 会保留连接或重连期间的路由更改。
+- Windows sing-box 直连应用不再依赖 VPN DNS 的可用性。
 
-[完整更新历史](CHANGELOG.md) · [v1.5.1](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.1)
+[完整更新历史](CHANGELOG.md) · [v1.5.2](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.2)
 
 ## 快速上手
 
@@ -114,7 +114,7 @@ Minisign 用于保护更新下载。Windows 安装包未使用 Authenticode 签�
 示例：计算 Windows 安装程序的哈希，并与 `SHA256SUMS.txt` 比较：
 
 ```powershell
-(Get-FileHash Cloakwire_1.5.1_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+(Get-FileHash Cloakwire_1.5.2_x64-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
 ## 🔧 连接链接格式

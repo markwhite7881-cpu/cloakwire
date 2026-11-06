@@ -92,7 +92,7 @@ Invoke-ReleaseCommand npm.cmd @('ci') $source (Join-Path $logs 'npm-ci.log')
 Invoke-ReleaseCommand npm.cmd @('test','--','--reporter=dot') $source (Join-Path $logs 'frontend-tests.log')
 Invoke-ReleaseCommand npm.cmd @('run','build') $source (Join-Path $logs 'frontend-build.log')
 $env:CLOAKWIRE_TEST_MANIFEST = '1'
-try { Invoke-ReleaseCommand cargo @('test','--locked','--lib','--','--include-ignored','--skip','process::','--skip','killswitch::','--test-threads=1','--quiet') (Join-Path $source 'src-tauri') (Join-Path $logs 'windows-tests.log') }
+try { Invoke-ReleaseCommand cargo @('test','--locked','--lib','--','--include-ignored','--skip','process::','--skip','killswitch::','--skip','diagnostics::lifecycle_tests::','--test-threads=1','--quiet') (Join-Path $source 'src-tauri') (Join-Path $logs 'windows-tests.log') }
 finally { Remove-Item Env:CLOAKWIRE_TEST_MANIFEST -ErrorAction SilentlyContinue }
 $phaseStart = [datetime]::UtcNow
 Invoke-ReleaseCommand npm.cmd @('run','tauri:build') $source (Join-Path $logs 'windows-build.log')

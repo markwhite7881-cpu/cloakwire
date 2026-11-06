@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-11-06
+
+### English
+
+- Fixed routing changes being lost during connection and reconnect on desktop and Android.
+- Fixed Windows sing-box DNS for apps using direct access when the VPN server is unavailable.
+
+### Русский
+
+- Исправлена потеря изменений маршрутизации при подключении и переподключении на компьютере и Android.
+- Исправлена работа DNS для приложений с прямым доступом в Windows при недоступном VPN-сервере sing-box.
+
+### 简体中文
+
+- 修复桌面端和 Android 在连接或重连时丢失路由更改的问题。
+- 修复 Windows sing-box 在 VPN 服务器不可用时影响直连应用 DNS 的问题。
+
 ## [1.5.1] - 2026-11-04
 
 ### English

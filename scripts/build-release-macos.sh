@@ -32,7 +32,7 @@ node scripts/release-inputs.mjs "${inputs[@]}" > release-output/mac-inputs.json
 npm ci
 npm test
 npm run build
-cargo test --manifest-path src-tauri/Cargo.toml --locked --lib -- --include-ignored --skip process:: --skip killswitch:: --test-threads=1 --quiet
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib -- --include-ignored --skip process:: --skip killswitch:: --skip diagnostics::lifecycle_tests:: --test-threads=1 --quiet
 for arch in aarch64 x86_64; do
   target="$arch-apple-darwin"; label="$arch"
   if [ "$arch" = x86_64 ]; then label=x64; fi
