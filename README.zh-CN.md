@@ -50,23 +50,24 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ 安装包下载 (v1.5.2)
+## ⚡ 安装包下载 (Windows 1.5.3 · macOS / Android 1.5.2)
 
 | 平台 | 安装程序 | 备用格式 | 架构 |
 |---|---|---|---|
-| **Windows** | [下载 .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64-setup.exe) | [下载 .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64_en-US.msi) | x64 (Intel / AMD) |
+| **Windows** | [下载 .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/Cloakwire_1.5.3_x64-setup.exe) | [下载 .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/Cloakwire_1.5.3_x64_en-US.msi) | x64 (Intel / AMD) |
 | **macOS Apple Silicon** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_aarch64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_aarch64.app.zip) | arm64 (Apple Silicon) |
 | **macOS Intel** | [下载 .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64.dmg) | [下载 .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64.app.zip) | x86_64 |
 | **Android** | [下载 .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 全部七个发布包（包括 Android）均提供 **Minisign** `.sig` 签名。SHA-256 校验和见 [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/SHA256SUMS.txt).
+> 🔒 所有安装包均提供 **Minisign** `.sig` 签名。SHA-256 校验和： [Windows 1.5.3](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/SHA256SUMS.txt) · [macOS / Android 1.5.2](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/SHA256SUMS.txt).
 
-## 🚀 1.5.2 更新内容
+## 🚀 1.5.3 更新内容
 
-- 桌面端和 Android 会保留连接或重连期间的路由更改。
-- Windows sing-box 直连应用不再依赖 VPN DNS 的可用性。
+- 修复 Windows 在普通 DNS 不可用时的应用直连问题：默认直连 DNS 改用 HTTPS。
 
-[完整更新历史](CHANGELOG.md) · [v1.5.2](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.2)
+此次更新仅适用于 Windows。macOS 和 Android 的最新版本仍为 1.5.2。
+
+[完整更新历史](CHANGELOG.md) · [v1.5.3](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.3)
 
 ## 快速上手
 

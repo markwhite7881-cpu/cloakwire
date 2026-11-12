@@ -3,6 +3,7 @@
 const net = require('node:net');
 const dgram = require('node:dgram');
 const http = require('node:http');
+const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
 const {spawn, spawnSync} = require('node:child_process');
@@ -23,12 +24,13 @@ function questionName(msg){let i=12;const labels=[];while(msg[i]){labels.push(ms
 const sharedOwner=flags.includes('shared-owner');
 const hostnameProxy=flags.includes('bootstrap-hostname');
 const crossCache=flags.includes('cache-separation');
+const localHttps=flags.includes('local-https');
 const sockets = new Set();
 const servers = [];
 let proxyAvailable = false;
 let child;
 let coreLog = '';
-const counters = {localUdp:0, remoteTcp:0, proxyConnect:0, proxyRejected:0, http:0};
+const counters = {localUdp:0, localHttps:0, remoteTcp:0, proxyConnect:0, proxyRejected:0, http:0};
 const record = (name, data) => { const row={name,...data,counters:{...counters}};observations.push(row);console.log(JSON.stringify(row)); };
 const track = socket => {sockets.add(socket);socket.on('close',()=>sockets.delete(socket));socket.on('error',()=>{});return socket;};
 async function listen(server) {servers.push(server);server.listen(0,'127.0.0.1');await once(server,'listening');return server.address().port;}
@@ -71,6 +73,17 @@ async function proxyHttp(port,target) {
 function bufferReader(socket,onFrame) {let buffer=Buffer.alloc(0);socket.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);let used;while((used=onFrame(buffer))>0)buffer=buffer.subarray(used);});}
 async function main() {
   const local=dgram.createSocket('udp4');servers.push(local);local.on('message',(msg,rinfo)=>{counters.localUdp++;localQueries.push(questionName(msg));local.send(dnsAnswer(msg),rinfo.port,rinfo.address);});local.bind(0,'127.0.0.1');await once(local,'listening');const localPort=local.address().port;
+  // Test-only certificate: trusted only by this child configuration, never the OS.
+  const certificate=fs.readFileSync(path.join(__dirname,'fixtures/dns-loopback.crt'),'utf8');
+  const secureLocal=https.createServer({key:fs.readFileSync(path.join(__dirname,'fixtures/dns-loopback.key')),cert:certificate},(req,res)=>{
+    assert.equal(req.url,'/dns-query');assert.equal(req.method,'POST');
+    const chunks=[];req.on('data',c=>chunks.push(c));req.on('end',()=>{
+      const question=Buffer.concat(chunks);counters.localHttps++;localQueries.push(questionName(question));
+      res.writeHead(200,{'Content-Type':'application/dns-message'});res.end(dnsAnswer(question));
+    });
+  });
+  secureLocal.on('connection',track);
+  const localHttpsPort=await listen(secureLocal);
   const remote=net.createServer(socket=>{track(socket);bufferReader(socket,buffer=>{if(buffer.length<2)return 0;const length=buffer.readUInt16BE();if(buffer.length<length+2)return 0;counters.remoteTcp++;const response=dnsAnswer(buffer.subarray(2,length+2));const size=Buffer.alloc(2);size.writeUInt16BE(response.length);socket.write(Buffer.concat([size,response]));return length+2;});});
   const remotePort=await listen(remote);
   const socks=net.createServer(socket=>{track(socket);let stage=0;bufferReader(socket,buffer=>{
@@ -90,8 +103,15 @@ async function main() {
   const config=JSON.parse(fs.readFileSync(inputPath,'utf8'));
   const localTag=config.dns.servers.find(s=>s.tag==='local'||s.tag==='provider-local'||s.tag.startsWith('cloakwire-local')).tag;
   config.log={level:'debug',timestamp:true};
+  if(localHttps){
+    const managed=config.dns.servers.find(s=>s.tag==='local'||s.tag.startsWith('cloakwire-local'));
+    assert.equal(managed?.type,'https','managed direct DNS must keep HTTPS from the production generator');
+    assert.equal(managed.server,'1.1.1.1');assert.equal(managed.path,'/dns-query');
+    assert.equal(managed.detour,undefined,'direct DNS cannot depend on proxy');
+    assert.equal(managed.tls?.insecure,undefined,'production HTTPS must verify certificates');
+  }
   config.dns.servers=config.dns.servers.map(s=>['fakeip','hosts'].includes(s.type)?s:(s.tag==='local'||s.tag==='provider-local'||s.tag.startsWith('cloakwire-local'))
-    ?{type:'udp',tag:s.tag,server:'127.0.0.1',server_port:localPort}
+    ?(localHttps&&s.type==='https'?{...s,server:'127.0.0.1',server_port:localHttpsPort,tls:{certificate:[certificate]}}:{type:'udp',tag:s.tag,server:'127.0.0.1',server_port:localPort})
     :{type:'tcp',tag:s.tag,server:'127.0.0.1',server_port:remotePort,detour:'proxy'});
   config.dns.timeout='500ms';
   if(crossCache){
@@ -123,11 +143,11 @@ async function main() {
   record('scope',{corePid:child.pid,nodePid:process.pid,addresses:'all 127.0.0.1',tun:false,systemProxy:false,ports:{dnsPort,mixedPort,localPort,remotePort,socksPort,webPort}});
   if(crossCache){
     const prime=await dnsQuery(controlDnsPort,'cross-cache.test');record('local-control-caches-same-name',prime);assert.equal(prime.rcode,0);assert.equal(prime.answers,1);
-    const count=counters.localUdp;
-    const isolated=await dnsQuery(dnsPort,'cross-cache.test');record('vpn-must-not-consume-local-cache',isolated);assert.ok(isolated.error||isolated.rcode!==0);assert.equal(counters.localUdp,count);
+    const count=counters.localUdp+counters.localHttps;
+    const isolated=await dnsQuery(dnsPort,'cross-cache.test');record('vpn-must-not-consume-local-cache',isolated);assert.ok(isolated.error||isolated.rcode!==0);assert.equal(counters.localUdp+counters.localHttps,count);
   }
   const failedDns=await dnsQuery(dnsPort,'uncached-outage.test');record('proxy-failed-native-style-dns',failedDns);
-  if(expected==='direct'){assert.equal(failedDns.rcode,0);assert.equal(failedDns.answers,1);assert.ok(counters.localUdp>0);assert.equal(counters.proxyConnect,0);}
+  if(expected==='direct'){assert.equal(failedDns.rcode,0);assert.equal(failedDns.answers,1);assert.ok(counters.localUdp+counters.localHttps>0);assert.equal(counters.proxyConnect,0);}
   else {assert.ok(failedDns.error||failedDns.rcode!==0);assert.ok(localQueries.every(name=>name==='proxy-endpoint.test'||(crossCache&&name==='cross-cache.test')),'explicit VPN query must never fall back to local');assert.ok(counters.proxyRejected>0);}
   if(flags.includes('provider-fakeip')){
     const answer=await otherOwnerDns(dnsPort,'fakeip-unmatched.test');
@@ -137,15 +157,16 @@ async function main() {
   }
   const directIp=await proxyHttp(mixedPort,`http://127.0.0.1:${webPort}/ip`);record('proxy-failed-direct-ip-http',directIp);assert.equal(directIp.status,200);
   const directDomain=await proxyHttp(mixedPort,`http://direct-domain.test:${webPort}/domain`);record('proxy-failed-hostname-http',directDomain);if(expected==='direct'||sharedOwner)assert.equal(directDomain.status,200);else assert.ok(directDomain.error||directDomain.status!==200);
-  const upstreamBeforeAaaa=counters.localUdp+counters.remoteTcp;
+  const upstreamBeforeAaaa=counters.localUdp+counters.localHttps+counters.remoteTcp;
   const aaaa=await dnsQuery(dnsPort,'ipv6-only-query.test',28);record('proxy-failed-AAAA',aaaa);
-  if(config.dns.strategy==='ipv4_only'){assert.equal(aaaa.rcode,0);assert.equal(aaaa.answers,0);assert.equal(counters.localUdp+counters.remoteTcp,upstreamBeforeAaaa);}
+  if(config.dns.strategy==='ipv4_only'){assert.equal(aaaa.rcode,0);assert.equal(aaaa.answers,0);assert.equal(counters.localUdp+counters.localHttps+counters.remoteTcp,upstreamBeforeAaaa);}
   proxyAvailable=true;
   const healthyDns=await dnsQuery(dnsPort,'cache-demo.test');record('proxy-healthy-native-style-dns',healthyDns);assert.equal(healthyDns.rcode,0);assert.equal(healthyDns.answers,1);
   proxyAvailable=false;
   for(const socket of sockets){if(socket!==undefined)socket.destroy();}
   const cached=await dnsQuery(dnsPort,'cache-demo.test');record('proxy-failed-cached-native-style-dns',cached);assert.equal(cached.rcode,0);assert.equal(cached.answers,1);
   const uncached=await dnsQuery(dnsPort,'fresh-after-outage.test');record('proxy-failed-fresh-native-style-dns',uncached);
+  if(localHttps&&expected==='direct')assert.ok(counters.localHttps>0,'direct DNS must have crossed the actual TLS transport');
   const directAgain=await proxyHttp(mixedPort,`http://127.0.0.1:${webPort}/again`);record('proxy-failed-direct-ip-still-works',directAgain);assert.equal(directAgain.status,200);
   if(expected==='direct'){assert.equal(uncached.rcode,0);assert.equal(uncached.answers,1);}
   else {assert.ok(uncached.error||uncached.rcode!==0);assert.ok(localQueries.every(name=>name==='proxy-endpoint.test'||(crossCache&&name==='cross-cache.test')||(sharedOwner&&name==='direct-domain.test')),'explicit VPN DNS must never use local DNS');assert.ok(counters.remoteTcp>0);}

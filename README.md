@@ -50,23 +50,24 @@ Select a screenshot to open it at full size.
 
 ---
 
-## ⚡ Downloads (v1.5.2)
+## ⚡ Downloads (Windows 1.5.3 · macOS / Android 1.5.2)
 
 | Platform | Installer | Alternative | Architecture |
 |---|---|---|---|
-| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64_en-US.msi) | x64 (Intel / AMD) |
+| **Windows** | [Download .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/Cloakwire_1.5.3_x64-setup.exe) | [Download .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/Cloakwire_1.5.3_x64_en-US.msi) | x64 (Intel / AMD) |
 | **macOS Apple Silicon** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_aarch64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_aarch64.app.zip) | arm64 (Apple Silicon) |
 | **macOS Intel** | [Download .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64.dmg) | [Download .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64.app.zip) | x86_64 |
 | **Android** | [Download .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 All seven release packages, including Android, have **Minisign** `.sig` files. SHA-256 checksums are published in [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/SHA256SUMS.txt).
+> 🔒 All packages have **Minisign** `.sig` files. SHA-256 checksums: [Windows 1.5.3](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/SHA256SUMS.txt) · [macOS / Android 1.5.2](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/SHA256SUMS.txt).
 
-## 🚀 What's new in 1.5.2
+## 🚀 What's new in 1.5.3
 
-- Routing changes made during connection or reconnect are retained on desktop and Android.
-- Windows sing-box direct-access apps no longer depend on VPN DNS availability.
+- Fixed direct-access connectivity on Windows when ordinary DNS is unavailable: the default direct resolver now uses HTTPS.
 
-[Full history](CHANGELOG.md) · [v1.5.2](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.2)
+Windows-only update. macOS and Android remain on 1.5.2.
+
+[Full history](CHANGELOG.md) · [v1.5.3](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.3)
 
 ## Quick start
 

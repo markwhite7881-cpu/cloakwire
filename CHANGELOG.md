@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2026-11-12
+
+### English
+
+- Windows: fixed direct-access DNS failures by using HTTPS for the default resolver. macOS and Android remain on 1.5.2.
+
+### Русский
+
+- Windows: исправлены сбои DNS при прямом доступе — DNS по умолчанию переведён на HTTPS. Для macOS и Android актуальной остаётся 1.5.2.
+
+### 简体中文
+
+- Windows：默认直连 DNS 改用 HTTPS，修复直连解析失败。macOS 和 Android 仍使用 1.5.2。
+
 ## [1.5.2] - 2026-11-06
 
 ### English

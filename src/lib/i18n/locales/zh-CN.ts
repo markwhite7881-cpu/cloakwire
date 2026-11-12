@@ -364,7 +364,7 @@ export const zhCN: TranslationSchema = {
     tunInterface: "TUN 虚拟网卡",
     tunInterfaceHint: "留空则使用默认网卡名（singbox-tun）",
     localDns: "本地 DNS",
-    localDnsHint: "普通 UDP DNS 服务器（如 1.1.1.1, 8.8.8.8），请避免填写域名。",
+    localDnsHint: "直连 DNS。在 Windows 上，1.1.1.1 使用 HTTPS。可填写 https://1.1.1.1/dns-query 或显式 udp://地址。请使用 IP，以便 DNS 不依赖 VPN 启动。",
     remoteDns: "远程 DNS",
     remoteDnsHint: "DoH / DoT / DoQ 解析端点，通过代理节点解析。建议使用 IP 形式。",
     generate: "生成配置",

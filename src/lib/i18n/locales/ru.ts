@@ -364,7 +364,7 @@ export const ru: TranslationSchema = {
     tunInterface: "Интерфейс TUN",
     tunInterfaceHint: "Оставьте пустым для значения по умолчанию (singbox-tun)",
     localDns: "Локальный DNS",
-    localDnsHint: "Обычный UDP DNS сервер (например, 1.1.1.1, 8.8.8.8). Не используйте доменные имена.",
+    localDnsHint: "Прямой DNS. На Windows 1.1.1.1 использует HTTPS. Можно указать https://1.1.1.1/dns-query или явный udp://адрес. Используйте IP, чтобы DNS запускался независимо от VPN.",
     remoteDns: "Удаленный DNS",
     remoteDnsHint: "Адрес DoH / DoT / DoQ. Разрешается через прокси. Рекомендуется указывать IP.",
     generate: "Сгенерировать",

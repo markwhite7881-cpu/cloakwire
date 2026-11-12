@@ -50,23 +50,24 @@ Windows · macOS · Android · Rust/Tauri & React · VLESS Reality · Hysteria 2
 
 ---
 
-## ⚡ Загрузка релизов (v1.5.2)
+## ⚡ Загрузка релизов (Windows 1.5.3 · macOS / Android 1.5.2)
 
 | Платформа | Установщик | Альтернатива | Архитектура |
 |---|---|---|---|
-| **Windows** | [Скачать .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64-setup.exe) | [Скачать .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64_en-US.msi) | x64 (Intel / AMD) |
+| **Windows** | [Скачать .exe](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/Cloakwire_1.5.3_x64-setup.exe) | [Скачать .msi](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/Cloakwire_1.5.3_x64_en-US.msi) | x64 (Intel / AMD) |
 | **macOS Apple Silicon** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_aarch64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_aarch64.app.zip) | arm64 (Apple Silicon) |
 | **macOS Intel** | [Скачать .dmg](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64.dmg) | [Скачать .app.zip](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_x64.app.zip) | x86_64 |
 | **Android** | [Скачать .apk](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/Cloakwire_1.5.2_arm64-v8a.apk) | — | arm64-v8a · Android 7.0+ |
 
-> 🔒 Все семь пакетов релиза, включая Android, имеют подписи **Minisign** `.sig`. Контрольные суммы SHA-256 опубликованы в [`SHA256SUMS.txt`](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/SHA256SUMS.txt).
+> 🔒 Все пакеты имеют подписи **Minisign** `.sig`. Контрольные суммы SHA-256: [Windows 1.5.3](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.3/SHA256SUMS.txt) · [macOS / Android 1.5.2](https://github.com/markwhite7881-cpu/cloakwire/releases/download/v1.5.2/SHA256SUMS.txt).
 
-## 🚀 Что нового в 1.5.2
+## 🚀 Что нового в 1.5.3
 
-- Изменения маршрутизации во время подключения и переподключения сохраняются на компьютере и Android.
-- Прямой доступ приложений в Windows с sing-box больше не зависит от доступности DNS через VPN.
+- Исправлен прямой доступ приложений в Windows при недоступном обычном DNS: DNS по умолчанию теперь работает через HTTPS.
 
-[Полная история изменений](CHANGELOG.md) · [v1.5.2](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.2)
+Обновление только для Windows. Для macOS и Android актуальной остаётся версия 1.5.2.
+
+[Полная история изменений](CHANGELOG.md) · [v1.5.3](https://github.com/markwhite7881-cpu/cloakwire/releases/tag/v1.5.3)
 
 ## Быстрый старт
 

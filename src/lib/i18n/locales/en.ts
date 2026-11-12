@@ -362,7 +362,7 @@ export const en = {
     tunInterface: "TUN interface",
     tunInterfaceHint: "Leave blank for the sing-box default ('singbox-tun' on most platforms)",
     localDns: "Local DNS",
-    localDnsHint: "Plain-UDP DNS server (e.g. 1.1.1.1, 8.8.8.8). Avoid hostnames — they require a working DNS to resolve, which is exactly what this server is supposed to provide.",
+    localDnsHint: "Direct DNS. On Windows, 1.1.1.1 uses HTTPS. You can specify https://1.1.1.1/dns-query or explicit udp://address. Use an IP so DNS can start independently of the VPN.",
     remoteDns: "Remote DNS",
     remoteDnsHint: "DoH / DoT / DoQ endpoint. Resolved through the proxy. IP form is safer than a hostname.",
     generate: "Generate",

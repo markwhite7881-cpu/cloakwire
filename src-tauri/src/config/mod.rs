@@ -678,7 +678,17 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
         .clone()
         .unwrap_or_else(|| "https://dns.google/dns-query".to_string());
 
-    let (local_type, local_server, _local_path) = classify_dns(&local_input);
+    // Upgrade the old Windows default at generation time, including saved
+    // settings. Direct DNS on port 53 can be blocked while HTTPS still works.
+    // The literal IP bootstraps without DNS and certificate verification stays
+    // enabled. Explicit schemes (including udp://1.1.1.1) remain user choices.
+    #[cfg(windows)]
+    let local_input = if local_input == "1.1.1.1" {
+        "https://1.1.1.1/dns-query".to_string()
+    } else {
+        local_input
+    };
+    let (local_type, local_server, local_path) = classify_dns(&local_input);
     let (mut remote_type, remote_server, remote_path) = classify_dns(&remote_input);
 
     // When remote DNS is routed through the proxy detour ("detour: proxy"),
@@ -694,6 +704,9 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
     local_obj.insert("type".into(), Value::String(local_type));
     local_obj.insert("tag".into(), Value::String("local".into()));
     local_obj.insert("server".into(), Value::String(local_server));
+    if let Some(path) = local_path {
+        local_obj.insert("path".into(), Value::String(path));
+    }
 
     let mut remote_obj = Map::new();
     remote_obj.insert("type".into(), Value::String(remote_type.clone()));
@@ -703,7 +716,7 @@ fn build_dns(settings: &GeneratorSettings) -> Value {
         remote_obj.insert("path".into(), Value::String(path));
     }
     if remote_type == "https" {
-        // Resolve the DoH hostname via our plain-UDP local resolver.
+        // Resolve the DoH hostname via the direct local resolver.
         remote_obj.insert("domain_resolver".into(), Value::String("local".into()));
     }
     remote_obj.insert("detour".into(), Value::String("proxy".into()));
@@ -1337,10 +1350,10 @@ mod tests {
         let cfg = Config::build(&fixture_outbounds(), &GeneratorSettings::default());
         let servers = cfg["dns"]["servers"].as_array().unwrap();
         assert_eq!(servers.len(), 2);
-        // Local default is 1.1.1.1 (Cloudflare DNS) — type=udp, no detour (avoids empty direct outbound error).
+        // Windows upgrades the legacy default to direct DoH; other platforms keep UDP.
         let local = &servers[0];
         assert_eq!(local["tag"], "local");
-        assert_eq!(local["type"], "udp");
+        assert_eq!(local["type"], if cfg!(windows) { "https" } else { "udp" });
         assert_eq!(local["server"], "1.1.1.1");
         assert!(local.get("detour").is_none());
         // Remote default is https://dns.google/dns-query — type=https over proxy detour.
@@ -1351,6 +1364,45 @@ mod tests {
         assert_eq!(remote["domain_resolver"], "local");
         assert_eq!(remote["detour"], "proxy");
         assert_eq!(cfg["dns"]["final"], "remote");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_local_dns_upgrades_saved_default_without_proxy_dependency() {
+        for input in [None, Some("1.1.1.1")] {
+            let mut settings = GeneratorSettings::default();
+            settings.local_dns = input.map(str::to_owned);
+            settings.routing.final_outbound = "direct".into();
+            settings.routing.vpn_processes = vec!["chat.exe".into()];
+            let config = Config::build(&fixture_outbounds(), &settings);
+            assert_eq!(config["dns"]["servers"][0], json!({
+                "tag": "local", "type": "https", "server": "1.1.1.1", "path": "/dns-query"
+            }));
+            assert_eq!(config["dns"]["final"], "local");
+            assert_eq!(config["dns"]["rules"][0]["server"], "remote");
+            assert_eq!(config["dns"]["servers"][1]["detour"], "proxy");
+            assert_eq!(config["route"]["default_domain_resolver"], "local");
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_local_dns_preserves_explicit_transport_and_https_path() {
+        for (input, kind, server, path) in [
+            ("udp://1.1.1.1", "udp", "1.1.1.1", None),
+            ("tcp://1.1.1.1", "tcp", "1.1.1.1", None),
+            ("192.168.1.1", "udp", "192.168.1.1", None),
+            ("tls://1.1.1.1", "tls", "1.1.1.1", None),
+            ("https://1.1.1.1/custom-dns", "https", "1.1.1.1", Some("/custom-dns")),
+        ] {
+            let settings = GeneratorSettings { local_dns: Some(input.into()), ..GeneratorSettings::default() };
+            let config = Config::build(&fixture_outbounds(), &settings);
+            let local = &config["dns"]["servers"][0];
+            assert_eq!(local["type"], kind);
+            assert_eq!(local["server"], server);
+            assert_eq!(local["path"].as_str(), path);
+            assert!(local.get("detour").is_none());
+        }
     }
 
     #[test]
@@ -2096,6 +2148,9 @@ mod tests {
                     .arg(&path)
                     .arg(expected)
                     .arg(output_dir.join(&case));
+                if !ready || name != "all-vpn" {
+                    command.arg("local-https");
+                }
                 if shared {
                     command.arg("shared-owner");
                 }

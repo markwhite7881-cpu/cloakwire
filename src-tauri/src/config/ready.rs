@@ -431,6 +431,30 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn windows_ready_split_dns_uses_https_and_retains_vpn_resolver() {
+        for included in [true, false] {
+            let mut settings = GeneratorSettings::default();
+            settings.local_dns = Some("1.1.1.1".into());
+            if included {
+                settings.routing.final_outbound = "direct".into();
+                settings.routing.vpn_processes = vec!["chat.exe".into()];
+            } else {
+                settings.routing.direct_processes = vec!["bank.exe".into()];
+            }
+            let original = provider();
+            let config = merge_ready_config(original.clone(), &settings).unwrap();
+            let servers = config["dns"]["servers"].as_array().unwrap();
+            let local = servers.iter().find(|s| s["tag"] == "cloakwire-local").unwrap();
+            assert_eq!(local, &json!({"tag":"cloakwire-local", "type":"https", "server":"1.1.1.1", "path":"/dns-query"}));
+            let remote = servers.iter().find(|s| s["tag"] == "cloakwire-remote").unwrap();
+            assert_eq!(remote["detour"], "providerProxy");
+            assert_eq!(servers[0], original["dns"]["servers"][0]);
+            assert_eq!(config["dns"]["rules"][0]["server"], if included { "cloakwire-remote" } else { "cloakwire-local" });
+        }
+    }
+
     fn provider() -> Value {
         json!({
             "log": {"level": "warning"},
