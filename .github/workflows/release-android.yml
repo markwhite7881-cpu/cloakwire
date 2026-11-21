@@ -3,15 +3,9 @@ name: release-android
 # Build the Cloakwire Android APK on every push to the linux/macos-build
 # branch (shared dev branch for non-Windows ports) and on tag pushes.
 #
-# What this does that a plain `tauri android build` does NOT:
-#   1. Builds libbox.aar (the sing-box Android library, gomobile bind
-#      output) from the Leadaxe/sing-box-lx fork — the AAR is a 28MB
-#      prebuilt binary that is deliberately NOT committed to git
-#      (see .gitignore: src-tauri/gen/android/app/libs/*.aar).
-#   2. Installs the exact NDK (28.0.13004108) the local builds use.
-#   3. Builds debug APK (auto-signed with the Android debug key —
-#      installable straight away) and an unsigned release APK.
-#
+# Stages pinned sing-box-lx and Xray binaries for the Android ARM64 build.
+# Installs the same NDK as the local release build.
+
 # Release signing: add these repo secrets and the sign step activates
 # automatically:
 #   ANDROID_KEYSTORE_BASE64  — base64 of the .jks/.keystore file
@@ -50,13 +44,6 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          # sing-box-lx fork go.mod requires go >= 1.25.5
-          go-version: "1.25"
-          check-latest: true
-
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -90,55 +77,14 @@ jobs:
           restore-keys: |
             cargo-android-
 
-      - name: Install gomobile + gobind
-        # v0.1.12 is the version verified locally (Go 1.25 compatible).
+      - name: Prepare pinned Android cores
         run: |
-          set -e
-          go install golang.org/x/mobile/cmd/gomobile@v0.1.12
-          go install golang.org/x/mobile/cmd/gobind@v0.1.12
-          gomobile version
-
-      - name: Build libbox.aar from Leadaxe/sing-box-lx fork
-        # Same recipe as the verified local build (all 4 ABIs here vs
-        # arm64-only locally — `-target android` = arm64,arm,386,amd64).
-        # NOTES on flags (learned the hard way):
-        #   * -javapkg=io.nekohasekai : package name our Kotlin code
-        #     imports (matches sing-box for Android / SFA).
-        #   * -libname=box : produces jni/<abi>/libbox.so.
-        #   * -checklinkname=0 in ldflags is MANDATORY with Go 1.25 +
-        #     the badlinkname/tfogo_checklinkname0 tags below — sing-box
-        #     uses //go:linkname hacks that Go 1.23+ rejects otherwise.
-        #   * runtime.godebugDefault=... : re-enables legacy TLS bits
-        #     some REALITY/VLESS servers still need (same as desktop).
-        run: |
-          set -e
-          git init /tmp/sing-box-src
-          cd /tmp/sing-box-src
-          git remote add origin https://github.com/Leadaxe/sing-box-lx.git
-          git fetch --depth 1 origin ff40cf98cb80ca6c9e9ae823ad392045cb4d23de
-          git checkout FETCH_HEAD
-          git submodule update --init --recursive --depth 1
-          VER="$(git describe --tags --always 2>/dev/null || echo "1.12.0")+android.ff40cf9"
-          echo "libbox version: $VER"
-          BUILD_TAGS="with_gvisor,with_quic,with_wireguard,with_utls,with_naive_outbound,badlinkname,tfogo_checklinkname0,with_xhttp,with_awg,with_lx_command,with_lx_idle_suspend,with_openvpn,with_openconnect,with_clash_api"
-          mkdir -p "$GITHUB_WORKSPACE/src-tauri/gen/android/app/libs"
-          gomobile bind -v \
-            -o "$GITHUB_WORKSPACE/src-tauri/gen/android/app/libs/libbox.aar" \
-            -target android \
-            -androidapi 24 \
-            -javapkg=io.nekohasekai \
-            -libname=box \
-            -trimpath \
-            -buildvcs=false \
-            -ldflags="-X github.com/sagernet/sing-box/constant.Version=$VER -X runtime.godebugDefault=multipathtcp=0,tlssha1=1,tlsunsafeekm=1 -checklinkname=0 -s -w -buildid=" \
-            -tags="$BUILD_TAGS" \
-            ./experimental/libbox
-          ls -la "$GITHUB_WORKSPACE/src-tauri/gen/android/app/libs/libbox.aar"
-          # sanity: all 4 ABIs must be inside the AAR
-          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-            unzip -l "$GITHUB_WORKSPACE/src-tauri/gen/android/app/libs/libbox.aar" \
-              | grep -q "jni/$abi/libbox.so" || { echo "::error::libbox.so missing for $abi"; exit 1; }
-          done
+          set -euo pipefail
+          libbox=src-tauri/gen/android/app/libs/libbox.aar
+          mkdir -p "$(dirname "$libbox")"
+          curl --fail --silent --show-error --location 'https://github.com/Leadaxe/sing-box-lx/releases/download/v1.14.4-lx.35/libbox-1.14.4-lx.35.aar' -o "$libbox"
+          printf '%s  %s\n' 'e5cfd79364316150acd5c9ddbb5d6d8c749f1ce4a590f9a3eaa408f949b8fd7b' "$libbox" | sha256sum -c -
+          python3 scripts/prepare-xray-sidecar.py --target aarch64-linux-android
 
       - name: Install JS deps
         run: npm ci
@@ -146,10 +92,10 @@ jobs:
       - name: Build debug APK
         # Debug build is signed with the auto-generated Android debug
         # key by AGP — installable on devices as-is.
-        run: npx tauri android build --apk --verbose
+        run: npx tauri android build --target aarch64 --apk --verbose
 
       - name: Build release APK
-        run: npx tauri android build --apk --release --verbose
+        run: npx tauri android build --target aarch64 --apk --release --verbose
 
       - name: Sign release APK (when keystore secrets exist)
         if: env.HAVE_KEYSTORE == 'true'

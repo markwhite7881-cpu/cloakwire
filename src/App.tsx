@@ -580,15 +580,15 @@ export default function App() {
       setBinary({
         path: "C:\\Users\\Алексей\\.minimax-agent\\projects\\singbox-client\\src-tauri\\binaries\\sing-box-x86_64-pc-windows-msvc.exe",
         exists: true,
-        size_bytes: 51_732_480,
+        size_bytes: 70_691_840,
       });
       setVersion({
-        version: "1.14.0-lx.24",
-        environment: "go1.26.5 windows/amd64",
-        revision: "42e693ce1cbb2f76d611f17fae137c40deaf85fc",
-        raw: "sing-box version 1.14.0-lx.24\nEnvironment: go1.26.5 windows/amd64",
+        version: "1.14.4-lx.35",
+        environment: "go1.26.10 windows/amd64",
+        revision: "f1bac271853eaf13398ce1030c948aebc3aed2e1",
+        raw: "sing-box version 1.14.4-lx.35\nEnvironment: go1.26.10 windows/amd64",
       });
-      setXrayVersion("26.7.28");
+      setXrayVersion("26.11.9");
       setStatus({
         status: "stopped",
         pid: null,

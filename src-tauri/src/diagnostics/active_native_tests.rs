@@ -14,8 +14,8 @@ use std::time::Duration;
 async fn active_checks_use_the_existing_core_and_never_stop_it() {
     let server_dir = tempfile::tempdir().unwrap();
     let main_dir = tempfile::tempdir().unwrap();
-    let (mut upstream, server_port, user) = server(server_dir.path()).await;
     let (url, _, target) = endpoint(false).await;
+    let (mut upstream, server_port, user) = server(server_dir.path(), &url).await;
     for engine in [EngineKind::Singbox, EngineKind::Xray] {
         for valid in [true, false] {
             let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -70,8 +70,8 @@ async fn accepted_process_publishes_health_and_cancellation_keeps_main_core_aliv
     use std::sync::Arc;
     let server_dir = tempfile::tempdir().unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let (mut upstream, server_port, user) = server(server_dir.path()).await;
     let (url, _, target) = endpoint(false).await;
+    let (mut upstream, server_port, user) = server(server_dir.path(), &url).await;
     for engine in [EngineKind::Singbox, EngineKind::Xray] {
         let mut config = candidate(engine, server_port, &user);
         if engine == EngineKind::Singbox {
@@ -180,8 +180,8 @@ async fn diagnostic_collision_falls_back_to_original_and_preserves_foreign_liste
     use crate::{engine::LaunchSpec, process::ProcessManager};
     use std::sync::Arc;
     let dir = tempfile::tempdir().unwrap();
-    let (mut upstream, server_port, user) = server(dir.path()).await;
     let (url, _, target) = endpoint(false).await;
+    let (mut upstream, server_port, user) = server(dir.path(), &url).await;
     for engine in [EngineKind::Singbox, EngineKind::Xray] {
         let regular = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let regular_port = regular.local_addr().unwrap().port();

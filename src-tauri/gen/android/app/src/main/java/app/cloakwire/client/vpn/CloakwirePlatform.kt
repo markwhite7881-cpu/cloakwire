@@ -397,12 +397,13 @@ class CloakwirePlatform(private val service: CloakwireVpnService) : PlatformInte
 
   override fun underNetworkExtension(): Boolean = false
 
-  override fun useProcFS(): Boolean = false
 
   override fun sendNotification(notification: Notification?) {
     // The service keeps its own foreground notification; core-issued
     // notifications (route changes etc.) are not surfaced in v1.
   }
+
+  override fun cancelNotification(identifier: String?, typeID: Int) {}
 
   override fun startNeighborMonitor(listener: NeighborUpdateListener?) {
     throw Exception("neighbor monitor is not supported on Android")

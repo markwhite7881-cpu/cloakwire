@@ -45,6 +45,8 @@ def main() -> None:
 
     suffix = ".exe" if args.target.endswith("windows-msvc") else ""
     output = project_root / "src-tauri" / "binaries" / f"xray-{args.target}{suffix}"
+    if args.target == "aarch64-linux-android":
+        output = project_root / "src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libxray.so"
     output.parent.mkdir(parents=True, exist_ok=True)
 
     if output.exists():

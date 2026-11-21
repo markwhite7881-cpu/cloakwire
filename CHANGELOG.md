@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] - 2026-11-21
+
+### English
+
+- Updated sing-box-lx to 1.14.4-lx.35 and Xray to 26.11.9 on Windows, macOS, and Android.
+
+### Русский
+
+- Обновлены ядра sing-box-lx до 1.14.4-lx.35 и Xray до 26.11.9 на Windows, macOS и Android.
+
+### 简体中文
+
+- Windows、macOS 和 Android 的内核更新至 sing-box-lx 1.14.4-lx.35 和 Xray 26.11.9。
+
 ## [1.5.3] - 2026-11-12
 
 ### English

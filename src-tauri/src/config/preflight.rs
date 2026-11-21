@@ -415,7 +415,7 @@ mod native_check_tests {
         );
         let mut bad_xray = xray.clone();
         bad_xray["inbounds"] =
-            serde_json::json!([{"protocol":"tun","tag":"invalid-tun","settings":{}}]);
+            serde_json::json!([{"protocol":"unsupported-fixture-protocol","tag":"invalid-fixture"}]);
         std::fs::write(&config, serde_json::to_vec(&bad_xray).unwrap()).unwrap();
         assert!(crate::engine::xray::validate_config(
             &binaries.join(format!("xray-{target}")),

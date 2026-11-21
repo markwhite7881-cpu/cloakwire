@@ -172,8 +172,8 @@ class DiagnosticIsolationService:Service() {
             }
           }
           "readWIFIState"->null
-          "clearDNSCache","closeDefaultInterfaceMonitor","closeNeighborMonitor","sendNotification","registerMyInterface"->null
-          "includeAllNetworks","underNetworkExtension","useProcFS","usePlatformBridge","usePlatformShell"->false
+          "clearDNSCache","closeDefaultInterfaceMonitor","closeNeighborMonitor","sendNotification","cancelNotification","registerMyInterface"->null
+          "includeAllNetworks","underNetworkExtension","usePlatformBridge","usePlatformShell"->false
           "tailscaleHostname"->""
           else->throw UnsupportedOperationException("unsupported_probe_platform")
         }

@@ -1,9 +1,9 @@
 {
-  "version": "v26.3.27",
+  "version": "v26.11.9",
   "platform": "windows-64",
-  "archiveUrl": "https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-windows-64.zip",
+  "archiveUrl": "https://github.com/XTLS/Xray-core/releases/download/v26.11.9/Xray-windows-64.zip",
   "archiveMember": "xray.exe",
-  "archiveSha256": "d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
-  "executableSha256": "15c2d007954ac53ba69b80ec91242786b3c0b71d52649165b4ca1d5cc96ef8f1",
-  "executableSize": 35613696
+  "archiveSha256": "1262522266337b824f07beb8e1375786b437683b3890105469088f8e17e0a69d",
+  "executableSha256": "1ca7a2cf61ba2c5d20b21a80d405b57933939751081cb289f07bd8ddf7cc3185",
+  "executableSize": 34864640
 }

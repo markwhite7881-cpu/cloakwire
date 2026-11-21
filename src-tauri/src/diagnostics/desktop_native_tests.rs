@@ -53,11 +53,16 @@ pub(super) fn candidate(engine: EngineKind, port: u16, user: &str) -> Value {
         }
     }
 }
-pub(super) async fn server(parent: &std::path::Path) -> (OwnedCore, u16, String) {
+pub(super) async fn server(parent: &std::path::Path, target_url: &str) -> (OwnedCore, u16, String) {
+    let target_url = reqwest::Url::parse(target_url).unwrap();
+    assert_eq!(target_url.host_str(), Some("127.0.0.1"));
+    let target_port = target_url.port().unwrap().to_string();
     let socket = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = socket.local_addr().unwrap().port();
     let id = uuid::Uuid::new_v4().to_string();
-    let config = json!({"log":{"loglevel":"none"},"inbounds":[{"listen":"127.0.0.1","port":port,"protocol":"vless","settings":{"clients":[{"id":id}],"decryption":"none"}}],"outbounds":[{"protocol":"freedom"}]});
+    let config = json!({"log":{"loglevel":"none"},"inbounds":[{"listen":"127.0.0.1","port":port,"protocol":"vless","settings":{"clients":[{"id":id}],"decryption":"none"}}],"outbounds":[{"protocol":"freedom","settings":{"finalRules":[
+        {"action":"allow","network":"tcp","ip":["127.0.0.1/32"],"port":target_port}
+    ]}}]});
     let mut core = OwnedCore::create(parent, &config).unwrap();
     let mut command = tokio::process::Command::new(binary(EngineKind::Xray));
     command.args(["run", "-config"]).arg(core.config_path());
@@ -124,8 +129,8 @@ fn request(
 async fn real_cores_check_selected_credentials_and_cleanup_without_stopping_other_core() {
     let parent = tempfile::tempdir().unwrap();
     let probes = tempfile::tempdir().unwrap();
-    let (mut server, port, user) = server(parent.path()).await;
     let (url, _, target) = endpoint(false).await;
+    let (mut server, port, user) = server(parent.path(), &url).await;
     for engine in [EngineKind::Singbox, EngineKind::Xray] {
         for valid in [true, false] {
             let coordinator = ProbeCoordinator::default();
@@ -171,10 +176,10 @@ async fn real_cores_check_selected_credentials_and_cleanup_without_stopping_othe
 async fn real_core_cancel_and_deadline_remove_child_and_temporary_credentials() {
     let parent = tempfile::tempdir().unwrap();
     let probes = tempfile::tempdir().unwrap();
-    let (mut server, port, user) = server(parent.path()).await;
     for engine in [EngineKind::Singbox, EngineKind::Xray] {
         for cancel in [true, false] {
             let (url, hit, target) = endpoint(true).await;
+            let (mut server, port, user) = server(parent.path(), &url).await;
             let coordinator = Arc::new(ProbeCoordinator::with_limits(
                 Duration::from_secs(3),
                 Duration::from_secs(2),
@@ -210,9 +215,9 @@ async fn real_core_cancel_and_deadline_remove_child_and_temporary_credentials() 
             }
             assert_eq!(std::fs::read_dir(probes.path()).unwrap().count(), 0);
             assert!(server.is_alive().unwrap());
+            assert!(server.stop(Duration::from_secs(2)).await);
         }
     }
-    assert!(server.stop(Duration::from_secs(2)).await);
 }
 #[tokio::test]
 #[ignore = "read-only discovery on a machine with one usable physical default route"]
@@ -233,8 +238,8 @@ async fn physical_discovery_is_read_only_and_repeatable() {
 async fn real_core_port_collision_retry_is_bounded_and_cleans_every_attempt() {
     let parent = tempfile::tempdir().unwrap();
     let probes = tempfile::tempdir().unwrap();
-    let (mut server, port, user) = server(parent.path()).await;
     let (url, _, target) = endpoint(false).await;
+    let (mut server, port, user) = server(parent.path(), &url).await;
     for engine in [EngineKind::Singbox, EngineKind::Xray] {
         for collisions in [1, 3] {
             let coordinator = ProbeCoordinator::default();
@@ -271,8 +276,8 @@ async fn real_core_port_collision_retry_is_bounded_and_cleans_every_attempt() {
 async fn xray_unproven_binding_cannot_report_healthy() {
     let parent = tempfile::tempdir().unwrap();
     let probes = tempfile::tempdir().unwrap();
-    let (mut server, port, user) = server(parent.path()).await;
     let (url, _, target) = endpoint(false).await;
+    let (mut server, port, user) = server(parent.path(), &url).await;
     let coordinator = ProbeCoordinator::default();
     let lease = coordinator
         .begin(identity(), HealthScope::SelectedProfile)
@@ -332,8 +337,8 @@ async fn xray_external_config_environment_cannot_modify_the_private_candidate() 
 async fn quit_during_selected_probe_reaps_listener_and_candidate_before_exit() {
     let parent = tempfile::tempdir().unwrap();
     let private = tempfile::tempdir().unwrap();
-    let (mut upstream, port, user) = server(parent.path()).await;
     let (url, hit, target) = endpoint(true).await;
+    let (mut upstream, port, user) = server(parent.path(), &url).await;
     let engine = EngineKind::Singbox;
     let req = request(private.path(), engine, candidate(engine, port, &user), &url);
     let probes = Arc::new(ProbeCoordinator::default());

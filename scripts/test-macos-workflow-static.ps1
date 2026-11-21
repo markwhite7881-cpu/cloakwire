@@ -9,11 +9,11 @@ if ($workflow -match 'find .* -print -quit') {
 }
 
 $required = @(
-    'while IFS= read -r path; do dmgs+=("$path"); done < <(find "$dmg_dir" -maxdepth 1 -type f -name ''*.dmg'')',
     'while IFS= read -r path; do apps+=("$path"); done < <(find "$app_dir" -maxdepth 1 -type d -name ''*.app'')',
-    '[ "${#dmgs[@]}" -eq 1 ] ||',
     '[ "${#apps[@]}" -eq 1 ] ||',
-    'git fetch --depth 1 origin 9558ceb27bc1e92e2ecfa96ebfe6b3f688344c5a'
+    'version=1.14.4-lx.35',
+    'shasum -a 256 -c -',
+    'python3 scripts/prepare-xray-sidecar.py'
 )
 foreach ($needle in $required) {
     if (-not $workflow.Contains($needle)) {
@@ -21,4 +21,4 @@ foreach ($needle in $required) {
     }
 }
 
-Write-Output 'PASS: macOS workflow rejects ambiguous artifacts and fetches the pinned source revision only.'
+Write-Output 'PASS: macOS workflow rejects ambiguous artifacts and verifies the pinned core archives.'

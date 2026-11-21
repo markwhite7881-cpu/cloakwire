@@ -167,8 +167,8 @@ async fn resolved_link_checks_through_the_private_core_without_stopping_the_serv
     };
     let dir = tempfile::tempdir().unwrap();
     let private = tempfile::tempdir().unwrap();
-    let (mut upstream, port, user) = server(dir.path()).await;
     let (url, _, target) = endpoint(false).await;
+    let (mut upstream, port, user) = server(dir.path(), &url).await;
     let service = catalog(dir.path(), json!({}));
     let source = parse_link(&format!(
         "vless://{user}@127.0.0.1:{port}?security=none#manual"

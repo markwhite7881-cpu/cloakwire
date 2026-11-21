@@ -56,7 +56,7 @@ async function loopbackCase(engine, binaries, dir, wrongUser) {
   await new Promise((yes, no) => target.once('error', no).listen(0, '127.0.0.1', yes));
   try {
     const serverPort = await freePort(), proxyPort = await freePort();
-    const fixtures = loopbackFixtures({ serverPort, proxyPort, wrongUser });
+    const fixtures = loopbackFixtures({ serverPort, proxyPort, targetPort: target.address().port, wrongUser });
     for (const [label, core, config, port] of [
       ['server', 'xray', fixtures.server, serverPort],
       ['client', engine, fixtures[engine], proxyPort],
