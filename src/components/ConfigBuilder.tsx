@@ -1,4 +1,5 @@
 import {RecoverySetting} from "@/components/RecoverySettings";
+import { AtlasSwitch } from "@/components/atlas/AtlasSwitch";
 import { useEffect, useState } from "react";
 import {
   Check,
@@ -267,6 +268,18 @@ export function ConfigBuilder({
       </CardHeader>
       <CardContent className="space-y-3">
         <RecoverySetting />
+        {/* Post-start connection check. Diagnostic only: a failed check
+            never stops a working tunnel. */}
+        <label className="atlas-field-row">
+          <span className="text-muted-foreground">{t("config.verifyAfterStart")}</span>
+          <span className="ml-auto">
+            <AtlasSwitch
+              label={t("config.verifyAfterStart")}
+              checked={settings.verify_after_start ?? true}
+              onChange={enabled => update("verify_after_start", enabled)}
+            />
+          </span>
+        </label>
         {/* Tunnel mode picker */}
         <div className="space-y-1.5">
           <p className="text-[10px] text-muted-foreground">

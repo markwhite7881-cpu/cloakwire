@@ -354,6 +354,7 @@ export const en = {
     resetBtn: "Reset",
     resetTooltip: "Reset all settings (tunnel mode, routing, DNS, port) to defaults",
     tunnelMode: "Tunnel",
+    verifyAfterStart: "Check the connection after starting",
     tunHint: "System-wide (admin + Wintun)",
     systemProxyHint: "HTTP/SOCKS system proxy",
     bothHint: "TUN + local proxy",

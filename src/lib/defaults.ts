@@ -64,4 +64,7 @@ export const DEFAULT_SETTINGS: GeneratorSettings = {
   // which regenerates the config and restarts sing-box so the very
   // first request goes through the picked server (no urltest race).
   default_outbound: null,
+  // Post-start connection check. Diagnostic only: a failed check never
+  // stops a working tunnel, so it stays on by default.
+  verify_after_start: true,
 };

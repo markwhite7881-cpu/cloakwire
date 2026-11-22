@@ -521,6 +521,11 @@ export interface GeneratorSettings {
    * goes through it (no urltest "flash").
    */
   default_outbound: string | null;
+  /**
+   * Run the post-start connection check (default: on). The check is
+   * diagnostic only — it never stops a working tunnel.
+   */
+  verify_after_start?: boolean;
 }
 
 // --- 

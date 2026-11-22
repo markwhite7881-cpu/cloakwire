@@ -356,6 +356,7 @@ export const ru: TranslationSchema = {
     resetBtn: "Сбросить",
     resetTooltip: "Сбросить все параметры (режим туннеля, маршрутизацию, DNS, порт) к значениям по умолчанию",
     tunnelMode: "Туннель",
+    verifyAfterStart: "Проверять подключение после старта",
     tunHint: "Для всей системы (админ + Wintun)",
     systemProxyHint: "Системный HTTP/SOCKS прокси",
     bothHint: "TUN + локальный прокси",

@@ -5,6 +5,12 @@ use std::{net::IpAddr, time::Duration};
 use tokio::time::Instant;
 
 const MAX_TRACE_BYTES: usize = 4096;
+/// A single probe attempt may take a while on a slow link. The tunnel is
+/// never torn down because of a probe, so the deadline can be generous.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(12);
+/// One retry: the first attempt often dies with the DNS cache of the
+/// previous session.
+const PROBE_ATTEMPTS: usize = 2;
 pub struct TargetSet {
     primary: String,
     fallback: String,
@@ -50,12 +56,25 @@ impl ProbeClient {
             .redirect(reqwest::redirect::Policy::none())
             .http1_only()
             .pool_max_idle_per_host(0)
-            .timeout(Duration::from_secs(4))
+            .timeout(PROBE_TIMEOUT)
             .build()
             .map_err(|_| HealthIssue::EngineUnavailable)?;
         Ok(Self { client })
     }
     pub async fn check(&self, targets: &TargetSet) -> Result<u64, HealthIssue> {
+        let mut last = Err(HealthIssue::ProbeTargetUnavailable);
+        for attempt in 0..PROBE_ATTEMPTS {
+            match self.attempt(targets).await {
+                Ok(ms) => return Ok(ms),
+                Err(issue) => last = Err(issue),
+            }
+            if attempt + 1 < PROBE_ATTEMPTS {
+                tokio::time::sleep(Duration::from_millis(250)).await;
+            }
+        }
+        last
+    }
+    async fn attempt(&self, targets: &TargetSet) -> Result<u64, HealthIssue> {
         let started = Instant::now();
         if let Ok(response) = self.client.get(&targets.primary).send().await {
             if response.status() == reqwest::StatusCode::NO_CONTENT {

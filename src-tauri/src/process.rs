@@ -61,6 +61,32 @@ pub enum Status {
     Stopping,
 }
 
+/// Why the engine is being stopped. The reason is written to the system
+/// log: a tunnel that disappears on its own cannot be attributed to
+/// anything else after the fact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StopReason {
+    /// The user asked to disconnect.
+    User,
+    /// Another profile is started in place of the current one.
+    ProfileSwitch,
+    /// The replacement launch failed or was cancelled.
+    StartFailed,
+    /// The native recovery subsystem is restarting the engine.
+    Recovery,
+}
+
+impl StopReason {
+    pub fn label(self) -> &'static str {
+        match self {
+            StopReason::User => "requested by user",
+            StopReason::ProfileSwitch => "profile switch",
+            StopReason::StartFailed => "start failed",
+            StopReason::Recovery => "recovery restart",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatusReport {
     pub status: Status,
@@ -198,6 +224,12 @@ pub struct ProcessManager {
     stdio_readers: Mutex<Vec<JoinHandle<()>>>,
     /// Configured Kill Switch behavior.
     kill_switch_mode: Mutex<crate::config::KillSwitchMode>,
+    /// Launch parameters of the running engine. A cancelled profile
+    /// switch uses them to restore the previous connection.
+    active_spec: Mutex<Option<LaunchSpec>>,
+    /// Incremented by every explicit user stop, so a failed switch can
+    /// tell "the user asked to disconnect" from "the switch failed".
+    user_stop_epoch: AtomicU64,
 }
 
 impl Default for ProcessManager {
@@ -236,6 +268,8 @@ impl ProcessManager {
             #[cfg(test)]
             stdio_readers: Mutex::new(Vec::new()),
             kill_switch_mode: Mutex::new(crate::config::KillSwitchMode::Off),
+            active_spec: Mutex::new(None),
+            user_stop_epoch: AtomicU64::new(0),
         }
     }
 }
@@ -560,7 +594,8 @@ impl ProcessManager {
             }
             self.recovery.mark_restarting(*token);
             if self.child.lock().await.is_some() {
-                self.stop_with_check_locked(None).await?;
+                self.stop_with_check_locked(None, StopReason::Recovery)
+                    .await?;
             }
             if !self.recovery.current(*token) {
                 return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
@@ -707,7 +742,9 @@ impl ProcessManager {
                     )
                     .await
                 {
-                    let _ = self.stop_with_check_locked(None).await;
+                    let _ = self
+                        .stop_with_check_locked(None, StopReason::StartFailed)
+                        .await;
                     return Err(error);
                 }
             }
@@ -716,13 +753,17 @@ impl ProcessManager {
             .as_ref()
             .is_some_and(|(token, _)| !self.recovery.current(*token))
         {
-            let _ = self.stop_with_check_locked(None).await;
+            let _ = self
+                .stop_with_check_locked(None, StopReason::StartFailed)
+                .await;
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
         if let Some((_, snapshot)) = &recovery {
             if let Some((host, http, socks)) = &snapshot.proxy {
                 if let Err(error) = apply_system_proxy_with_socks(host, *http, *socks) {
-                    let _ = self.stop_with_check_locked(None).await;
+                    let _ = self
+                        .stop_with_check_locked(None, StopReason::StartFailed)
+                        .await;
                     return Err(error);
                 }
             }
@@ -740,7 +781,9 @@ impl ProcessManager {
             )
         };
         if !self.recovery.accept_checked(run_id, captured, proof) {
-            let _ = self.stop_with_check_locked(None).await;
+            let _ = self
+                .stop_with_check_locked(None, StopReason::StartFailed)
+                .await;
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
         if spec.engine == EngineKind::Xray {
@@ -791,7 +834,9 @@ impl ProcessManager {
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
         if let Err(error) = apply_system_proxy_with_socks(&proxy.0, proxy.1, proxy.2) {
-            let _ = self.stop_with_check_locked(None).await;
+            let _ = self
+                .stop_with_check_locked(None, StopReason::StartFailed)
+                .await;
             return Err(error);
         }
         self.recovery.capture_proxy(run, Some(proxy));
@@ -888,6 +933,8 @@ impl ProcessManager {
         *self.child.lock().await = Some(ChildSlot { run_id, child });
         *self.started_at.lock().await = Some(std::time::Instant::now());
         *self.current_config.lock().await = Some(spec.config_path.clone());
+        // Remember the launch: a cancelled profile switch restores it.
+        *self.active_spec.lock().await = Some(spec.clone());
         if spec.engine == EngineKind::Singbox {
             *self.controller_url.lock().await = spec.controller_url.clone();
         }
@@ -964,6 +1011,9 @@ impl ProcessManager {
         *self.started_at.lock().await = None;
         *self.current_config.lock().await = None;
         *self.controller_url.lock().await = None;
+        // An abandoned start never ran: it must not be offered as the
+        // previous connection of a later switch.
+        *self.active_spec.lock().await = None;
         self.abort_start(run).await;
         Ok(())
     }
@@ -1005,29 +1055,38 @@ impl ProcessManager {
         let epoch = self
             .recovery
             .stop_with(|| self.ready_check_epoch.fetch_add(1, Ordering::AcqRel) + 1);
+        // An explicit disconnect must never be undone by a profile switch
+        // that failed afterwards.
+        self.user_stop_epoch.fetch_add(1, Ordering::AcqRel);
         self.diagnostics.retire(observed_run, true);
         let _transition = self.acquire_transition().await;
         if self.ready_check_epoch.load(Ordering::Acquire) != epoch {
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
         }
-        self.stop_with_check_locked(None).await
+        self.stop_with_check_locked(None, StopReason::User).await
     }
 
     pub async fn stop_after_profile_check(
         self: &Arc<Self>,
         ticket: u64,
     ) -> AppResult<StatusReport> {
-        self.stop_with_check(Some(ticket)).await
+        self.stop_with_check(Some(ticket), StopReason::ProfileSwitch)
+            .await
     }
 
-    async fn stop_with_check(self: &Arc<Self>, ticket: Option<u64>) -> AppResult<StatusReport> {
+    async fn stop_with_check(
+        self: &Arc<Self>,
+        ticket: Option<u64>,
+        reason: StopReason,
+    ) -> AppResult<StatusReport> {
         let _clash_transition = self.acquire_transition().await;
-        self.stop_with_check_locked(ticket).await
+        self.stop_with_check_locked(ticket, reason).await
     }
 
     async fn stop_with_check_locked(
         self: &Arc<Self>,
         ticket: Option<u64>,
+        reason: StopReason,
     ) -> AppResult<StatusReport> {
         if ticket.is_some_and(|ticket| !self.is_ready_profile_check_current(ticket)) {
             return Err(crate::config::preflight::ProfileCheckIssue::Cancelled.into());
@@ -1047,7 +1106,10 @@ impl ProcessManager {
             Some(EngineKind::Xray) => "stopping Xray",
             _ => "stopping sing-box",
         };
-        self.push_log(LogStream::System, label).await;
+        // The reason makes a tunnel that disappears on its own
+        // attributable after the fact.
+        self.push_log(LogStream::System, format!("{label} ({})", reason.label()))
+            .await;
 
         if engine == Some(EngineKind::Xray) {
             self.stop_xray_telemetry().await;
@@ -1103,6 +1165,22 @@ impl ProcessManager {
     pub async fn is_running(&self) -> bool {
         let g = self.child.lock().await;
         g.is_some()
+    }
+
+    /// Launch parameters of the running engine, if any.
+    pub async fn running_launch(&self) -> Option<LaunchSpec> {
+        self.active_spec.lock().await.clone()
+    }
+
+    /// Remember (or forget) the launch of the running engine.
+    pub async fn set_running_launch(&self, spec: Option<LaunchSpec>) {
+        *self.active_spec.lock().await = spec;
+    }
+
+    /// Counter of explicit user stops. A pending profile switch uses it
+    /// to tell "the user asked to disconnect" from "the switch failed".
+    pub fn stop_request_epoch(&self) -> u64 {
+        self.user_stop_epoch.load(Ordering::Acquire)
     }
 
     pub async fn current_config(&self) -> Option<PathBuf> {
@@ -1308,6 +1386,7 @@ impl ProcessManager {
         *self.current_config.lock().await = None;
         *self.aux_config.lock().await = None;
         self.controller_url.lock().await.take();
+        *self.active_spec.lock().await = None;
         self.traffic.stop().await;
         self.push_log(LogStream::System, "process manager state reset")
             .await;
@@ -1331,6 +1410,7 @@ impl ProcessManager {
         let epoch = self
             .recovery
             .stop_with(|| self.ready_check_epoch.fetch_add(1, Ordering::AcqRel) + 1);
+        self.user_stop_epoch.fetch_add(1, Ordering::AcqRel);
         let _transition = self.acquire_transition().await;
         if self.ready_check_epoch.load(Ordering::Acquire) != epoch {
             return;
@@ -1370,6 +1450,7 @@ impl ProcessManager {
         *self.current_config.lock().await = None;
         *self.aux_config.lock().await = None;
         *self.controller_url.lock().await = None;
+        *self.active_spec.lock().await = None;
 
         let (line, _engine_label) = {
             let mut status = self.status.lock().await;
@@ -2349,5 +2430,50 @@ mod tests {
         let res = pm.start_aux_child(999, bin, args, Vec::new()).await;
         assert!(res.is_ok());
         assert!(pm.aux_child.lock().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn stop_reason_is_visible_in_the_system_log() {
+        let pm = Arc::new(ProcessManager::new());
+        pm.install_test_child(EngineKind::Singbox).await;
+
+        pm.stop().await.unwrap();
+
+        let logs = pm.snapshot_logs(50).await;
+        assert!(
+            logs.iter()
+                .any(|line| line.line.contains("stopping sing-box (requested by user)")),
+            "the stop reason has to be attributable in the exported log: {:?}",
+            logs.iter().map(|line| &line.line).collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn running_launch_is_remembered_and_forgotten() {
+        let pm = Arc::new(ProcessManager::new());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("running.json");
+        std::fs::write(&path, b"{}").unwrap();
+        let spec = LaunchSpec {
+            engine: EngineKind::Singbox,
+            binary: PathBuf::from("core"),
+            args: Vec::new(),
+            env: Vec::new(),
+            config_path: path,
+            controller_url: None,
+            profile_key: Some("running".into()),
+            profile_name: None,
+            diagnostics: None,
+            xray_stats: None,
+        };
+
+        pm.set_running_launch(Some(spec.clone())).await;
+        assert_eq!(
+            pm.running_launch().await.map(|spec| spec.profile_key),
+            Some(Some("running".to_string()))
+        );
+
+        pm.set_running_launch(None).await;
+        assert!(pm.running_launch().await.is_none());
     }
 }
