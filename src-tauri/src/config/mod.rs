@@ -148,6 +148,18 @@ pub struct GeneratorSettings {
     /// whenever the user picks a different server, so this value
     /// changes with each click in the picker.
     pub default_outbound: Option<String>,
+    /// Run the post-start connection check.
+    ///
+    /// The check is diagnostic only: it never stops a working tunnel.
+    /// Turning it off keeps the log clean on unstable networks.
+    #[serde(default = "verify_after_start_default")]
+    pub verify_after_start: bool,
+}
+
+/// The post-start check is on by default: it is what tells the user that
+/// the selected server actually carries traffic.
+fn verify_after_start_default() -> bool {
+    true
 }
 
 impl Default for RoutingOptions {
@@ -184,6 +196,7 @@ impl Default for GeneratorSettings {
             // frontend switches to a real tag the moment the user
             // picks a server in the picker.
             default_outbound: None,
+            verify_after_start: true,
         }
     }
 }

@@ -313,12 +313,29 @@ pub(crate) async fn requires_proxy_auth(port: u16) -> bool {
     timeout(Duration::from_millis(350),async {
         let mut stream=TcpStream::connect(("127.0.0.1",port)).await.ok()?;
         stream.write_all(b"CONNECT www.gstatic.com:443 HTTP/1.1\r\nHost: www.gstatic.com:443\r\nConnection: close\r\n\r\n").await.ok()?;
-        let mut head=Vec::new();let mut byte=[0u8;1];
-        while head.len()<256 {
-            if stream.read(&mut byte).await.ok()?==0{return None;}
-            head.push(byte[0]);if head.ends_with(b"\r\n"){break;}
+        // Read the whole answer before closing. Dropping the socket with
+        // unread bytes makes Windows send RST, and sing-box then reports a
+        // `wsasend` error for a request that actually succeeded.
+        let mut response=Vec::new();let mut chunk=[0u8;512];
+        while response.len()<4096&&!response.windows(4).any(|w|w==b"\r\n\r\n") {
+            let read=stream.read(&mut chunk).await.ok()?;
+            if read==0{break;}
+            response.extend_from_slice(&chunk[..read]);
         }
-        let line=std::str::from_utf8(&head).ok()?;
+        // Drain the body that is already buffered, then half-close so the
+        // proxy sees a clean FIN instead of a reset.
+        let deadline=tokio::time::Instant::now()+Duration::from_millis(20);
+        while response.len()<8192&&tokio::time::Instant::now()<deadline {
+            match tokio::time::timeout(Duration::from_millis(5),stream.read(&mut chunk)).await {
+                Ok(Ok(0))=>break,
+                Ok(Ok(read))=>response.extend_from_slice(&chunk[..read]),
+                Ok(Err(_))=>break,
+                Err(_)=>break,
+            }
+        }
+        let _=stream.shutdown().await;
+        let head=response.split(|b|*b==b'\n').next()?;
+        let line=std::str::from_utf8(head).ok()?;
         let fields:Vec<_>=line.split_whitespace().collect();
         Some(fields.len()>=2&&matches!(fields[0],"HTTP/1.0"|"HTTP/1.1")&&fields[1]=="407")
     }).await.ok().flatten().unwrap_or(false)

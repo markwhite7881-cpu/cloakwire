@@ -20,6 +20,8 @@ fn main() {
         &[outbound],
         &GeneratorSettings {
             tunnel_mode: TunnelMode::SystemProxy,
+            kill_switch: cloakwire_lib::config::KillSwitchMode::Off,
+            block_ipv6: false,
             routing: RoutingOptions::default(),
             clash_api: cloakwire_lib::config::ClashApiOptions::default(),
             tun_interface_name: None,
@@ -27,6 +29,7 @@ fn main() {
             local_dns: Some("1.1.1.1".to_string()),
             remote_dns: Some("https://8.8.8.8/dns-query".to_string()),
             default_outbound: None,
+            verify_after_start: true,
         },
     );
     let out_path = std::env::temp_dir().join("verify_e2e.json");

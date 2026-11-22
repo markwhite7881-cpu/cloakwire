@@ -16,6 +16,8 @@ fn main() {
         &[outbound],
         &GeneratorSettings {
             tunnel_mode: TunnelMode::Tun,
+            kill_switch: cloakwire_lib::config::KillSwitchMode::Off,
+            block_ipv6: false,
             routing: RoutingOptions {
                 // Routing 2.0: mirror a typical "safe defaults" rule list.
                 rules: vec![
@@ -42,6 +44,7 @@ fn main() {
             local_dns: Some("1.1.1.1".to_string()),
             remote_dns: Some("https://8.8.8.8/dns-query".to_string()),
             default_outbound: None,
+            verify_after_start: true,
         },
     );
     let out_path = std::env::temp_dir().join("verify_tun.json");

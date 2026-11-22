@@ -356,6 +356,7 @@ export const zhCN: TranslationSchema = {
     resetBtn: "重置",
     resetTooltip: "将所有设置（隧道模式、路由、DNS、端口）重置为默认值",
     tunnelMode: "隧道模式",
+    verifyAfterStart: "启动后检查连接",
     tunHint: "全局流量（管理员权限 + Wintun）",
     systemProxyHint: "系统 HTTP/SOCKS 代理",
     bothHint: "TUN + 本地代理",

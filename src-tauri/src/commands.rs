@@ -186,6 +186,9 @@ pub struct ReadyProfileInput {
     pub routing: config::RoutingOptions,
     #[serde(default)]
     pub tunnel_mode: Option<config::TunnelMode>,
+    /// Run the post-start connection check. Diagnostic only.
+    #[serde(default)]
+    pub verify_after_start: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -244,6 +247,7 @@ async fn start_ready_profile_inner(
     ticket: Option<u64>,
 ) -> AppResult<ReadyProfileResult> {
     let check_ticket = ticket.unwrap_or_else(|| pm.begin_ready_profile_check());
+    let verify_after_start = input.verify_after_start.unwrap_or(true);
     let profile = subscriptions
         .resolve_child_profile(&input.subscription_id, &input.child_key)
         .await?;
@@ -291,6 +295,7 @@ async fn start_ready_profile_inner(
                 &input.routing,
                 source_ref,
                 check_ticket,
+                verify_after_start,
             )
             .await;
         }
@@ -311,7 +316,13 @@ async fn start_ready_profile_inner(
             controller_url: None,
             profile_key: Some(profile.key),
             profile_name: Some(profile.name),
-            diagnostics: Some(ActiveLaunch::unavailable(source)),
+            // The post-start check is diagnostic only. Users on unstable
+            // networks can turn it off.
+            diagnostics: if verify_after_start {
+                Some(ActiveLaunch::unavailable(source))
+            } else {
+                None
+            },
             xray_stats,
         },
         check_ticket,
@@ -375,6 +386,7 @@ async fn start_resolved_singbox_profile(
     routing: &config::RoutingOptions,
     source_ref: ProfileRef,
     check_ticket: u64,
+    verify_after_start: bool,
 ) -> AppResult<ReadyProfileResult> {
     let config_value = prepare_ready_singbox_config(&profile, routing)
         .map_err(config::preflight::preparation_error)?;
@@ -395,7 +407,13 @@ async fn start_resolved_singbox_profile(
             controller_url: None,
             profile_key: Some(profile.key),
             profile_name: Some(profile.name),
-            diagnostics: Some(ActiveLaunch::unavailable(source)),
+            // The post-start check is diagnostic only. Users on unstable
+            // networks can turn it off.
+            diagnostics: if verify_after_start {
+                Some(ActiveLaunch::unavailable(source))
+            } else {
+                None
+            },
             xray_stats: None,
         },
         check_ticket,
@@ -576,6 +594,7 @@ pub async fn start_managed_singbox(
                         child_key: profile_ref.child_key,
                         routing: input.settings.routing,
                         tunnel_mode: Some(input.settings.tunnel_mode),
+                        verify_after_start: Some(input.settings.verify_after_start),
                     },
                     Some(check_ticket),
                 )
@@ -620,7 +639,13 @@ pub async fn start_managed_singbox(
                     )),
                     profile_key: Some(profile.key),
                     profile_name: Some(profile.name),
-                    diagnostics: Some(ActiveLaunch::unavailable(source)),
+                    // The post-start check is diagnostic only. Users on
+                    // unstable networks can turn it off.
+                    diagnostics: if input.settings.verify_after_start {
+                        Some(ActiveLaunch::unavailable(source))
+                    } else {
+                        None
+                    },
                     xray_stats: None,
                 },
                 check_ticket,
@@ -734,7 +759,11 @@ pub async fn start_managed_singbox(
             controller_url: Some(controller_url),
             profile_key: None,
             profile_name: None,
-            diagnostics: Some(ActiveLaunch::unavailable(source)),
+            diagnostics: if input.settings.verify_after_start {
+                Some(ActiveLaunch::unavailable(source))
+            } else {
+                None
+            },
             xray_stats: None,
         },
         check_ticket,
@@ -2000,6 +2029,11 @@ async fn start_checked_ready_profile(
     if !pm.is_ready_profile_check_current(check_ticket) {
         return Err(config::preflight::ProfileCheckIssue::Cancelled.into());
     }
+    // A profile switch must never leave the user without a tunnel: the
+    // running session (and its exact config bytes) is captured before
+    // the current engine is stopped.
+    let previous = capture_running_session(pm).await;
+    let user_stop = pm.stop_request_epoch();
     if pm.is_running().await {
         pm.stop_after_profile_check(check_ticket).await?;
     }
@@ -2010,9 +2044,65 @@ async fn start_checked_ready_profile(
         .start_profile_checked_with_app(app, spec, check_ticket)
         .await;
     if result.is_err() {
-        pm.reset_after_profile_check(check_ticket).await;
+        // The replacement never came up. Bring the previous connection
+        // back instead of leaving the user offline.
+        let restored = match previous {
+            Some(previous) => restore_running_session(app, pm, previous, user_stop).await,
+            None => false,
+        };
+        if !restored {
+            pm.reset_after_profile_check(check_ticket).await;
+        }
     }
     result
+}
+
+/// The running engine, captured well enough to start it again.
+struct RunningSession {
+    spec: LaunchSpec,
+    config: Vec<u8>,
+}
+
+/// Capture the running session before a profile switch stops it.
+async fn capture_running_session(pm: &Arc<ProcessManager>) -> Option<RunningSession> {
+    let spec = pm.running_launch().await?;
+    let config = std::fs::read(&spec.config_path).ok()?;
+    Some(RunningSession { spec, config })
+}
+
+/// Bring the previous connection back after a failed switch.
+///
+/// The runtime config file was swept while the engine was down, so the
+/// captured bytes are written back before the engine starts again. A
+/// user-initiated disconnect wins over the restore: the user asked to
+/// be offline.
+async fn restore_running_session(
+    app: Option<&AppHandle>,
+    pm: &Arc<ProcessManager>,
+    session: RunningSession,
+    user_stop: u64,
+) -> bool {
+    if pm.stop_request_epoch() != user_stop {
+        return false;
+    }
+    if pm.is_running().await {
+        return true;
+    }
+    let RunningSession { spec, config } = session;
+    if write_secure_runtime_file(&spec.config_path, config.as_slice()).is_err() {
+        return false;
+    }
+    match pm.start_spec_with_app(app, spec).await {
+        Ok(_) => {
+            pm.push_log(
+                crate::process::LogStream::System,
+                "previous connection restored after a failed profile switch",
+            )
+            .await;
+            true
+        }
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
@@ -2052,6 +2142,70 @@ mod ready_preflight_tests {
         assert!(still_running);
         assert_eq!(after.pid, before.pid);
         assert_eq!(after.engine, before.engine);
+    }
+}
+
+#[cfg(test)]
+mod switch_restore_tests {
+    use super::*;
+
+    fn previous_spec(path: PathBuf) -> LaunchSpec {
+        LaunchSpec {
+            engine: EngineKind::Singbox,
+            binary: PathBuf::from("cloakwire-no-such-core-413782"),
+            args: Vec::new(),
+            env: Vec::new(),
+            config_path: path,
+            controller_url: None,
+            profile_key: Some("previous".into()),
+            profile_name: None,
+            diagnostics: None,
+            xray_stats: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn failed_switch_restores_the_previous_config() {
+        let pm = Arc::new(ProcessManager::new());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("previous.json");
+        std::fs::write(&path, b"{\"outbounds\":[]}").unwrap();
+        let session = RunningSession {
+            spec: previous_spec(path.clone()),
+            config: b"{\"outbounds\":[{\"tag\":\"A\"}]}".to_vec(),
+        };
+        // The runtime sweep removes the config while the engine is down.
+        std::fs::remove_file(&path).unwrap();
+        let epoch = pm.stop_request_epoch();
+
+        let restored = restore_running_session(None, &pm, session, epoch).await;
+
+        // The core does not exist, so the engine cannot come back — but the
+        // captured config has to be on disk for the next attempt.
+        assert!(!restored);
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            b"{\"outbounds\":[{\"tag\":\"A\"}]}"
+        );
+    }
+
+    #[tokio::test]
+    async fn user_disconnect_wins_over_a_pending_restore() {
+        let pm = Arc::new(ProcessManager::new());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("previous.json");
+        std::fs::write(&path, b"{\"outbounds\":[]}").unwrap();
+        let epoch = pm.stop_request_epoch();
+        let _ = pm.stop().await;
+        let session = RunningSession {
+            spec: previous_spec(path.clone()),
+            config: b"{\"outbounds\":[{\"tag\":\"A\"}]}".to_vec(),
+        };
+
+        let restored = restore_running_session(None, &pm, session, epoch).await;
+
+        assert!(!restored);
+        assert_eq!(std::fs::read(&path).unwrap(), b"{\"outbounds\":[]}");
     }
 }
 
