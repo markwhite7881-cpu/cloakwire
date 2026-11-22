@@ -36,6 +36,28 @@ fn known_runtime_evidence_returns_only_safe_categories() {
     );
 }
 #[test]
+fn the_clients_own_diagnostic_handshake_is_not_a_provider_authentication_failure() {
+    // sing-box answers the credential-less probe of the private diagnostic
+    // inbound with an authentication error. The client must not report it
+    // as "the server rejected the authorization".
+    for raw in [
+        "ERROR inbound/http[cloakwire-private-diagnostic]: process connection from 127.0.0.1:8944: http: authentication failed, no Proxy-Authorization header",
+        "ERROR inbound/http[cloakwire-private-diagnostic]: invalid username/password",
+    ] {
+        assert_eq!(
+            classify_runtime_issue(raw),
+            None,
+            "the private diagnostic inbound is the client's own traffic"
+        );
+    }
+    // A real provider-side rejection is still reported.
+    assert_eq!(
+        classify_runtime_issue("outbound/vless[node]: invalid user"),
+        Some(HealthIssue::Authentication)
+    );
+}
+
+#[test]
 fn reality_failure_never_claims_a_wrong_uuid_and_reports_no_raw_text() {
     let issue = RuntimeIssue::notice("17", HealthIssue::RealityVerification);
     let encoded = serde_json::to_string(&issue).unwrap();

@@ -32,6 +32,13 @@ pub fn classify_runtime_issue(line: &str) -> Option<HealthIssue> {
         return None;
     }
     let text = line.to_ascii_lowercase();
+    // The client's own diagnostic handshake asks the private probe inbound
+    // for a 407 on purpose, without credentials. sing-box reports that as
+    // "authentication failed", which is a self-inflicted line and never a
+    // provider problem.
+    if text.contains(super::probe_config::PROBE_INBOUND_TAG) {
+        return None;
+    }
     if text.contains("reality verification failed") {
         Some(HealthIssue::RealityVerification)
     } else if text.contains("x509:")
